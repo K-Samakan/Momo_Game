@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: c9a22b291a7de04438a807d6bb07b901
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 258182
+  packageName: FS Parkour And Climbing System
+  packageVersion: 1.9.9
+  assetPath: Assets/Fantacode Studios/Third Person Controller/Character/Materials/FS
+    Icon.mat
+  uploadId: 831780

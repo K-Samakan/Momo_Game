@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 718b6adc09a445838d61e4780979864d
+timeCreated: 1721128240
+AssetOrigin:
+  serializedVersion: 1
+  productId: 290320
+  packageName: Localization Package Extensions
+  packageVersion: 1.1
+  assetPath: Assets/Localization Package Extensions/Runtime/Scripts/AutoAudioUnloader.cs
+  uploadId: 683178

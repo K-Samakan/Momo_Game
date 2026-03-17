@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4550db05608520f49a59d33b18a26e9c, type: 3}
+  m_Name: VideoSlide_05_Intro 2
+  m_EditorClassIdentifier: 
+  videoClip: {fileID: 32900000, guid: 14bfe82aa63435a4bbb1ed2eb493abfd, type: 3}
+  bgmClip: {fileID: 8300000, guid: 925f358c4a568604e95b098b260e8667, type: 3}
+  bgmVolume: 0.5
+  loopBGM: 1
+  ccSubtitle:
+    lines:
+    - startTime: 0
+      endTime: 5
+      text: '"MOMO"'
+  fadeInDuration: 0
+  fadeOutDuration: 0

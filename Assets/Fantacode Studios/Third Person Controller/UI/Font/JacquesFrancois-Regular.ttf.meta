@@ -1,0 +1,28 @@
+fileFormatVersion: 2
+guid: 5ece7fb1b1574e343b193929bf62e700
+TrueTypeFontImporter:
+  externalObjects: {}
+  serializedVersion: 4
+  fontSize: 16
+  forceTextureCase: -2
+  characterSpacing: 0
+  characterPadding: 1
+  includeFontData: 1
+  fontNames:
+  - Jacques Francois
+  fallbackFontReferences: []
+  customCharacters: 
+  fontRenderingMode: 0
+  ascentCalculationMode: 1
+  useLegacyBoundsCalculation: 0
+  shouldRoundAdvanceValue: 1
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 258182
+  packageName: FS Parkour And Climbing System
+  packageVersion: 1.9.9
+  assetPath: Assets/Fantacode Studios/Third Person Controller/UI/Font/JacquesFrancois-Regular.ttf
+  uploadId: 831780

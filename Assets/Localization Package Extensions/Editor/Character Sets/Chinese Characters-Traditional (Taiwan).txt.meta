@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 399e66773d65a6c47be4d3426bfca374
+TextScriptImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 290320
+  packageName: Localization Package Extensions
+  packageVersion: 1.1
+  assetPath: Assets/Localization Package Extensions/Editor/Character Sets/Chinese
+    Characters-Traditional (Taiwan).txt
+  uploadId: 683178

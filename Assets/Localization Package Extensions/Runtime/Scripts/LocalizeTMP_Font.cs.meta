@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 16abaa571c5743f296c85ede21e9e3c5
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {fileID: 2800000, guid: f164bb410d1f0564eb2e665b390673e3, type: 3}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 290320
+  packageName: Localization Package Extensions
+  packageVersion: 1.1
+  assetPath: Assets/Localization Package Extensions/Runtime/Scripts/LocalizeTMP_Font.cs
+  uploadId: 683178

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: eb27f5a9e0473724781dfc6e37977138
+ShaderIncludeImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 192148
+  packageName: A.U.R.W. HDRP Free
+  packageVersion: 4.1
+  assetPath: Assets/Phantom Studios/AURW/Shaders/AURW_Depth_HDRP.hlsl
+  uploadId: 768539

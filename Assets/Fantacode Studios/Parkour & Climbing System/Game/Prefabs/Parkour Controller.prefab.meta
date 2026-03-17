@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 2ac62361d9535b542b13aa8b4a97c6f4
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 258182
+  packageName: FS Parkour And Climbing System
+  packageVersion: 1.9.9
+  assetPath: Assets/Fantacode Studios/Parkour & Climbing System/Game/Prefabs/Parkour
+    Controller.prefab
+  uploadId: 831780

@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 482ca50b666b45b08b96a904e1d78566
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {fileID: 2800000, guid: 47bb6a37f71284741bc5058132c52eba, type: 3}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 290320
+  packageName: Localization Package Extensions
+  packageVersion: 1.1
+  assetPath: Assets/Localization Package Extensions/Runtime/Scripts/LocalizeLegacyFont.cs
+  uploadId: 683178

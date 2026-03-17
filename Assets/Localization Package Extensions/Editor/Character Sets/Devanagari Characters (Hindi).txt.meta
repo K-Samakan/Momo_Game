@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 39e017bc493567f46a03684dec20e997
+TextScriptImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 290320
+  packageName: Localization Package Extensions
+  packageVersion: 1.1
+  assetPath: Assets/Localization Package Extensions/Editor/Character Sets/Devanagari
+    Characters (Hindi).txt
+  uploadId: 683178

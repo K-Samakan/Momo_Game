@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 8dceba763a3f3c64abba55983b926c32
+TextScriptImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 290320
+  packageName: Localization Package Extensions
+  packageVersion: 1.1
+  assetPath: Assets/Localization Package Extensions/Editor/Character Sets/Chinese
+    Characters-Simplified (China).txt
+  uploadId: 683178

@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 6b3f73dc17cd48f4d971c6f43bbf4f9a
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 258182
+  packageName: FS Parkour And Climbing System
+  packageVersion: 1.9.9
+  assetPath: Assets/Fantacode Studios/Third Person Controller/Scripts/Util/BoxCastDebug.cs
+  uploadId: 831780

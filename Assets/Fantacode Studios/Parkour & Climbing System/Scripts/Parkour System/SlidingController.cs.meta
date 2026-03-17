@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 5a75ef500f7a7c64e8c2810c4f9c5d9c
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 258182
+  packageName: FS Parkour And Climbing System
+  packageVersion: 1.9.9
+  assetPath: Assets/Fantacode Studios/Parkour & Climbing System/Scripts/Parkour System/SlidingController.cs
+  uploadId: 831780

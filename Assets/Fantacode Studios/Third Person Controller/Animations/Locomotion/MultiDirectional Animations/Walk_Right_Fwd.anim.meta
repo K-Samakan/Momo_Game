@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: c199ab0501ea24e4683d6fccf2a3e3c3
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 258182
+  packageName: FS Parkour And Climbing System
+  packageVersion: 1.9.9
+  assetPath: Assets/Fantacode Studios/Third Person Controller/Animations/Locomotion/MultiDirectional
+    Animations/Walk_Right_Fwd.anim
+  uploadId: 831780

@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 1cfb1e48ccf65af49b0d062620f66d94
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 258182
+  packageName: FS Parkour And Climbing System
+  packageVersion: 1.9.9
+  assetPath: Assets/Fantacode Studios/Third Person Controller/Scripts/Core/TriggerEventInvoker.cs
+  uploadId: 831780

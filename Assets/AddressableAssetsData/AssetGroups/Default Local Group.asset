@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: Default Local Group
+  m_EditorClassIdentifier: 
+  m_GroupName: Default Local Group
+  m_GUID: 7ba6bb542286b0141bd6e26599e64817
+  m_SerializeEntries:
+  - m_GUID: 623e9bf30143e454ebf9ddc179e826a4
+    m_Address: Assets/YughuesFreePavementsMaterials/Materials/M_YFPM_Pavement01 1.mat
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 196aef33d9dceec448a03e016e973edf, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: cb3a9e7413ff706448ed2714f0b81edf, type: 2}
+    - {fileID: 11400000, guid: c4c515ff55158324c9dc49e30a3acaa4, type: 2}

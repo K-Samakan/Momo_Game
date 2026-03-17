@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 4d6cfedcb3a51174ba4c3f493b3a71f6
+AssemblyDefinitionImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 290320
+  packageName: Localization Package Extensions
+  packageVersion: 1.1
+  assetPath: Assets/Localization Package Extensions/Editor/Scripts/LocalizationPackageExtensions.Editor.asmdef
+  uploadId: 683178

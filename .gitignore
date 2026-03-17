@@ -1,0 +1,71 @@
+# Unity generated
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Mm]emoryCaptures/
+[Uu]ser[Ss]ettings/
+
+# Unity project files
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Large asset files
+*.psd
+*.tga
+*.tif
+*.tiff
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.exr
+*.hdr
+
+# Audio
+*.mp3
+*.wav
+*.ogg
+*.aiff
+*.aif
+
+# 3D Models
+*.fbx
+*.obj
+*.blend
+*.max
+*.mb
+*.ma
+
+# Video
+*.mp4
+*.mov
+*.avi
+
+# Compressed
+*.zip
+*.rar
+*.7z
+*.tar
+*.unitypackage
+
+# OS
+.DS_Store
+Thumbs.db
+
+Assets/Version 1/Scenes/Map1.unity

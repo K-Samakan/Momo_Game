@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: b62c1d56b1638654caf9eb1efb942577
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 258182
+  packageName: FS Parkour And Climbing System
+  packageVersion: 1.9.9
+  assetPath: Assets/Fantacode Studios/Parkour & Climbing System/Game/Prefabs/Third
+    Person Camera.prefab
+  uploadId: 831780

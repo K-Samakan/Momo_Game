@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 11e200bb32ac3f646a9fc4f6f77c0530
+TextScriptImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 290320
+  packageName: Localization Package Extensions
+  packageVersion: 1.1
+  assetPath: Assets/Localization Package Extensions/Editor/Character Sets/Japanese
+    Characters.txt
+  uploadId: 683178

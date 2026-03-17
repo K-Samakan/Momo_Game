@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 2cce69ca2da9d5e4daf9f08c06f32498
+TextScriptImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 290320
+  packageName: Localization Package Extensions
+  packageVersion: 1.1
+  assetPath: Assets/Localization Package Extensions/Editor/Character Sets/Thailand
+    Characters.txt
+  uploadId: 683178

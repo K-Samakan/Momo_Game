@@ -1,0 +1,10 @@
+fileFormatVersion: 2
+guid: 2145e425f51545e9933984e060cb3c29
+timeCreated: 1720960821
+AssetOrigin:
+  serializedVersion: 1
+  productId: 290320
+  packageName: Localization Package Extensions
+  packageVersion: 1.1
+  assetPath: Assets/Localization Package Extensions/Editor/Scripts/LocalizationPackageExtensionsProjectSettings.cs
+  uploadId: 683178

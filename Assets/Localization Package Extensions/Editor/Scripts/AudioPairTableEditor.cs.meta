@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: c668401863b346888b25373e7a4d2528
+timeCreated: 1721114782
+AssetOrigin:
+  serializedVersion: 1
+  productId: 290320
+  packageName: Localization Package Extensions
+  packageVersion: 1.1
+  assetPath: Assets/Localization Package Extensions/Editor/Scripts/AudioPairTableEditor.cs
+  uploadId: 683178

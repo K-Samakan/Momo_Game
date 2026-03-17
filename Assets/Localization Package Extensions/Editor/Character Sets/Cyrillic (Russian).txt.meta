@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 0efa7233d3cad094cb4680766d4e6079
+TextScriptImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 290320
+  packageName: Localization Package Extensions
+  packageVersion: 1.1
+  assetPath: Assets/Localization Package Extensions/Editor/Character Sets/Cyrillic
+    (Russian).txt
+  uploadId: 683178

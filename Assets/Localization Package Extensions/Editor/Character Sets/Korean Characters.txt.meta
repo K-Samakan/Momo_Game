@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 1abde8ae8e0142c4ca5852b2530c50a7
+TextScriptImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 290320
+  packageName: Localization Package Extensions
+  packageVersion: 1.1
+  assetPath: Assets/Localization Package Extensions/Editor/Character Sets/Korean
+    Characters.txt
+  uploadId: 683178

@@ -1,0 +1,10 @@
+fileFormatVersion: 2
+guid: dfe2637fb7634d2fa3db3805f1c2de20
+timeCreated: 1720962239
+AssetOrigin:
+  serializedVersion: 1
+  productId: 290320
+  packageName: Localization Package Extensions
+  packageVersion: 1.1
+  assetPath: Assets/Localization Package Extensions/Editor/Scripts/GoogleTranslatorAPI.cs
+  uploadId: 683178

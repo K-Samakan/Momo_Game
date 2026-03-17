@@ -1,0 +1,21 @@
+{
+    "name": "LocalizationPackageExtensions.Editor",
+    "rootNamespace": "LocalizationPackageExtensionsEditor",
+    "references": [
+        "GUID:8cacd2a46eca2ea4da6658e41c4dc1a5",
+        "GUID:eec0964c48f6f4e40bc3ec2257ccf8c5",
+        "GUID:2e77701fe0ceda44fb763f03ee704c37",
+        "GUID:84651a3751eca9349aac36a66bba901b"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
