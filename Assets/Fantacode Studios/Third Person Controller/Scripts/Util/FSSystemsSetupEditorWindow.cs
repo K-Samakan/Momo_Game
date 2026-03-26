@@ -326,12 +326,12 @@ namespace FS_Core
             {
                 setupScript.FindSystem();
                 if (characterType == CharacterType.Player) setupScript.EnableSystems(FSSystemsSetup.ThirdPersonControllerSystemSetup.systemName);
-                else if(characterType == CharacterType.AI) setupScript.EnableSystems();
+                else if (characterType == CharacterType.AI) setupScript.EnableSystems();
             }
 
             Rect buttonRect = new Rect(windowRect.width - 158, 35, 150, 20);
             //GUI.backgroundColor = new Color(0.2f, 0.4f, 0.8f, 0.8f);
-            if (setupScript.CurrentFSSystemsForSetup.Count == 0 || GUI.Button(buttonRect, "Load Systems", findButtonStyle)) 
+            if (setupScript.CurrentFSSystemsForSetup.Count == 0 || GUI.Button(buttonRect, "Load Systems", findButtonStyle))
             {
                 setupScript.FindSystem();
             }
@@ -355,9 +355,9 @@ namespace FS_Core
             GUILayout.EndVertical();
             GUILayout.Space(5);
             GUIContent textFieldLabel = new GUIContent("Animator Name", "The name for the new Animator Controller being created.");
-            if(characterType == CharacterType.Player)
+            if (characterType == CharacterType.Player)
                 playerAnimatorName = EditorGUILayout.TextField(textFieldLabel, playerAnimatorName);
-            else if(characterType ==CharacterType.AI)
+            else if (characterType == CharacterType.AI)
                 aiAnimatorName = EditorGUILayout.TextField(textFieldLabel, aiAnimatorName);
             GUILayout.Space(5);
             DrawPreviewArea();
@@ -601,7 +601,7 @@ namespace FS_Core
                 newPath = $"{Path.GetDirectoryName(sourcePath)}/{newName}.controller";
                 counter++;
             }
-            destinationPath = newPath; 
+            destinationPath = newPath;
             Debug.Log(destinationPath);
             //string destinationPath = "Assets/Combined Controller.controller";
             AssetDatabase.CopyAsset(sourcePath, destinationPath);
@@ -654,7 +654,7 @@ namespace FS_Core
             }
 
             Debug.Log($"A new Animator Controller named {animatorName} has been created and stored in the {destinationPath} directory.");
-            
+
 
             Selection.activeObject = characterObject;
             SceneView sceneView = SceneView.lastActiveSceneView;
@@ -791,11 +791,15 @@ namespace FS_Core
             var leftCollider = PrefabUtility.InstantiatePrefab(footTriggerPrefab, leftFoot) as GameObject;
             rightCollider.transform.localPosition = Vector3.zero;
             leftCollider.transform.localPosition = Vector3.zero;
-            if ((rightCollider.layer != LayerMask.NameToLayer("FootTrigger")))
-                rightCollider.layer = LayerMask.NameToLayer("FootTrigger");
-            if ((leftCollider.layer != LayerMask.NameToLayer("FootTrigger")))
-                leftCollider.layer = LayerMask.NameToLayer("FootTrigger");
 
+            // ==============================================================
+            // [MODIFIED] เปลี่ยนจาก "FootTrigger" เป็น "SPECIAL" (Index 31)
+            // เพราะ Layer "FootTrigger" ไม่มีในโปรเจกต์ (Layer slots เต็ม 32/32)
+            // ==============================================================
+            if ((rightCollider.layer != LayerMask.NameToLayer("SPECIAL")))
+                rightCollider.layer = LayerMask.NameToLayer("SPECIAL");
+            if ((leftCollider.layer != LayerMask.NameToLayer("SPECIAL")))
+                leftCollider.layer = LayerMask.NameToLayer("SPECIAL");
         }
 
         public static void SetItemHandler(Animator animator)

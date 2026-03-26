@@ -135,7 +135,7 @@ namespace FS_ParkourSystem
             if (validModel)
             {
                 var playerPrefab = (GameObject)Resources.Load("Parkour Controller");
-                var footTriggerPrefab = (GameObject)Resources.Load("FootTrigger");
+                var footTriggerPrefab = (GameObject)Resources.Load("SPECIAL");
                 var parkourController = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
                 var model = Instantiate(this.model, Vector3.zero, Quaternion.identity);
                 var player = parkourController.GetComponentInChildren<LocomotionController>().gameObject;
@@ -155,10 +155,10 @@ namespace FS_ParkourSystem
                 rightCollider.transform.localPosition = Vector3.zero;
                 leftCollider.transform.localPosition = Vector3.zero;
 
-                if ((rightCollider.layer != LayerMask.NameToLayer("FootTrigger")))
-                    rightCollider.layer = LayerMask.NameToLayer("FootTrigger");
-                if ((leftCollider.layer != LayerMask.NameToLayer("FootTrigger")))
-                    leftCollider.layer = LayerMask.NameToLayer("FootTrigger");
+                if ((rightCollider.layer != LayerMask.NameToLayer("SPECIAL")))
+                    rightCollider.layer = LayerMask.NameToLayer("SPECIAL");
+                if ((leftCollider.layer != LayerMask.NameToLayer("SPECIAL")))
+                    leftCollider.layer = LayerMask.NameToLayer("SPECIAL");
 
                 Undo.RegisterCreatedObjectUndo(parkourController, "new character controller added");
                 Undo.RegisterCreatedObjectUndo(model, "new character added");

@@ -13,7 +13,14 @@ namespace FS_ThirdPerson
         private void Awake()
         {
             footStepEffects = GetComponentInParent<FootStepEffects>();
-            this.gameObject.layer = LayerMask.NameToLayer("FootTrigger");
+
+            // ==============================================================
+            // [MODIFIED] Layer "FootTrigger" ไม่มีในโปรเจกต์ (Layer เต็ม 32/32)
+            // เปลี่ยนไปใช้ Layer "SPECIAL" (Index 31) แทน
+            // ต้องตรงกับที่แก้ใน FootStepEffects.cs, FSSystemsSetupEditorWindow.cs
+            // และ ClimbPointAndCreateCharacterEditorWindow.cs ด้วย
+            // ==============================================================
+            this.gameObject.layer = LayerMask.NameToLayer("SPECIAL");
         }
 
 
@@ -80,40 +87,35 @@ namespace FS_ThirdPerson
         {
             var footPos = footTransform.position;
 
-            // Raycast downwards to find which terrain layer the player is standing on
             if (Physics.Raycast(footPos + Vector3.up * 0.1f, Vector3.down, out RaycastHit hit, 0.5f, stepEffects.GroundLayer))
             {
-                // Check if the hit object is a terrain
-                // Get the TerrainData associated with the terrain
-                TerrainData terrainData = terrain.terrainData;
-
-                // Get the local position of the hit point relative to the terrain
-                Vector3 terrainPosition = footPos - terrain.transform.position;
-                float relativeX = terrainPosition.x / terrainData.size.x;
-                float relativeZ = terrainPosition.z / terrainData.size.z;
-
-                // Get the corresponding alpha map (splat map) index at this location
-                int mapX = Mathf.FloorToInt(relativeX * terrainData.alphamapWidth);
-                int mapZ = Mathf.FloorToInt(relativeZ * terrainData.alphamapHeight);
-
-                float[,,] alphaMap = terrainData.GetAlphamaps(mapX, mapZ, 1, 1);
-
-                // Find the terrain layer with the highest influence (weight)
-                int terrainLayer = 0;
-                float maxWeight = 0;
-                for (int i = 0; i < alphaMap.GetLength(2); i++)
+                var terrain = hit.collider.GetComponent<Terrain>();
+                if (terrain != null)
                 {
-                    if (alphaMap[0, 0, i] > maxWeight)
+                    TerrainData terrainData = terrain.terrainData;
+                    Vector3 terrainPosition = footPos - terrain.transform.position;
+                    float relativeX = terrainPosition.x / terrainData.size.x;
+                    float relativeZ = terrainPosition.z / terrainData.size.z;
+
+                    int mapX = Mathf.FloorToInt(relativeX * terrainData.alphamapWidth);
+                    int mapZ = Mathf.FloorToInt(relativeZ * terrainData.alphamapHeight);
+
+                    float[,,] alphaMap = terrainData.GetAlphamaps(mapX, mapZ, 1, 1);
+
+                    int terrainLayerIdx = 0;
+                    float maxWeight = 0;
+                    for (int i = 0; i < alphaMap.GetLength(2); i++)
                     {
-                        maxWeight = alphaMap[0, 0, i];
-                        terrainLayer = i;
+                        if (alphaMap[0, 0, i] > maxWeight)
+                        {
+                            maxWeight = alphaMap[0, 0, i];
+                            terrainLayerIdx = i;
+                        }
                     }
+
+                    string textureName = terrainData.terrainLayers[terrainLayerIdx].diffuseTexture.name;
+                    return textureName;
                 }
-
-                string textureName = terrainData.terrainLayers[terrainLayer].diffuseTexture.name;
-                // Debug.Log("Player is standing on Terrain Layer: " + textureName);
-
-                return textureName;
             }
 
             return "";

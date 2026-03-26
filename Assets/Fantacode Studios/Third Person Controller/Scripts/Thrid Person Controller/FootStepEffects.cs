@@ -36,7 +36,13 @@ namespace FS_ThirdPerson
 
         private void Start()
         {
-            int footTriggerLayer = LayerMask.NameToLayer("FootTrigger");
+            // ==============================================================
+            // [MODIFIED] เปลี่ยนจาก "FootTrigger" เป็น "SPECIAL" (Index 31)
+            // เพราะ Layer "FootTrigger" ไม่มีในโปรเจกต์ (Layer slots เต็ม 32/32)
+            // ต้องตรงกับที่แก้ใน FootTrigger.cs, FSSystemsSetupEditorWindow.cs
+            // และ ClimbPointAndCreateCharacterEditorWindow.cs ด้วย
+            // ==============================================================
+            int footTriggerLayer = LayerMask.NameToLayer("SPECIAL");
 
             for (int i = 0; i < 32; i++)
             {
@@ -51,15 +57,13 @@ namespace FS_ThirdPerson
 
         public void OnFootLand(Transform footTransform, FloorStepData floorData = null)
         {
-            if(!enableFootStepEffect)
+            if (!enableFootStepEffect)
                 return;
             var sounds = footStepSounds;
             var particleEffects = footStepParticles;
 
             if (floorData != null && overrideStepEffects != null)
             {
-                //Debug.Log(floorData.materialName + " - " + floorData.textureName + " - " + floorData.tag);
-
                 var overrideEffect = GetOverrideEffect(floorData);
                 if (overrideEffect != null)
                 {
@@ -71,47 +75,36 @@ namespace FS_ThirdPerson
                 }
             }
 
-            if(sounds != null && sounds.Count > 0)
+            if (sounds != null && sounds.Count > 0)
             {
                 if (playerController != null && !soundIgnoreStates.Contains(playerController.FocusedSystemState))
                 {
                     float moveAmount = 1;
-                    if(playerController.CurrentSystemState == SystemState.Locomotion && animator.GetCurrentAnimatorStateInfo(0).IsName("Locomotion"))
+                    if (playerController.CurrentSystemState == SystemState.Locomotion && animator.GetCurrentAnimatorStateInfo(0).IsName("Locomotion"))
                         moveAmount = animator.GetFloat(AnimatorParameters.moveAmount) / 1.5f;
                     PlaySfx(sounds[Random.Range(0, sounds.Count)], moveAmount);
                 }
-                else if (playerController == null)
-                    PlaySfx(sounds[Random.Range(0, sounds.Count)]);
-
             }
 
             if (particleEffects != null && particleEffects.Count > 0)
             {
-                if(playerController != null && !particleIgnoreStates.Contains(playerController.FocusedSystemState))
-                    SpawnParticle(particleEffects[Random.Range(0, particleEffects.Count)], footTransform);
-                else if(playerController == null)
-                    SpawnParticle(particleEffects[Random.Range(0, particleEffects.Count)], footTransform);
+                if (playerController != null && !particleIgnoreStates.Contains(playerController.FocusedSystemState))
+                    PlayParticle(particleEffects[Random.Range(0, particleEffects.Count)], footTransform.position);
             }
         }
 
-        void PlaySfx(AudioClip clip, float volume = 1)
+        void PlaySfx(AudioClip clip, float volume = 1f)
         {
-            GameObject sfx = new GameObject();
-            sfx.transform.position = transform.position;
-            var audioSource = sfx.AddComponent<AudioSource>();
-            audioSource.clip = clip;
-
+            if (clip == null) return;
             if (adjustVolumeBasedOnSpeed)
-                audioSource.volume = Mathf.Clamp(volume, minVolume, audioSource.volume);
-
-            audioSource.Play();
-            Destroy(sfx, 1.5f);
+                volume = Mathf.Clamp(volume, minVolume, 1f);
+            AudioSource.PlayClipAtPoint(clip, transform.position, volume);
         }
 
-        void SpawnParticle(GameObject particleEffect, Transform footTransform)
+        void PlayParticle(GameObject particlePrefab, Vector3 position)
         {
-            var particleObj = Instantiate(particleEffect, footTransform.position, footTransform.rotation);
-            Destroy(particleObj, 2f);
+            if (particlePrefab == null) return;
+            Instantiate(particlePrefab, position, Quaternion.identity);
         }
 
         OverrideStepEffects GetOverrideEffect(FloorStepData floorData)
@@ -149,9 +142,8 @@ namespace FS_ThirdPerson
         public List<GameObject> footStepParticles;
 
         public string Tag => tag;
-        public string MaterialName { get { return materialName.name; } set { materialName.name = value; } } 
+        public string MaterialName { get { return materialName.name; } set { materialName.name = value; } }
         public string TextureName { get { return textureName.name; } set { textureName.name = value; } }
-       
     }
 
     public enum StepEffectsOverrideType { MaterialName, TextureName, Tag }
