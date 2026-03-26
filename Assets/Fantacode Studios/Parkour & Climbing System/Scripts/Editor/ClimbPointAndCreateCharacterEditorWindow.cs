@@ -135,7 +135,7 @@ namespace FS_ParkourSystem
             if (validModel)
             {
                 var playerPrefab = (GameObject)Resources.Load("Parkour Controller");
-                var footTriggerPrefab = (GameObject)Resources.Load("SPECIAL");
+                var footTriggerPrefab = (GameObject)Resources.Load("FootTrigger");
                 var parkourController = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
                 var model = Instantiate(this.model, Vector3.zero, Quaternion.identity);
                 var player = parkourController.GetComponentInChildren<LocomotionController>().gameObject;
