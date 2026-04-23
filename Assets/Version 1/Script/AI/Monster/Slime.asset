@@ -16,16 +16,16 @@ MonoBehaviour:
   icon: {fileID: 0}
   maxHealth: 2
   attackDamage: 1
-  attackRange: 1.5
+  attackRange: 2
   attackCooldown: 2
   walkSpeed: 2
   runSpeed: 3
   detectionRange: 8
-  leashRange: 15
+  leashRange: 20
   patrolPoints: []
   patrolWaitTime: 2
   waypointReachedDistance: 0.5
-  soulPrefab: {fileID: 8375143265093156701, guid: e14f1599f6d5c12479bcfbe2f8c630ee,
+  soulPrefab: {fileID: 3184123916568575828, guid: f1d20fcb76bb7024a988760c282b2be4,
     type: 3}
   soulDropCount: 1
   soulDropChance: 1
