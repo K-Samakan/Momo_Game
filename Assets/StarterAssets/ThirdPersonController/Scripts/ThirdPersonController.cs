@@ -97,31 +97,15 @@ namespace StarterAssets
         // Private combat variables
         private bool _isAttacking = false;
         private float _lastAttackTime = 0f;
-        private int _animIDAttack;
 
         // =============== JUMP PAD VARIABLES ===============
-        private bool _isLaunched = false;       // flag: กำลังถูกยิงจาก JumpPad
-        private float _launchedVelocity = 0f;   // velocity ที่ได้จาก JumpPad
+        private bool _isLaunched = false;
+        private float _launchedVelocity = 0f;
 
-        public void OnPushMode(InputValue value)
-        {
-            PushModeInput(value.isPressed);
-        }
-
-        public void OnPushAction(InputValue value)
-        {
-            PushActionInput(value.isPressed);
-        }
-
-        public void PushModeInput(bool newPushModeState)
-        {
-            pushMode = newPushModeState;
-        }
-
-        public void PushActionInput(bool newPushActionState)
-        {
-            pushAction = newPushActionState;
-        }
+        public void OnPushMode(InputValue value)   => PushModeInput(value.isPressed);
+        public void OnPushAction(InputValue value) => PushActionInput(value.isPressed);
+        public void PushModeInput(bool v)  => pushMode  = v;
+        public void PushActionInput(bool v) => pushAction = v;
 
         // cinemachine
         private float _cinemachineTargetYaw;
@@ -146,7 +130,8 @@ namespace StarterAssets
         private int _animIDFreeFall;
         private int _animIDMotionSpeed;
 
-        private PlayerAttackDetection attackDetection;
+        // ── Smart Attack (แทน PlayerAttackDetection เดิม) ──
+        private SmartAttackSystem _smartAttack;
 
 #if ENABLE_INPUT_SYSTEM
         private PlayerInput _playerInput;
@@ -157,7 +142,6 @@ namespace StarterAssets
         private GameObject _mainCamera;
 
         private const float _threshold = 0.01f;
-
         private bool _hasAnimator;
 
         private bool IsCurrentDeviceMouse
@@ -175,28 +159,29 @@ namespace StarterAssets
         private void Awake()
         {
             if (_mainCamera == null)
-            {
                 _mainCamera = GameObject.FindGameObjectWithTag("MainCamera");
-            }
         }
 
         private void Start()
         {
             _cinemachineTargetYaw = CinemachineCameraTarget.transform.rotation.eulerAngles.y;
 
-            _hasAnimator = TryGetComponent(out _animator);
-            _controller = GetComponent<CharacterController>();
-            _input = GetComponent<StarterAssetsInputs>();
-            attackDetection = GetComponent<PlayerAttackDetection>();
+            _hasAnimator  = TryGetComponent(out _animator);
+            _controller   = GetComponent<CharacterController>();
+            _input        = GetComponent<StarterAssetsInputs>();
+
+            // ── ใช้ SmartAttackSystem แทน PlayerAttackDetection ──
+            _smartAttack = GetComponent<SmartAttackSystem>();
+            if (_smartAttack == null)
+                Debug.LogWarning("[TPC] SmartAttackSystem not found on this GameObject!");
 
 #if ENABLE_INPUT_SYSTEM 
             _playerInput = GetComponent<PlayerInput>();
 #else
-            Debug.LogError("Starter Assets package is missing dependencies. Please use Tools/Starter Assets/Reinstall Dependencies to fix it");
+            Debug.LogError("Starter Assets package is missing dependencies.");
 #endif
 
             AssignAnimationIDs();
-
             _jumpTimeoutDelta = JumpTimeout;
             _fallTimeoutDelta = FallTimeout;
         }
@@ -204,7 +189,6 @@ namespace StarterAssets
         private void Update()
         {
             _hasAnimator = TryGetComponent(out _animator);
-
             JumpAndGravity();
             GroundedCheck();
             HandleAttack();
@@ -218,25 +202,27 @@ namespace StarterAssets
 
         private void AssignAnimationIDs()
         {
-            _animIDSpeed = Animator.StringToHash("Speed");
-            _animIDGrounded = Animator.StringToHash("Grounded");
-            _animIDJump = Animator.StringToHash("Jump");
-            _animIDFreeFall = Animator.StringToHash("FreeFall");
+            _animIDSpeed       = Animator.StringToHash("Speed");
+            _animIDGrounded    = Animator.StringToHash("Grounded");
+            _animIDJump        = Animator.StringToHash("Jump");
+            _animIDFreeFall    = Animator.StringToHash("FreeFall");
             _animIDMotionSpeed = Animator.StringToHash("MotionSpeed");
-            _animIDAttack = Animator.StringToHash("IsAttacking");
+            // หมายเหตุ: IsAttacking ถูกจัดการโดย SmartAttackSystem ผ่าน Trigger แล้ว
+            // ไม่ต้อง hash ที่นี่อีก
         }
 
         private void GroundedCheck()
         {
-            Vector3 spherePosition = new Vector3(transform.position.x, transform.position.y - GroundedOffset,
+            Vector3 spherePosition = new Vector3(
+                transform.position.x,
+                transform.position.y - GroundedOffset,
                 transform.position.z);
-            Grounded = Physics.CheckSphere(spherePosition, GroundedRadius, GroundLayers,
-                QueryTriggerInteraction.Ignore);
+
+            Grounded = Physics.CheckSphere(spherePosition, GroundedRadius,
+                GroundLayers, QueryTriggerInteraction.Ignore);
 
             if (_hasAnimator)
-            {
                 _animator.SetBool(_animIDGrounded, Grounded);
-            }
         }
 
         private void CameraRotation()
@@ -244,15 +230,15 @@ namespace StarterAssets
             if (_input.look.sqrMagnitude >= _threshold && !LockCameraPosition)
             {
                 float deltaTimeMultiplier = IsCurrentDeviceMouse ? 1.0f : Time.deltaTime;
-
-                _cinemachineTargetYaw += _input.look.x * deltaTimeMultiplier;
+                _cinemachineTargetYaw   += _input.look.x * deltaTimeMultiplier;
                 _cinemachineTargetPitch += _input.look.y * deltaTimeMultiplier;
             }
 
-            _cinemachineTargetYaw = ClampAngle(_cinemachineTargetYaw, float.MinValue, float.MaxValue);
-            _cinemachineTargetPitch = ClampAngle(_cinemachineTargetPitch, BottomClamp, TopClamp);
+            _cinemachineTargetYaw   = ClampAngle(_cinemachineTargetYaw,   float.MinValue, float.MaxValue);
+            _cinemachineTargetPitch = ClampAngle(_cinemachineTargetPitch,  BottomClamp,   TopClamp);
 
-            CinemachineCameraTarget.transform.rotation = Quaternion.Euler(_cinemachineTargetPitch + CameraAngleOverride,
+            CinemachineCameraTarget.transform.rotation = Quaternion.Euler(
+                _cinemachineTargetPitch + CameraAngleOverride,
                 _cinemachineTargetYaw, 0.0f);
         }
 
@@ -269,25 +255,20 @@ namespace StarterAssets
             }
 
             float speedMultiplier = _isAttacking ? attackMoveSpeedMultiplier : 1f;
-            float targetSpeed = (_input.sprint ? SprintSpeed : MoveSpeed) * speedMultiplier;
-
-            if (_isAttacking)
-            {
-                targetSpeed = MoveSpeed * speedMultiplier;
-            }
-
+            float targetSpeed     = (_input.sprint ? SprintSpeed : MoveSpeed) * speedMultiplier;
+            if (_isAttacking) targetSpeed = MoveSpeed * speedMultiplier;
             if (_input.move == Vector2.zero) targetSpeed = 0.0f;
 
-            float currentHorizontalSpeed = new Vector3(_controller.velocity.x, 0.0f, _controller.velocity.z).magnitude;
+            float currentHorizontalSpeed = new Vector3(
+                _controller.velocity.x, 0f, _controller.velocity.z).magnitude;
 
-            float speedOffset = 0.1f;
             float inputMagnitude = _input.analogMovement ? _input.move.magnitude : 1f;
 
-            if (currentHorizontalSpeed < targetSpeed - speedOffset ||
-                currentHorizontalSpeed > targetSpeed + speedOffset)
+            if (currentHorizontalSpeed < targetSpeed - 0.1f ||
+                currentHorizontalSpeed > targetSpeed + 0.1f)
             {
-                _speed = Mathf.Lerp(currentHorizontalSpeed, targetSpeed * inputMagnitude,
-                    Time.deltaTime * SpeedChangeRate);
+                _speed = Mathf.Lerp(currentHorizontalSpeed,
+                    targetSpeed * inputMagnitude, Time.deltaTime * SpeedChangeRate);
                 _speed = Mathf.Round(_speed * 1000f) / 1000f;
             }
             else
@@ -298,30 +279,33 @@ namespace StarterAssets
             _animationBlend = Mathf.Lerp(_animationBlend, targetSpeed, Time.deltaTime * SpeedChangeRate);
             if (_animationBlend < 0.01f) _animationBlend = 0f;
 
-            Vector3 inputDirection = new Vector3(_input.move.x, 0.0f, _input.move.y).normalized;
+            Vector3 inputDirection = new Vector3(_input.move.x, 0f, _input.move.y).normalized;
 
             if (_input.move != Vector2.zero)
             {
-                _targetRotation = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg +
-                                  _mainCamera.transform.eulerAngles.y;
-                float rotation = Mathf.SmoothDampAngle(transform.eulerAngles.y, _targetRotation, ref _rotationVelocity,
-                    RotationSmoothTime);
+                _targetRotation = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg
+                                + _mainCamera.transform.eulerAngles.y;
 
-                transform.rotation = Quaternion.Euler(0.0f, rotation, 0.0f);
+                float rotation = Mathf.SmoothDampAngle(
+                    transform.eulerAngles.y, _targetRotation,
+                    ref _rotationVelocity, RotationSmoothTime);
+
+                // ── ไม่ override rotation ระหว่างที่ SmartAttack กำลัง snap ──
+                if (!_isAttacking)
+                    transform.rotation = Quaternion.Euler(0f, rotation, 0f);
             }
 
-            Vector3 targetDirection = Quaternion.Euler(0.0f, _targetRotation, 0.0f) * Vector3.forward;
+            Vector3 targetDirection = Quaternion.Euler(0f, _targetRotation, 0f) * Vector3.forward;
 
             if (_controller.enabled)
-                _controller.Move(targetDirection.normalized * (_speed * Time.deltaTime) +
-                             new Vector3(0.0f, _verticalVelocity, 0.0f) * Time.deltaTime);
+                _controller.Move(
+                    targetDirection.normalized * (_speed * Time.deltaTime) +
+                    new Vector3(0f, _verticalVelocity, 0f) * Time.deltaTime);
 
             if (_hasAnimator)
             {
                 _animator.SetFloat(_animIDSpeed, _animationBlend);
                 _animator.SetFloat(_animIDMotionSpeed, inputMagnitude);
-
-                //_animator.SetFloat(Animator.StringToHash("moveAmount"),  _animationBlend / SprintSpeed);
             }
         }
 
@@ -337,258 +321,185 @@ namespace StarterAssets
                     _animator.SetBool(_animIDFreeFall, false);
                 }
 
-                // ✅ แก้ไข: ป้องกัน reset velocity ถ้ากำลัง launched จาก JumpPad
-                if (_verticalVelocity < 0.0f && !_isLaunched)
-                {
+                if (_verticalVelocity < 0f && !_isLaunched)
                     _verticalVelocity = -2f;
-                }
 
-                // ✅ reset _isLaunched เมื่อแตะพื้นและ velocity ติดลบแล้ว
                 if (_isLaunched && _verticalVelocity < 0f)
                 {
                     _isLaunched = false;
                     _launchedVelocity = 0f;
                 }
 
-                // Jump ปกติ
-                if (_input.jump && _jumpTimeoutDelta <= 0.0f)
+                if (_input.jump && _jumpTimeoutDelta <= 0f)
                 {
                     _verticalVelocity = Mathf.Sqrt(JumpHeight * -2f * Gravity);
-                    _isLaunched = false; // ยกเลิก launch state ถ้ากด jump เอง
+                    _isLaunched = false;
                     _input.jump = false;
 
                     if (_hasAnimator)
-                    {
                         _animator.SetBool(_animIDJump, true);
-                    }
 
-                    if (HapticManager.Instance != null)
-                    {
-                        HapticManager.Instance.Vibrate(0.1f, 0.1f, 0.1f);
-                        Debug.Log("กระโดด");
-                    }
+                    HapticManager.Instance?.Vibrate(0.1f, 0.1f, 0.1f);
                 }
 
-                if (_jumpTimeoutDelta >= 0.0f)
-                {
+                if (_jumpTimeoutDelta >= 0f)
                     _jumpTimeoutDelta -= Time.deltaTime;
-                }
             }
             else
             {
                 _jumpTimeoutDelta = JumpTimeout;
 
-                if (_fallTimeoutDelta >= 0.0f)
-                {
+                if (_fallTimeoutDelta >= 0f)
                     _fallTimeoutDelta -= Time.deltaTime;
-                }
-                else
-                {
-                    if (_hasAnimator)
-                    {
-                        _animator.SetBool(_animIDFreeFall, true);
-                    }
-                }
+                else if (_hasAnimator)
+                    _animator.SetBool(_animIDFreeFall, true);
 
                 _input.jump = false;
             }
 
             if (_verticalVelocity < _terminalVelocity)
-            {
                 _verticalVelocity += Gravity * Time.deltaTime;
-            }
         }
 
         // =============== COMBAT SYSTEM ===============
 
         private void HandleAttack()
         {
-            if (_input.attack && !_isAttacking && Time.time >= _lastAttackTime + attackCooldown && Grounded)
-            {
-                PerformAttack();
-            }
-
             if (_input.attack)
             {
-                _input.attack = false;
+                _input.attack = false; // consume input เสมอ
+
+                if (!_isAttacking
+                    && Time.time >= _lastAttackTime + attackCooldown
+                    && Grounded)
+                {
+                    _isAttacking     = true;
+                    _lastAttackTime  = Time.time;
+
+                    // SmartAttackSystem จัดการ:
+                    //   1) หาเป้า
+                    //   2) หมุนหน้าหาเป้า (snap rotate)
+                    //   3) เลือก Punch / Kick ตามขนาด monster
+                    //   4) trigger animation + haptic
+                    _smartAttack?.TriggerAttack();
+
+                    StartCoroutine(ResetAttackState());
+                }
             }
-        }
-
-        private void PerformAttack()
-        {
-            _isAttacking = true;
-            _lastAttackTime = Time.time;
-
-            if (_hasAnimator)
-            {
-                _animator.SetBool(_animIDAttack, true);
-            }
-
-            if (HapticManager.Instance != null)
-            {
-                HapticManager.Instance.Vibrate(0.2f, 0.3f, 0.15f);
-            }
-
-            Debug.Log("Attack Performed!");
-
-            StartCoroutine(ResetAttackState());
         }
 
         private IEnumerator ResetAttackState()
         {
             yield return new WaitForSeconds(attackDuration);
-
             _isAttacking = false;
-
-            if (_hasAnimator)
-            {
-                _animator.SetBool(_animIDAttack, false);
-            }
-
-            Debug.Log("Attack Complete - Auto Reset!");
+            Debug.Log("[TPC] Attack state reset.");
         }
 
+        /// <summary>
+        /// เรียกจาก Animation Event ตอน animation โจมตีจบ
+        /// ให้ reset เร็วกว่า timer (ถ้า animation สั้นกว่า attackDuration)
+        /// </summary>
         public void OnAttackComplete()
         {
-            _isAttacking = false;
-
-            if (_hasAnimator)
-            {
-                _animator.SetBool(_animIDAttack, false);
-            }
-
             StopCoroutine(ResetAttackState());
-
-            Debug.Log("Attack Complete - Event Triggered!");
+            _isAttacking = false;
+            Debug.Log("[TPC] Attack complete via Animation Event.");
         }
 
-        private void OnAttackHit(AnimationEvent animationEvent)
-        {
-            if (animationEvent.animatorClipInfo.weight > 0.5f)
-            {
-                if (attackDetection != null)
-                {
-                    attackDetection.OnAttackHit();
-                }
-            }
-        }
-
-        public bool IsAttacking()
-        {
-            return _isAttacking;
-        }
+        public bool IsAttacking() => _isAttacking;
 
         // =============== JUMP PAD SYSTEM ===============
 
-        /// <summary>
-        /// ถูกเรียกจาก JumpPad เพื่อยิงผู้เล่นขึ้น
-        /// jumpPower แนะนำ: 3.0 = กลาง, 5.0 = สูง, 8.0 = สูงมาก
-        /// </summary>
         public void ApplyExternalForce(float jumpPower)
         {
-            // reset timeouts
             _jumpTimeoutDelta = 0f;
             _fallTimeoutDelta = FallTimeout;
 
-            // คำนวณ velocity จาก jumpPower (สูตรเดียวกับ JumpHeight)
-            float velocity = Mathf.Sqrt(jumpPower * -2f * Gravity);
+            float velocity    = Mathf.Sqrt(jumpPower * -2f * Gravity);
             _verticalVelocity = velocity;
             _launchedVelocity = velocity;
-            _isLaunched = true; // ← กัน JumpAndGravity() reset velocity
+            _isLaunched       = true;
 
-            // อัพเดท Animation
             if (_hasAnimator)
             {
                 _animator.SetBool(_animIDJump, true);
                 _animator.SetBool(_animIDFreeFall, false);
             }
 
-            // หยุดการโจมตีถ้ากำลังโจมตีอยู่
+            // ยกเลิก attack ถ้ากำลังโจมตีอยู่
             if (_isAttacking)
             {
                 _isAttacking = false;
-                if (_hasAnimator)
-                    _animator.SetBool(_animIDAttack, false);
                 StopAllCoroutines();
             }
 
-            Debug.Log($"[JumpPad] Applied! Power: {jumpPower} → Velocity: {_verticalVelocity:F2} m/s");
+            Debug.Log($"[JumpPad] Power: {jumpPower} → Velocity: {_verticalVelocity:F2} m/s");
         }
 
-        // =============== UTILITY FUNCTIONS ===============
+        // =============== UTILITY ===============
 
-        public Vector2 GetMoveInput()
-        {
-            return _input.move;
-        }
-
-        public bool GetJumpInput()
-        {
-            return _input.jump;
-        }
+        public Vector2 GetMoveInput()            => _input.move;
+        public bool    GetJumpInput()            => _input.jump;
 
         public Vector3 GetMoveInputDirection()
         {
-            Vector3 inputDirection = new Vector3(_input.move.x, 0.0f, _input.move.y).normalized;
+            Vector3 inputDirection = new Vector3(_input.move.x, 0f, _input.move.y).normalized;
             if (_input.move != Vector2.zero)
             {
-                float targetRotation = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg +
-                                     _mainCamera.transform.eulerAngles.y;
-                return Quaternion.Euler(0.0f, targetRotation, 0.0f) * Vector3.forward;
+                float targetRotation = Mathf.Atan2(inputDirection.x, inputDirection.z) * Mathf.Rad2Deg
+                                     + _mainCamera.transform.eulerAngles.y;
+                return Quaternion.Euler(0f, targetRotation, 0f) * Vector3.forward;
             }
             return Vector3.zero;
         }
 
         public void ForceJump(float jumpPower)
         {
-            if (_hasAnimator)
-            {
-                _animator.SetBool(_animIDJump, true);
-            }
-
             _verticalVelocity = Mathf.Sqrt(jumpPower * -2f * Gravity);
             _jumpTimeoutDelta = JumpTimeout;
             _fallTimeoutDelta = FallTimeout;
+            if (_hasAnimator)
+                _animator.SetBool(_animIDJump, true);
         }
 
         private static float ClampAngle(float lfAngle, float lfMin, float lfMax)
         {
             if (lfAngle < -360f) lfAngle += 360f;
-            if (lfAngle > 360f) lfAngle -= 360f;
+            if (lfAngle > 360f)  lfAngle -= 360f;
             return Mathf.Clamp(lfAngle, lfMin, lfMax);
         }
 
         private void OnDrawGizmosSelected()
         {
-            Color transparentGreen = new Color(0.0f, 1.0f, 0.0f, 0.35f);
-            Color transparentRed = new Color(1.0f, 0.0f, 0.0f, 0.35f);
-
-            if (Grounded) Gizmos.color = transparentGreen;
-            else Gizmos.color = transparentRed;
-
+            Color transparentGreen = new Color(0f, 1f, 0f, 0.35f);
+            Color transparentRed   = new Color(1f, 0f, 0f, 0.35f);
+            Gizmos.color = Grounded ? transparentGreen : transparentRed;
             Gizmos.DrawSphere(
-                new Vector3(transform.position.x, transform.position.y - GroundedOffset, transform.position.z),
+                new Vector3(transform.position.x,
+                            transform.position.y - GroundedOffset,
+                            transform.position.z),
                 GroundedRadius);
         }
 
         private void OnFootstep(AnimationEvent animationEvent)
         {
-            if (animationEvent.animatorClipInfo.weight > 0.5f)
+            if (animationEvent.animatorClipInfo.weight > 0.5f && FootstepAudioClips.Length > 0)
             {
-                if (FootstepAudioClips.Length > 0)
-                {
-                    var index = Random.Range(0, FootstepAudioClips.Length);
-                    AudioSource.PlayClipAtPoint(FootstepAudioClips[index], transform.TransformPoint(_controller.center), FootstepAudioVolume);
-                }
+                var index = Random.Range(0, FootstepAudioClips.Length);
+                AudioSource.PlayClipAtPoint(
+                    FootstepAudioClips[index],
+                    transform.TransformPoint(_controller.center),
+                    FootstepAudioVolume);
             }
         }
 
         private void OnLand(AnimationEvent animationEvent)
         {
             if (animationEvent.animatorClipInfo.weight > 0.5f)
-            {
-                AudioSource.PlayClipAtPoint(LandingAudioClip, transform.TransformPoint(_controller.center), FootstepAudioVolume);
-            }
+                AudioSource.PlayClipAtPoint(
+                    LandingAudioClip,
+                    transform.TransformPoint(_controller.center),
+                    FootstepAudioVolume);
         }
     }
 }
