@@ -4,9 +4,20 @@ using MOMO.Combat;
 
 /// <summary>
 /// Smart Attack System
-/// - หาเป้าอัตโนมัติ
-/// - หันหน้าหาเป้าก่อนโจมตี
-/// - เลือก Punch/Kick ตามขนาด Monster
+/// 
+/// Punch Combo (3 ครั้ง ต่อเนื่อง):
+///   ครั้งที่ 1 → PunchRight  (ขวาแบบที่ 1)
+///   ครั้งที่ 2 → PunchLeft   (ซ้าย)
+///   ครั้งที่ 3 → PunchRight2 (ขวาแบบที่ 2 / ท่าจบ)
+///   → วนกลับครั้งที่ 1 ถ้ากดต่อเนื่อง
+///
+/// Kick Combo (3 ครั้ง ต่อเนื่อง) เมื่อ Monster เล็ก:
+///   ครั้งที่ 1 → KickRight
+///   ครั้งที่ 2 → KickLeft
+///   ครั้งที่ 3 → KickRight2
+///   → วนกลับครั้งที่ 1 ถ้ากดต่อเนื่อง
+///
+/// ถ้าหยุดกดนานเกิน comboResetTime → reset กลับครั้งที่ 1
 /// </summary>
 public class SmartAttackSystem : MonoBehaviour
 {
@@ -21,30 +32,34 @@ public class SmartAttackSystem : MonoBehaviour
     public string enemyTag = "Enemy";
 
     [Header("Rotation to Target")]
-    [Tooltip("หันหน้าหาเป้าก่อนโจมตีกี่วินาที")]
     public float snapRotateDuration = 0.12f;
-    [Tooltip("ความเร็วหมุนหาเป้า")]
     public float rotateSpeed = 720f;
 
     [Header("Attack Points")]
-    [Tooltip("จุด origin ของหมัด (ระดับอก)")]
     public Transform punchPoint;
-    [Tooltip("จุด origin ของเตะ (ระดับเอว/ขา)")]
     public Transform kickPoint;
 
     [Header("Damage")]
-    public int punchDamage = 1;
-    public int kickDamage = 1;
+    public int punchDamage  = 1;
+    public int punchDamage2 = 2;  // ท่าจบ Punch แรงกว่า
+    public int kickDamage   = 1;
+    public int kickDamage2  = 2;  // ท่าจบ Kick แรงกว่า
 
-    [Header("Attack Ranges")]
-    [Tooltip("radius ตรวจโดน — Punch")]
+    [Header("Detection Radius")]
     public float punchDetectRadius = 1.5f;
-    [Tooltip("radius ตรวจโดน — Kick (กว้างกว่าเล็กน้อย)")]
-    public float kickDetectRadius = 1.8f;
+    public float kickDetectRadius  = 1.8f;
 
     [Header("Animator Parameters")]
-    public string punchTrigger = "Attack";   // Bool หรือ Trigger ใน Animator
-    public string kickTrigger  = "Kick";     // ต้องเพิ่มใน Animator Controller
+    public string punchRightTrigger  = "PunchRight";   // ขวาแบบที่ 1
+    public string punchLeftTrigger   = "PunchLeft";    // ซ้าย
+    public string punchRight2Trigger = "PunchRight2";  // ขวาแบบที่ 2 (ท่าจบ)
+    public string kickRightTrigger   = "KickRight";    // เตะขวาแบบที่ 1
+    public string kickLeftTrigger    = "KickLeft";     // เตะซ้าย
+    public string kickRight2Trigger  = "KickRight2";   // เตะขวาแบบที่ 2 (ท่าจบ)
+
+    [Header("Combo Settings")]
+    [Tooltip("ถ้าหยุดกดนานเกินนี้ (วินาที) → reset combo กลับครั้งที่ 1")]
+    public float comboResetTime = 1.2f;
 
     [Header("Debug")]
     public bool showGizmos = true;
@@ -53,55 +68,76 @@ public class SmartAttackSystem : MonoBehaviour
     // Private
     // ────────────────────────────────────────
 
-    private Animator _animator;
-    private bool _isExecuting = false;
+    private Animator   _animator;
+    private bool       _isExecuting  = false;
     private GameObject _lockedTarget;
 
-    // Animator IDs
-    private int _animPunch;
-    private int _animKick;
+    // Combo step: 0 = ครั้งที่1, 1 = ครั้งที่2, 2 = ครั้งที่3
+    private int   _punchStep      = 0;
+    private int   _kickStep       = 0;
+    private float _lastAttackTime = -99f;
+
+    // Animator Hashes
+    private int _hashPunchRight;
+    private int _hashPunchLeft;
+    private int _hashPunchRight2;
+    private int _hashKickRight;
+    private int _hashKickLeft;
+    private int _hashKickRight2;
 
     // ────────────────────────────────────────
-    // Public API (เรียกจาก ThirdPersonController)
+    // Enum
+    // ────────────────────────────────────────
+
+    enum AttackType
+    {
+        PunchRight,   // ขวาแบบที่ 1
+        PunchLeft,    // ซ้าย
+        PunchRight2,  // ขวาแบบที่ 2 (ท่าจบ)
+        KickRight,
+        KickLeft,
+        KickRight2
+    }
+
+    // ────────────────────────────────────────
+    // Unity
     // ────────────────────────────────────────
 
     void Awake()
     {
-        _animator  = GetComponent<Animator>();
-        _animPunch = Animator.StringToHash(punchTrigger);
-        _animKick  = Animator.StringToHash(kickTrigger);
+        _animator = GetComponent<Animator>();
 
-        // fallback attack points
+        _hashPunchRight  = Animator.StringToHash(punchRightTrigger);
+        _hashPunchLeft   = Animator.StringToHash(punchLeftTrigger);
+        _hashPunchRight2 = Animator.StringToHash(punchRight2Trigger);
+        _hashKickRight   = Animator.StringToHash(kickRightTrigger);
+        _hashKickLeft    = Animator.StringToHash(kickLeftTrigger);
+        _hashKickRight2  = Animator.StringToHash(kickRight2Trigger);
+
         if (punchPoint == null) punchPoint = transform;
         if (kickPoint  == null) kickPoint  = transform;
     }
 
-    /// <summary>
-    /// เรียกจาก ThirdPersonController แทน PerformAttack เดิม
-    /// </summary>
+    // ────────────────────────────────────────
+    // Public API
+    // ────────────────────────────────────────
+
     public void TriggerAttack()
     {
         if (_isExecuting) return;
         StartCoroutine(AttackSequence());
     }
 
-    /// <summary>
-    /// เรียกจาก Animation Event (Punch)
-    /// </summary>
-    public void OnPunchHit()
-    {
-        DoDetection(punchPoint, punchDetectRadius, punchDamage,
-                    heightMin: 0f, heightMax: 999f); // ต่อยโดนทุก height
-    }
+    // ────────────────────────────────────────
+    // Animation Events
+    // ────────────────────────────────────────
 
-    /// <summary>
-    /// เรียกจาก Animation Event (Kick)
-    /// </summary>
-    public void OnKickHit()
-    {
-        DoDetection(kickPoint, kickDetectRadius, kickDamage,
-                    heightMin: 0f, heightMax: 1.4f); // เตะโดนเฉพาะตัวเล็ก
-    }
+    public void OnPunchRightHit()  => DoDetection(punchPoint, punchDetectRadius, punchDamage);
+    public void OnPunchLeftHit()   => DoDetection(punchPoint, punchDetectRadius, punchDamage);
+    public void OnPunchRight2Hit() => DoDetection(punchPoint, punchDetectRadius, punchDamage2);
+    public void OnKickRightHit()   => DoDetection(kickPoint,  kickDetectRadius,  kickDamage);
+    public void OnKickLeftHit()    => DoDetection(kickPoint,  kickDetectRadius,  kickDamage);
+    public void OnKickRight2Hit()  => DoDetection(kickPoint,  kickDetectRadius,  kickDamage2);
 
     // ────────────────────────────────────────
     // Core Sequence
@@ -111,17 +147,25 @@ public class SmartAttackSystem : MonoBehaviour
     {
         _isExecuting = true;
 
-        // 1. หาเป้าที่ใกล้และอยู่ในมุม
+        // ── เช็ค Combo Reset ──
+        float timeSinceLast = Time.time - _lastAttackTime;
+        if (timeSinceLast > comboResetTime)
+        {
+            _punchStep = 0;
+            _kickStep  = 0;
+            Debug.Log("[SmartAttack] Combo Reset → ครั้งที่ 1");
+        }
+        _lastAttackTime = Time.time;
+
+        // ── หาเป้า ──
         _lockedTarget = FindBestTarget();
 
-        // 2. หันหน้าหาเป้า
+        // ── หันหน้าหาเป้า ──
         if (_lockedTarget != null)
             yield return StartCoroutine(SnapRotateToTarget(_lockedTarget.transform));
 
-        // 3. เช็คขนาด monster → เลือก type
+        // ── ตัดสินใจและโจมตี ──
         AttackType type = DetermineAttackType(_lockedTarget);
-
-        // 4. Play animation
         ExecuteAnimation(type);
 
         _isExecuting = false;
@@ -130,8 +174,6 @@ public class SmartAttackSystem : MonoBehaviour
     // ────────────────────────────────────────
     // Step Functions
     // ────────────────────────────────────────
-
-    enum AttackType { Punch, Kick }
 
     GameObject FindBestTarget()
     {
@@ -146,13 +188,13 @@ public class SmartAttackSystem : MonoBehaviour
             MonsterHealth mh = col.GetComponent<MonsterHealth>();
             if (mh == null || !mh.IsAlive()) continue;
 
-            Vector3 dir = (col.transform.position - transform.position).normalized;
-            float angle = Vector3.Angle(transform.forward, dir);
+            Vector3 dir   = (col.transform.position - transform.position).normalized;
+            float   angle = Vector3.Angle(transform.forward, dir);
 
             if (angle < closestAngle)
             {
                 closestAngle = angle;
-                best = col.gameObject;
+                best         = col.gameObject;
             }
         }
 
@@ -161,18 +203,17 @@ public class SmartAttackSystem : MonoBehaviour
 
     IEnumerator SnapRotateToTarget(Transform target)
     {
-        float elapsed = 0f;
-        Vector3 dir = (target.position - transform.position);
-        dir.y = 0;
+        Vector3 dir = target.position - transform.position;
+        dir.y = 0f;
         if (dir == Vector3.zero) yield break;
 
         Quaternion targetRot = Quaternion.LookRotation(dir);
+        float elapsed = 0f;
 
         while (elapsed < snapRotateDuration)
         {
             transform.rotation = Quaternion.RotateTowards(
-                transform.rotation, targetRot,
-                rotateSpeed * Time.deltaTime);
+                transform.rotation, targetRot, rotateSpeed * Time.deltaTime);
 
             if (Quaternion.Angle(transform.rotation, targetRot) < 1f) break;
 
@@ -185,50 +226,97 @@ public class SmartAttackSystem : MonoBehaviour
 
     AttackType DetermineAttackType(GameObject target)
     {
-        if (target == null) return AttackType.Punch; // ไม่มีเป้า ต่อยลม
+        bool isSmall = false;
 
-        // เช็ค MonsterSizeProfile ก่อน
-        MonsterSizeProfile profile = target.GetComponent<MonsterSizeProfile>();
-        if (profile != null)
+        if (target != null)
         {
-            return profile.GetSize() == MonsterSizeProfile.MonsterSize.Small
-                ? AttackType.Kick
-                : AttackType.Punch;
+            MonsterSizeProfile profile = target.GetComponent<MonsterSizeProfile>();
+            if (profile != null)
+                isSmall = profile.GetSize() == MonsterSizeProfile.MonsterSize.Small;
+            else
+            {
+                Collider col = target.GetComponent<Collider>();
+                if (col != null) isSmall = col.bounds.size.y < 1.2f;
+            }
         }
 
-        // Fallback: เช็คจาก Bounds height
-        Collider col = target.GetComponent<Collider>();
-        if (col != null && col.bounds.size.y < 1.2f)
-            return AttackType.Kick;
-
-        return AttackType.Punch;
+        if (isSmall)
+        {
+            // Kick combo 3 ขั้น
+            switch (_kickStep)
+            {
+                case 0:  return AttackType.KickRight;
+                case 1:  return AttackType.KickLeft;
+                default: return AttackType.KickRight2;
+            }
+        }
+        else
+        {
+            // Punch combo 3 ขั้น
+            switch (_punchStep)
+            {
+                case 0:  return AttackType.PunchRight;
+                case 1:  return AttackType.PunchLeft;
+                default: return AttackType.PunchRight2;
+            }
+        }
     }
 
     void ExecuteAnimation(AttackType type)
     {
         if (_animator == null) return;
 
-        if (type == AttackType.Kick)
+        switch (type)
         {
-            _animator.SetTrigger(_animKick);
-            Debug.Log("[SmartAttack] → KICK (monster ตัวเล็ก)");
-        }
-        else
-        {
-            _animator.SetTrigger(_animPunch);
-            Debug.Log("[SmartAttack] → PUNCH");
-        }
+            case AttackType.PunchRight:
+                _animator.SetTrigger(_hashPunchRight);
+                _punchStep = 1;
+                Debug.Log("[SmartAttack] ครั้งที่ 1 → PUNCH RIGHT");
+                HapticManager.Instance?.Vibrate(0.15f, 0.3f, 0.12f);
+                break;
 
-        // Haptic
-        HapticManager.Instance?.Vibrate(0.15f, type == AttackType.Kick ? 0.5f : 0.3f, 0.15f);
+            case AttackType.PunchLeft:
+                _animator.SetTrigger(_hashPunchLeft);
+                _punchStep = 2;
+                Debug.Log("[SmartAttack] ครั้งที่ 2 → PUNCH LEFT");
+                HapticManager.Instance?.Vibrate(0.15f, 0.3f, 0.12f);
+                break;
+
+            case AttackType.PunchRight2:
+                _animator.SetTrigger(_hashPunchRight2);
+                _punchStep = 0; // วนกลับครั้งที่ 1
+                Debug.Log("[SmartAttack] ครั้งที่ 3 → PUNCH RIGHT2 (ท่าจบ) → reset");
+                HapticManager.Instance?.Vibrate(0.25f, 0.6f, 0.2f); // แรงกว่า
+                break;
+
+            case AttackType.KickRight:
+                _animator.SetTrigger(_hashKickRight);
+                _kickStep = 1;
+                Debug.Log("[SmartAttack] ครั้งที่ 1 → KICK RIGHT");
+                HapticManager.Instance?.Vibrate(0.15f, 0.4f, 0.15f);
+                break;
+
+            case AttackType.KickLeft:
+                _animator.SetTrigger(_hashKickLeft);
+                _kickStep = 2;
+                Debug.Log("[SmartAttack] ครั้งที่ 2 → KICK LEFT");
+                HapticManager.Instance?.Vibrate(0.15f, 0.4f, 0.15f);
+                break;
+
+            case AttackType.KickRight2:
+                _animator.SetTrigger(_hashKickRight2);
+                _kickStep = 0; // วนกลับครั้งที่ 1
+                Debug.Log("[SmartAttack] ครั้งที่ 3 → KICK RIGHT2 (ท่าจบ) → reset");
+                HapticManager.Instance?.Vibrate(0.25f, 0.6f, 0.2f); // แรงกว่า
+                break;
+        }
     }
 
     // ────────────────────────────────────────
-    // Damage Detection (เรียกจาก Animation Event)
+    // Damage Detection
     // ────────────────────────────────────────
 
-    void DoDetection(Transform origin, float radius, int damage,
-                     float heightMin, float heightMax)
+    void DoDetection(Transform origin, float radius, int damage)
     {
         Collider[] hits = Physics.OverlapSphere(origin.position, radius);
 
@@ -239,17 +327,11 @@ public class SmartAttackSystem : MonoBehaviour
             MonsterHealth mh = col.GetComponent<MonsterHealth>();
             if (mh == null || !mh.IsAlive()) continue;
 
-            // เช็คมุมโจมตี
             Vector3 dir = (col.transform.position - transform.position).normalized;
             if (Vector3.Angle(transform.forward, dir) > attackAngle / 2f) continue;
 
-            // เช็ค height ของ monster (สำหรับ kick)
-            float monsterH = col.bounds.size.y;
-            if (monsterH < heightMin || monsterH > heightMax) continue;
-
             mh.TakeDamage(damage, transform.position);
             Debug.Log($"[SmartAttack] Hit: {col.name} | DMG: {damage}");
-
             HapticManager.Instance?.Vibrate(0.1f, 0.4f, 0.1f);
         }
     }
@@ -262,21 +344,26 @@ public class SmartAttackSystem : MonoBehaviour
     {
         if (!showGizmos) return;
 
-        // Attack range
-        Gizmos.color = new Color(1, 0, 0, 0.2f);
+        Gizmos.color = new Color(1f, 0f, 0f, 0.15f);
         Gizmos.DrawWireSphere(transform.position, attackRange);
 
-        // Angle boundaries
         Gizmos.color = Color.yellow;
-        Vector3 fwd = Application.isPlaying ? transform.forward : transform.forward;
+        Vector3 fwd = transform.forward;
         Gizmos.DrawLine(transform.position,
-            transform.position + Quaternion.Euler(0,  attackAngle/2f, 0) * fwd * attackRange);
+            transform.position + Quaternion.Euler(0,  attackAngle / 2f, 0) * fwd * attackRange);
         Gizmos.DrawLine(transform.position,
-            transform.position + Quaternion.Euler(0, -attackAngle/2f, 0) * fwd * attackRange);
+            transform.position + Quaternion.Euler(0, -attackAngle / 2f, 0) * fwd * attackRange);
 
-        // Punch point
-        if (punchPoint) { Gizmos.color = Color.blue;  Gizmos.DrawWireSphere(punchPoint.position, punchDetectRadius); }
-        // Kick point
-        if (kickPoint)  { Gizmos.color = Color.green; Gizmos.DrawWireSphere(kickPoint.position,  kickDetectRadius);  }
+        if (punchPoint)
+        {
+            Gizmos.color = Color.blue;
+            Gizmos.DrawWireSphere(punchPoint.position, punchDetectRadius);
+        }
+
+        if (kickPoint)
+        {
+            Gizmos.color = Color.green;
+            Gizmos.DrawWireSphere(kickPoint.position, kickDetectRadius);
+        }
     }
 }
