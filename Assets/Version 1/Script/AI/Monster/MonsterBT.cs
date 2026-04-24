@@ -307,10 +307,31 @@ namespace MOMO.AI.Monster
             _lastAttackTime = Time.time;
             monsterAnimator?.PlayAttack();
 
-            var ph = _player?.GetComponent<MOMO.Player.PlayerHealth>();
-            ph?.TakeDamage((int)stats.attackDamage);
+            // ── เปลี่ยนจาก Damage ทันที → รอ Animation ถึง attackDamagePoint ──
+            StartCoroutine(DealDamageDelayed());
 
             return BTStatus.Success;
+        }
+
+        IEnumerator DealDamageDelayed()
+        {
+            // รอให้ Animation เล่นถึง attackDamagePoint (ค่าใน MonsterAnimator)
+            float waitTime = monsterAnimator != null
+                ? monsterAnimator.attackDamagePoint  // ใช้ค่าจาก Inspector
+                : 0.5f;                              // fallback
+
+            yield return new WaitForSeconds(waitTime);
+
+            // เช็คว่า Player ยังอยู่ในระยะโจมตีไหม
+            if (_player == null) yield break;
+
+            float dist = Vector3.Distance(transform.position, _player.position);
+            if (dist <= stats.attackRange)
+            {
+                var ph = _player.GetComponent<MOMO.Player.PlayerHealth>();
+                ph?.TakeDamage((int)stats.attackDamage);
+                Debug.Log($"[{stats.monsterName}] Deal {stats.attackDamage} damage to Player!");
+            }
         }
 
         BTStatus DoChase()

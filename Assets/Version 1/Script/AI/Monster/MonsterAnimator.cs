@@ -9,7 +9,6 @@ namespace MOMO.AI.Monster
         [Header("References")]
         public Animator animator;
         public NavMeshAgent agent;
-        // ❌ ลบออก: public MonsterAI_Hybrid monsterAI;
 
         [Header("Animation Settings")]
         [Tooltip("ความนุ่มนวลในการเปลี่ยน Speed")]

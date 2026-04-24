@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using MOMO.Combat;
+using MOMO.AI.Monster;
 
 /// <summary>
 /// Smart Attack System
@@ -317,24 +318,35 @@ public class SmartAttackSystem : MonoBehaviour
     // ────────────────────────────────────────
 
     void DoDetection(Transform origin, float radius, int damage)
+{
+    Collider[] hits = Physics.OverlapSphere(origin.position, radius);
+
+    foreach (var col in hits)
     {
-        Collider[] hits = Physics.OverlapSphere(origin.position, radius);
+        if (!col.CompareTag(enemyTag)) continue;
 
-        foreach (var col in hits)
+        Vector3 dir = (col.transform.position - transform.position).normalized;
+        if (Vector3.Angle(transform.forward, dir) > attackAngle / 2f) continue;
+
+        MonsterBT bt = col.GetComponent<MonsterBT>();
+        if (bt != null)
         {
-            if (!col.CompareTag(enemyTag)) continue;
-
-            MonsterHealth mh = col.GetComponent<MonsterHealth>();
-            if (mh == null || !mh.IsAlive()) continue;
-
-            Vector3 dir = (col.transform.position - transform.position).normalized;
-            if (Vector3.Angle(transform.forward, dir) > attackAngle / 2f) continue;
-
-            mh.TakeDamage(damage, transform.position);
+            bt.TakeDamage(damage);
             Debug.Log($"[SmartAttack] Hit: {col.name} | DMG: {damage}");
+            HapticManager.Instance?.Vibrate(0.1f, 0.4f, 0.1f);
+            continue;
+        }
+
+        // Fallback → MonsterHealth (กรณี monster อื่นที่ไม่มี MonsterBT)
+        MonsterHealth mh = col.GetComponent<MonsterHealth>();
+        if (mh != null && mh.IsAlive())
+        {
+            mh.TakeDamage(damage, transform.position);
+            Debug.Log($"[SmartAttack] Hit (MH): {col.name} | DMG: {damage}");
             HapticManager.Instance?.Vibrate(0.1f, 0.4f, 0.1f);
         }
     }
+}
 
     // ────────────────────────────────────────
     // Gizmos
