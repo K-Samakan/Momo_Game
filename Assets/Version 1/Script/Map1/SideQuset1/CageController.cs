@@ -1,5 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections;
+using ithappy.Animals_FREE;
 
 public class CageController : MonoBehaviour
 {
@@ -7,9 +9,20 @@ public class CageController : MonoBehaviour
     public int cageHP = 3;
     private int currentHP;
 
-    [Header("References")]
-    public GameObject tigerPrefab;
-    public Transform tigerSpawnPoint;
+    [Header("Tiger In Cage")]
+    public GameObject tigerInCage;           // ← ลาก Tiger_001 (Child) มาใส่
+    public float tigerRunDuration = 3f;
+    public float tigerFadeOutDuration = 1f;
+
+    [Header("Tiger Audio")]
+    public AudioSource tigerAudioSource;
+    public AudioClip tigerRoarClip;
+
+    [Header("VSE")]
+    public float vseIntensity = 0.8f;
+    public float vseInterval = 2f;
+
+    [Header("UI")]
     public Slider hpBar;
     public GameObject hpBarObject;
 
@@ -19,11 +32,33 @@ public class CageController : MonoBehaviour
     public GameObject hitVFX;
 
     private bool isBroken = false;
+    private Coroutine vseCoroutine;
 
     void Start()
     {
         currentHP = cageHP;
         if (hpBarObject) hpBarObject.SetActive(false);
+
+        // เริ่ม VSE Loop สีเหลือง
+        vseCoroutine = StartCoroutine(VSELoop());
+
+        // เล่นเสียงเสือร้อง
+        if (tigerAudioSource && tigerRoarClip)
+        {
+            tigerAudioSource.clip = tigerRoarClip;
+            tigerAudioSource.loop = true;
+            tigerAudioSource.Play();
+        }
+    }
+
+    IEnumerator VSELoop()
+    {
+        while (!isBroken)
+        {
+            VisualSoundEffectManager.Instance?.ShowIcon(
+                transform.position, vseIntensity, "Event");
+            yield return new WaitForSeconds(vseInterval);
+        }
     }
 
     public void TakeDamage(int dmg)
@@ -39,37 +74,105 @@ public class CageController : MonoBehaviour
         if (hitVFX) Instantiate(hitVFX, transform.position, Quaternion.identity);
         if (cageAnimator) cageAnimator.SetTrigger("Hit");
 
-        // ✅ แก้: ใช้ Vibrate() แทน PlayCageHit()
-        // สั่นสั้นเบา = กรงโดนตี
         HapticManager.Instance?.Vibrate(0.3f, 0.3f, 0.1f);
 
         Debug.Log($"[Cage] HP เหลือ: {currentHP}/{cageHP}");
 
         if (currentHP <= 0)
-            BreakCage();
+            StartCoroutine(BreakCage());
     }
 
-    void BreakCage()
+    IEnumerator BreakCage()
     {
         isBroken = true;
 
+        // หยุด VSE และเสียง
+        if (vseCoroutine != null) StopCoroutine(vseCoroutine);
+        if (tigerAudioSource) tigerAudioSource.Stop();
+
+        // แยก Tiger ออกจาก Parent ก่อน Destroy กรง
+        if (tigerInCage != null)
+            tigerInCage.transform.SetParent(null);
+
         if (cageAnimator) cageAnimator.SetTrigger("Break");
-
-        if (tigerPrefab && tigerSpawnPoint)
-            Instantiate(tigerPrefab, tigerSpawnPoint.position, Quaternion.identity);
-
         if (breakVFX) Instantiate(breakVFX, transform.position, Quaternion.identity);
 
-        // ✅ แก้: ใช้ PlayPattern(Boom) แทน PlayCageBreak()
-        // สั่นหนัก = กรงพัง
         HapticManager.Instance?.PlayPattern(HapticPatternType.Boom);
 
         CageQuestManager.Instance?.OnCageFreed();
 
         if (hpBarObject) hpBarObject.SetActive(false);
 
-        GetComponent<Collider>()?.gameObject.SetActive(false);
+        // ซ่อนกรง
+        MeshRenderer mr = GetComponent<MeshRenderer>();
+        if (mr) mr.enabled = false;
 
-        Destroy(gameObject, 2f);
+        Collider col = GetComponent<Collider>();
+        if (col != null) col.enabled = false;
+
+        // Tiger วิ่งออกไปแล้วหาย
+        if (tigerInCage != null)
+            yield return StartCoroutine(TigerEscape());
+
+        Destroy(gameObject);
+    }
+
+    IEnumerator TigerEscape()
+    {
+        CreatureMover mover = tigerInCage.GetComponent<CreatureMover>();
+        if (mover != null)
+        {
+            mover.enabled = true;
+
+            float elapsed = 0f;
+            while (elapsed < tigerRunDuration)
+            {
+                if (tigerInCage == null) yield break;
+                mover.RunForward();
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+        }
+        else
+        {
+            yield return new WaitForSeconds(tigerRunDuration);
+        }
+
+        yield return StartCoroutine(FadeOutTiger());
+        if (tigerInCage != null) Destroy(tigerInCage);
+    }
+
+    IEnumerator FadeOutTiger()
+    {
+        if (tigerInCage == null) yield break;
+
+        SkinnedMeshRenderer[] renderers =
+            tigerInCage.GetComponentsInChildren<SkinnedMeshRenderer>();
+
+        // ✅ Debug ดูว่าเจอ Renderer ไหมและ Material ชื่ออะไร
+        Debug.Log($"[FadeOut] พบ SkinnedMeshRenderer: {renderers.Length}");
+        foreach (var r in renderers)
+        {
+            foreach (var mat in r.materials)
+                Debug.Log($"[FadeOut] Material: {mat.name} | Surface: {mat.GetFloat("_Surface")}");
+        }
+
+        float elapsed = 0f;
+        while (elapsed < tigerFadeOutDuration)
+        {
+            elapsed += Time.deltaTime;
+            float alpha = Mathf.Lerp(1f, 0f, elapsed / tigerFadeOutDuration);
+
+            foreach (var r in renderers)
+            {
+                foreach (var mat in r.materials)
+                {
+                    Color c = mat.GetColor("_BaseColor");
+                    c.a = alpha;
+                    mat.SetColor("_BaseColor", c);
+                }
+            }
+            yield return null;
+        }
     }
 }
