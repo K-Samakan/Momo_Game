@@ -26,6 +26,8 @@ TagManager:
   - Hitbox
   - NavmeshLink
   - NavmeshSurface
+  - FxTemporaire
+  - Cage
   layers:
   - Default
   - TransparentFX

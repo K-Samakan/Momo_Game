@@ -32,14 +32,13 @@ namespace MOMO.Player
         [SerializeField] private float damagePulseDuration = 0.15f;
         [SerializeField] private float damagePauseDuration = 0.05f;
 
-        // ✅ เพิ่ม: Auto Regen Settings
         [Header("Auto Regen")]
         public bool autoRegen = true;
         public float regenDelay = 5f;
         public float regenInterval = 2f;
 
-        // ✅ เพิ่ม: Events สำหรับ PlayerHealthUI ฟัง
-        public event Action<int, int> OnHPChanged;  // (currentHP, maxHP)
+        // Events
+        public event Action<int, int> OnHPChanged;
         public event Action OnDamaged;
         public event Action OnHealed;
         public event Action OnDied;
@@ -48,28 +47,36 @@ namespace MOMO.Player
         private Gamepad gamepad;
         private float regenTimer = 0f;
         private bool isRegenActive = false;
+        private bool _isDead = false; // ป้องกัน Die() ถูกเรียกซ้ำ
 
         // ========================================
         void Start()
         {
             currentHealth = maxHealth;
+            _isDead = false;
             UpdateHealthUI();
 
             gamepad = Gamepad.current;
             if (gamepad != null)
                 Debug.Log($"✅ [PlayerHealth] Found Gamepad: {gamepad.displayName}");
 
-            // ✅ เพิ่ม: แจ้ง UI ทันทีตอน Start
             OnHPChanged?.Invoke(currentHealth, maxHealth);
         }
 
-        // ✅ เพิ่ม: Handle Auto Regen ใน Update
         void Update()
         {
             HandleRegen();
         }
 
         // ========================================
+        // Public API
+        // ========================================
+
+        /// <summary>
+        /// เช็คว่าผู้เล่นยังมีชีวิตอยู่ไหม
+        /// </summary>
+        public bool IsAlive() => currentHealth > 0 && !_isDead;
+
         public void Heal(int amount)
         {
             if (currentHealth >= maxHealth)
@@ -96,22 +103,20 @@ namespace MOMO.Player
                 AudioSource.PlayClipAtPoint(healSound, transform.position);
 
             UpdateHealthUI();
-
-            // ✅ เพิ่ม: ยิง Events
             OnHPChanged?.Invoke(currentHealth, maxHealth);
             OnHealed?.Invoke();
         }
 
         public void TakeDamage(int amount)
         {
-            if (currentHealth <= 0) return; // ✅ เพิ่ม: ป้องกัน damage ซ้ำหลังตาย
+            if (_isDead || currentHealth <= 0) return;
 
             currentHealth -= amount;
             currentHealth = Mathf.Max(currentHealth, 0);
 
             Debug.Log($"<color=red>[Player]</color> Took {amount} damage! HP: {currentHealth}/{maxHealth}");
 
-            // ✅ เพิ่ม: Reset Regen Timer
+            // Reset Regen Timer
             regenTimer = 0f;
             isRegenActive = false;
 
@@ -134,7 +139,11 @@ namespace MOMO.Player
 
             UpdateHealthUI();
 
-            // ✅ เพิ่ม: ยิง Events
+            // Animation โดนตี
+            Animator anim = GetComponent<Animator>();
+            if (anim != null)
+                anim.SetTrigger("GetHit");
+
             OnHPChanged?.Invoke(currentHealth, maxHealth);
             OnDamaged?.Invoke();
 
@@ -142,21 +151,62 @@ namespace MOMO.Player
                 Die();
         }
 
+        // ========================================
+        // Die
+        // ========================================
+
         void Die()
         {
+            if (_isDead) return;
+            _isDead = true;
+
             Debug.Log("<color=red>[Player]</color> Died!");
             StartCoroutine(PulseVibration(1.0f, 5, 0.2f, 0.1f));
 
-            // ✅ เพิ่ม: ยิง Event
-            OnDied?.Invoke();
+            // ── Animation ตายปกติ ──
+            Animator anim = GetComponent<Animator>();
+            if (anim != null)
+                anim.SetTrigger("Die");        // ← ท่าตายปกติ เช่น ล้มลง
 
-            // TODO: Game Over
+            var tpc = GetComponent<StarterAssets.ThirdPersonController>();
+            if (tpc != null) tpc.enabled = false;
+
+            DeathScreenManager.Instance?.ShowDeathScreen();
+            OnDied?.Invoke();
         }
 
-        // ✅ เพิ่ม: Auto Regen Logic
+        public void FallDeath()
+{
+    if (_isDead) return;
+    _isDead = true;
+
+    Debug.Log("<color=red>[Player]</color> Fell off the platform!");
+
+    currentHealth = 0;
+    UpdateHealthUI();
+    OnHPChanged?.Invoke(currentHealth, maxHealth);
+
+    StartCoroutine(PulseVibration(1.0f, 3, 0.3f, 0.1f));
+
+    // ── Animation ตายจากตก ──
+    Animator anim = GetComponent<Animator>();
+    if (anim != null)
+        anim.SetTrigger("DieFall");    // ← ท่าตกหายไป/หมุน
+
+    var tpc = GetComponent<StarterAssets.ThirdPersonController>();
+    if (tpc != null) tpc.enabled = false;
+
+    DeathScreenManager.Instance?.ShowDeathScreen();
+    OnDied?.Invoke();
+}
+
+        // ========================================
+        // Auto Regen
+        // ========================================
+
         private void HandleRegen()
         {
-            if (!autoRegen || currentHealth >= maxHealth) return;
+            if (!autoRegen || _isDead || currentHealth >= maxHealth) return;
 
             regenTimer += Time.deltaTime;
 
@@ -166,11 +216,14 @@ namespace MOMO.Player
             if (isRegenActive && regenTimer >= regenDelay + regenInterval)
             {
                 Heal(1);
-                regenTimer = regenDelay; // Reset interval เท่านั้น (ไม่ Reset delay)
+                regenTimer = regenDelay;
             }
         }
 
         // ========================================
+        // UI
+        // ========================================
+
         public void UpdateHealthUI()
         {
             if (healthText != null)
@@ -184,7 +237,7 @@ namespace MOMO.Player
         }
 
         // ========================================
-        // Haptic Methods (ของเดิม ไม่เปลี่ยน)
+        // Haptic
         // ========================================
 
         private void VibrateController(float intensity, float duration)
