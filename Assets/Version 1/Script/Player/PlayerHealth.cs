@@ -43,7 +43,7 @@ namespace MOMO.Player
         public event Action OnHealed;
         public event Action OnDied;
 
-        // ✅ เปลี่ยนเป็น public เพื่อให้ SaveManager Reset ได้
+        // ✅ public เพื่อให้ SaveManager Reset ได้
         [HideInInspector] public bool _isDead = false;
         [HideInInspector] public float regenTimer = 0f;
         [HideInInspector] public bool isRegenActive = false;
@@ -62,12 +62,15 @@ namespace MOMO.Player
             OnHPChanged?.Invoke(currentHealth, maxHealth);
         }
 
-        void Update()
-        {
-            HandleRegen();
-        }
+        void Update() => HandleRegen();
 
         public bool IsAlive() => currentHealth > 0 && !_isDead;
+
+        // ✅ Bug 2 Fix: SaveManager เรียก method นี้หลัง Respawn เพื่อบังคับให้ UI ทุกตัวอัปเดต
+        public void NotifyHPChanged()
+        {
+            OnHPChanged?.Invoke(currentHealth, maxHealth);
+        }
 
         public void Heal(int amount)
         {
@@ -165,9 +168,7 @@ namespace MOMO.Player
             if (!autoRegen || _isDead || currentHealth >= maxHealth) return;
 
             regenTimer += Time.deltaTime;
-
-            if (!isRegenActive && regenTimer >= regenDelay)
-                isRegenActive = true;
+            if (!isRegenActive && regenTimer >= regenDelay) isRegenActive = true;
 
             if (isRegenActive && regenTimer >= regenDelay + regenInterval)
             {
@@ -178,9 +179,7 @@ namespace MOMO.Player
 
         public void UpdateHealthUI()
         {
-            if (healthText != null)
-                healthText.text = $"HP: {currentHealth}/{maxHealth}";
-
+            if (healthText != null) healthText.text = $"HP: {currentHealth}/{maxHealth}";
             if (healthSlider != null)
             {
                 healthSlider.maxValue = maxHealth;
@@ -193,7 +192,6 @@ namespace MOMO.Player
             if (!enableHaptics) return;
             if (gamepad == null) gamepad = Gamepad.current;
             if (gamepad == null) return;
-
             (gamepad as IDualMotorRumble)?.SetMotorSpeeds(intensity, intensity);
             StartCoroutine(StopVibrationAfterDelay(duration));
         }

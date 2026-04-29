@@ -33,9 +33,22 @@ public class SaveManager : MonoBehaviour
     {
         if (savePoint == null) return;
 
-        var ph = FindObjectOfType<MOMO.Player.PlayerHealth>();
+        var ph = FindFirstObjectByType<MOMO.Player.PlayerHealth>();
         if (ph != null)
         {
+            bool needHeal = ph.currentHealth < ph.maxHealth;
+
+            ph.currentHealth = ph.maxHealth;
+            ph.UpdateHealthUI();
+            ph.NotifyHPChanged();
+
+            if (needHeal && ph.healEffect != null)
+            {
+                GameObject fx = Object.Instantiate(ph.healEffect, ph.transform.position, Quaternion.identity);
+                fx.transform.SetParent(ph.transform);
+                Object.Destroy(fx, 2f);
+            }
+
             _currentSave.playerCurrentHP = ph.currentHealth;
             _currentSave.playerMaxHP = ph.maxHealth;
         }
@@ -46,11 +59,7 @@ public class SaveManager : MonoBehaviour
         _currentSave.savedAt = System.DateTime.Now.ToString("dd/MM/yyyy HH:mm");
 
         WriteToDisk(_currentSave);
-
-        Debug.Log($"💾 [SaveManager] Saved at [{savePoint.savePointID}] | " +
-                  $"HP={_currentSave.playerCurrentHP}/{_currentSave.playerMaxHP} | " +
-                  $"Pos={_currentSave.GetRespawnPosition()}");
-
+        Debug.Log($"💾 [SaveManager] Saved at [{savePoint.savePointID}] HP={_currentSave.playerCurrentHP}/{_currentSave.playerMaxHP}");
         OnSaved?.Invoke(_currentSave);
     }
 
@@ -115,28 +124,27 @@ public class SaveManager : MonoBehaviour
         {
             ph.currentHealth = _currentSave.playerCurrentHP;
             ph.maxHealth = _currentSave.playerMaxHP;
-
-            // ✅ Reset _isDead ให้ Player กลับมาเล่นได้
-            ph._isDead = false;
-
-            // ✅ Reset Regen
+            ph._isDead = false;       // ✅ Bug 1 Fix
             ph.regenTimer = 0f;
             ph.isRegenActive = false;
 
+            // ✅ Bug 2 Fix: Invoke OnHPChanged ให้ UI ทุกตัวอัปเดต
             ph.UpdateHealthUI();
+            ph.NotifyHPChanged();
 
             // ✅ เปิด ThirdPersonController กลับมา
             var tpc = ph.GetComponent<StarterAssets.ThirdPersonController>();
             if (tpc != null) tpc.enabled = true;
 
-            // ✅ Reset Animation (ResetTrigger ก่อน แล้วค่อย Set)
+            // ✅ Bug 1 Fix: Reset Animation กลับไป Idle/Locomotion
             var anim = ph.GetComponent<Animator>();
             if (anim != null)
             {
                 anim.ResetTrigger("Die");
                 anim.ResetTrigger("DieFall");
-                anim.SetTrigger("Revive");  // ← ต้องมี Trigger "Revive" ใน Animator
-                                            //   ถ้าไม่มีให้ใช้ anim.Play("Idle") แทน
+                anim.ResetTrigger("GetHit");        // ✅ Reset ทุก Trigger กัน Override
+                anim.Play("Idle Walk Run Blend", 0, 0f);  // ✅ ชื่อ State จริง
+
             }
 
             Debug.Log($"❤️ [SaveManager] Player revived | HP={ph.currentHealth}/{ph.maxHealth}");
@@ -177,8 +185,7 @@ public class SaveManager : MonoBehaviour
 
     private void WriteToDisk(SaveData data)
     {
-        string json = JsonUtility.ToJson(data, true);
-        PlayerPrefs.SetString(SAVE_KEY, json);
+        PlayerPrefs.SetString(SAVE_KEY, JsonUtility.ToJson(data, true));
         PlayerPrefs.Save();
     }
 
