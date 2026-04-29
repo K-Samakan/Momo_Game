@@ -1,3 +1,7 @@
+// ============================================================
+// FILE: SavePoint.cs
+// PATH: Assets/Version 1/Script/SaveSystem/SavePoint.cs
+// ============================================================
 using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -5,6 +9,7 @@ using TMPro;
 
 public class SavePoint : MonoBehaviour
 {
+    // ─────────────────────────────────────────────────────────
     #region Inspector
 
     [Header("=== Identity ===")]
@@ -12,7 +17,7 @@ public class SavePoint : MonoBehaviour
     public string savePointID = "SP_001";
 
     [Header("=== Start Point ===")]
-    [Tooltip("ติ๊กถ้าเป็นจุดเริ่มต้นของด่าน → Auto Save ตอนโหลดด่านโดยไม่ต้องรอ Trigger")]
+    [Tooltip("ติ๊กถ้าเป็นจุดเริ่มต้นของด่าน → Auto Save ตอนโหลดโดยไม่ต้องรอ Trigger")]
     public bool isStartPoint = false;
 
     [Header("=== Respawn Position ===")]
@@ -25,14 +30,22 @@ public class SavePoint : MonoBehaviour
     public GameObject promptUI;
 
     [Header("=== Notification ===")]
+    [Tooltip("Canvas แสดง 'บันทึกแล้ว!'")]
     public TextMeshProUGUI saveNotificationText;
     public float notificationDuration = 2f;
+
+    [Header("=== Sound ===")]
+    [Tooltip("เสียงที่เล่นเมื่อ Save สำเร็จ ทั้งครั้งแรกและกด △ เอง")]
+    public AudioClip saveSound;
+    [Range(0f, 1f)]
+    public float saveSoundVolume = 0.8f;
 
     [Header("=== Haptic ===")]
     public bool enableHaptic = true;
 
     #endregion
 
+    // ─────────────────────────────────────────────────────────
     #region State
 
     private bool _hasBeenVisited = false;
@@ -42,15 +55,18 @@ public class SavePoint : MonoBehaviour
 
     #endregion
 
+    // ─────────────────────────────────────────────────────────
     #region Unity Lifecycle
 
     private void Start()
     {
+        // ตรวจว่า Save Point นี้เคยถูก Save ไว้แล้วหรือยัง
         if (SaveManager.Instance != null &&
             SaveManager.Instance.CurrentSave?.savePointID == savePointID)
         {
             _hasBeenVisited = true;
             SetVisualState(true);
+            Debug.Log($"🔵 [SavePoint:{savePointID}] Already visited (from save data)");
         }
         else
         {
@@ -67,7 +83,7 @@ public class SavePoint : MonoBehaviour
             if (!hasSave)
             {
                 StartCoroutine(DoSave());
-                Debug.Log($"🟢 [SavePoint:{savePointID}] Start Point → Auto saved on scene load");
+                Debug.Log($"🟢 [SavePoint:{savePointID}] Start Point → Auto saved on load");
             }
         }
     }
@@ -76,9 +92,11 @@ public class SavePoint : MonoBehaviour
     {
         if (!_playerNearby || _isSaving) return;
 
+        // ถ้า Save Point นี้เคย Save แล้ว → รอกด △
         if (_hasBeenVisited)
         {
             bool trianglePressed = false;
+
             if (Gamepad.current != null)
                 trianglePressed = Gamepad.current.buttonNorth.wasPressedThisFrame;
             if (Keyboard.current != null && Keyboard.current.tKey.wasPressedThisFrame)
@@ -91,12 +109,14 @@ public class SavePoint : MonoBehaviour
 
     #endregion
 
+    // ─────────────────────────────────────────────────────────
     #region Trigger
 
     private void OnTriggerEnter(Collider other)
     {
         if (!other.CompareTag("Player")) return;
         _playerNearby = true;
+        Debug.Log($"📍 [SavePoint:{savePointID}] Player entered");
 
         if (!_hasBeenVisited)
             StartCoroutine(DoSave());
@@ -109,17 +129,26 @@ public class SavePoint : MonoBehaviour
         if (!other.CompareTag("Player")) return;
         _playerNearby = false;
         if (promptUI != null) promptUI.SetActive(false);
+        Debug.Log($"👋 [SavePoint:{savePointID}] Player left");
     }
 
     #endregion
 
+    // ─────────────────────────────────────────────────────────
     #region Save Logic
 
     private IEnumerator DoSave()
     {
         _isSaving = true;
+
+        // บันทึกผ่าน SaveManager
         SaveManager.Instance?.SaveAtPoint(this);
 
+        // ── เสียง Save ────────────────────────────────────────
+        if (saveSound != null)
+            AudioSource.PlayClipAtPoint(saveSound, transform.position, saveSoundVolume);
+
+        // ── Haptic ────────────────────────────────────────────
         if (enableHaptic && Gamepad.current != null)
         {
             Gamepad.current.SetMotorSpeeds(0.2f, 0.5f);
@@ -138,6 +167,7 @@ public class SavePoint : MonoBehaviour
 
     #endregion
 
+    // ─────────────────────────────────────────────────────────
     #region Visual & UI
 
     private void SetVisualState(bool activated)
@@ -187,6 +217,7 @@ public class SavePoint : MonoBehaviour
 
     #endregion
 
+    // ─────────────────────────────────────────────────────────
     #region Public API
 
     public Vector3 GetRespawnPosition()
@@ -194,12 +225,13 @@ public class SavePoint : MonoBehaviour
 
     #endregion
 
+    // ─────────────────────────────────────────────────────────
     #region Gizmos
 
     private void OnDrawGizmos()
     {
-        // สีตาม state: Start=น้ำเงิน, Visited=เขียว, ยังไม่เคย=เหลือง
-        Gizmos.color = isStartPoint ? Color.blue : (_hasBeenVisited ? Color.green : Color.yellow);
+        Gizmos.color = isStartPoint ? Color.blue
+                     : (_hasBeenVisited ? Color.green : Color.yellow);
         Gizmos.DrawWireSphere(transform.position, 0.5f);
 
         if (respawnPoint != null)
