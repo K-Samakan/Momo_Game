@@ -40,7 +40,7 @@ public class DeathScreenManager : MonoBehaviour
     public Image promptImage;
 
     [Header("Fade Settings")]
-    public float fadeInDuration  = 1.5f;
+    public float fadeInDuration = 1.5f;
     public float fadeOutDuration = 0.8f;
     [Tooltip("หน่วงก่อนแสดง Death Screen (วินาที)")]
     public float showDelay = 1.0f;
@@ -57,7 +57,7 @@ public class DeathScreenManager : MonoBehaviour
     // Private
     // ────────────────────────────────────────
 
-    private bool _isShowing  = false;
+    private bool _isShowing = false;
     private bool _canRespawn = false;
 
     // ────────────────────────────────────────
@@ -115,7 +115,7 @@ public class DeathScreenManager : MonoBehaviour
 
     IEnumerator DeathSequence()
     {
-        _isShowing  = true;
+        _isShowing = true;
         _canRespawn = false;
 
         // หน่วงให้ Animation ตายเล่นก่อน
@@ -135,6 +135,7 @@ public class DeathScreenManager : MonoBehaviour
         StartCoroutine(BlinkPrompt());
     }
 
+    // ✅ โค้ดใหม่
     IEnumerator RespawnSequence()
     {
         _canRespawn = false;
@@ -142,12 +143,16 @@ public class DeathScreenManager : MonoBehaviour
         // Fade Out
         yield return StartCoroutine(FadeCanvas(1f, 0f, fadeOutDuration));
 
-        // Reload Scene
-        string sceneName = string.IsNullOrEmpty(respawnSceneName)
-            ? SceneManager.GetActiveScene().name
-            : respawnSceneName;
-
-        SceneManager.LoadScene(sceneName);
+        // ✅ ใช้ SaveManager แทน Reload Scene
+        if (SaveManager.Instance != null)
+            SaveManager.Instance.RespawnAtLastSavePoint();
+        else
+        {
+            string sceneName = string.IsNullOrEmpty(respawnSceneName)
+                ? SceneManager.GetActiveScene().name
+                : respawnSceneName;
+            SceneManager.LoadScene(sceneName);
+        }
     }
 
     IEnumerator FadeCanvas(float from, float to, float duration)
@@ -172,7 +177,7 @@ public class DeathScreenManager : MonoBehaviour
         while (_isShowing && _canRespawn)
         {
             // สว่าง
-            if (promptText  != null) promptText.alpha = 1f;
+            if (promptText != null) promptText.alpha = 1f;
             if (promptImage != null)
                 promptImage.color = new Color(
                     promptImage.color.r,
@@ -182,7 +187,7 @@ public class DeathScreenManager : MonoBehaviour
             yield return new WaitForSeconds(0.6f);
 
             // หรี่
-            if (promptText  != null) promptText.alpha = 0.2f;
+            if (promptText != null) promptText.alpha = 0.2f;
             if (promptImage != null)
                 promptImage.color = new Color(
                     promptImage.color.r,

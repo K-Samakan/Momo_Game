@@ -5,31 +5,31 @@ public class MonsterHealth : MonoBehaviour
     [Header("Health Settings")]
     [Tooltip("Maximum health of the monster")]
     public int maxHealth = 3;
-    
+
     [Tooltip("Current health")]
     private int currentHealth;
 
     [Header("Knockback Settings")]
     [Tooltip("Force applied when hit")]
     public float knockbackForce = 5f;
-    
+
     [Tooltip("Duration of knockback")]
     public float knockbackDuration = 0.3f;
-    
+
     [Tooltip("Height of knockback (upward force)")]
     public float knockbackUpwardForce = 2f;
 
     [Header("Visual Feedback")]
     [Tooltip("Flash color when hit")]
     public Color hitColor = Color.red;
-    
+
     [Tooltip("Flash duration")]
     public float flashDuration = 0.1f;
 
     [Header("Death Settings")]
     [Tooltip("Delay before destroying the object")]
     public float destroyDelay = 0.5f;
-    
+
     [Tooltip("Death effect (optional)")]
     public GameObject deathEffect;
 
@@ -188,6 +188,7 @@ public class MonsterHealth : MonoBehaviour
             col.enabled = false;
         }
 
+        GetComponent<MonsterPersistence>()?.RegisterDeath();
         // ทำลาย GameObject
         Destroy(gameObject, destroyDelay);
     }

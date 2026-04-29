@@ -10,18 +10,18 @@ public class SaveData
     public int playerMaxHP = 5;
 
     // ─── Save Point Location ────────────────────────────────
-    public string savePointID = "";       // ID ของ Save Point ที่ Save ล่าสุด
-    public string sceneName = "";       // Scene ที่อยู่
-    public float posX, posY, posZ;            // ตำแหน่ง respawn
+    public string savePointID = "";
+    public string sceneName = "";
+    public float posX, posY, posZ;
 
     // ─── Quest Progress ─────────────────────────────────────
-    public List<string> completedSideQuests = new List<string>();   // ภารกิจรองที่ทำแล้ว
+    public List<string> completedSideQuests = new List<string>();
 
-    // ─── Monster Kills (per scene) ──────────────────────────
-    public List<string> killedMonsterIDs = new List<string>();   // Monster ที่ตายแล้ว
+    // ─── Monster Kills ───────────────────────────────────────
+    public List<string> killedMonsterIDs = new List<string>();
 
     // ─── Timestamp ──────────────────────────────────────────
-    public string savedAt = "";   // เวลาที่ Save ล่าสุด
+    public string savedAt = "";
 
     public Vector3 GetRespawnPosition() => new Vector3(posX, posY, posZ);
 

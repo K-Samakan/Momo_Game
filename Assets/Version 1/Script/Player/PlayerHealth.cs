@@ -43,23 +43,22 @@ namespace MOMO.Player
         public event Action OnHealed;
         public event Action OnDied;
 
-        // Private
-        private Gamepad gamepad;
-        private float regenTimer = 0f;
-        private bool isRegenActive = false;
-        private bool _isDead = false; // ป้องกัน Die() ถูกเรียกซ้ำ
+        // ✅ เปลี่ยนเป็น public เพื่อให้ SaveManager Reset ได้
+        [HideInInspector] public bool _isDead = false;
+        [HideInInspector] public float regenTimer = 0f;
+        [HideInInspector] public bool isRegenActive = false;
 
-        // ========================================
+        private Gamepad gamepad;
+
         void Start()
         {
             currentHealth = maxHealth;
             _isDead = false;
+            regenTimer = 0f;
+            isRegenActive = false;
             UpdateHealthUI();
 
             gamepad = Gamepad.current;
-            if (gamepad != null)
-                Debug.Log($"✅ [PlayerHealth] Found Gamepad: {gamepad.displayName}");
-
             OnHPChanged?.Invoke(currentHealth, maxHealth);
         }
 
@@ -68,39 +67,23 @@ namespace MOMO.Player
             HandleRegen();
         }
 
-        // ========================================
-        // Public API
-        // ========================================
-
-        /// <summary>
-        /// เช็คว่าผู้เล่นยังมีชีวิตอยู่ไหม
-        /// </summary>
         public bool IsAlive() => currentHealth > 0 && !_isDead;
 
         public void Heal(int amount)
         {
-            if (currentHealth >= maxHealth)
-            {
-                Debug.Log("<color=yellow>[Player]</color> HP is already full!");
-                return;
-            }
+            if (currentHealth >= maxHealth) return;
 
-            currentHealth += amount;
-            currentHealth = Mathf.Min(currentHealth, maxHealth);
-
-            Debug.Log($"<color=green>[Player]</color> Healed +{amount}! HP: {currentHealth}/{maxHealth}");
-
+            currentHealth = Mathf.Min(currentHealth + amount, maxHealth);
             VibrateController(healVibrationIntensity, healVibrationDuration);
 
             if (healEffect != null)
             {
-                GameObject effect = Instantiate(healEffect, transform.position, Quaternion.identity);
-                effect.transform.SetParent(transform);
-                Destroy(effect, 2f);
+                var fx = Instantiate(healEffect, transform.position, Quaternion.identity);
+                fx.transform.SetParent(transform);
+                Destroy(fx, 2f);
             }
 
-            if (healSound != null)
-                AudioSource.PlayClipAtPoint(healSound, transform.position);
+            if (healSound != null) AudioSource.PlayClipAtPoint(healSound, transform.position);
 
             UpdateHealthUI();
             OnHPChanged?.Invoke(currentHealth, maxHealth);
@@ -111,49 +94,32 @@ namespace MOMO.Player
         {
             if (_isDead || currentHealth <= 0) return;
 
-            currentHealth -= amount;
-            currentHealth = Mathf.Max(currentHealth, 0);
-
-            Debug.Log($"<color=red>[Player]</color> Took {amount} damage! HP: {currentHealth}/{maxHealth}");
-
-            // Reset Regen Timer
+            currentHealth = Mathf.Max(currentHealth - amount, 0);
             regenTimer = 0f;
             isRegenActive = false;
 
-            StartCoroutine(PulseVibration(
-                damageVibrationIntensity,
-                damagePulseCount,
-                damagePulseDuration,
-                damagePauseDuration
-            ));
+            StartCoroutine(PulseVibration(damageVibrationIntensity, damagePulseCount,
+                                          damagePulseDuration, damagePauseDuration));
 
             if (damageEffect != null)
             {
-                GameObject effect = Instantiate(damageEffect, transform.position, Quaternion.identity);
-                effect.transform.SetParent(transform);
-                Destroy(effect, 2f);
+                var fx = Instantiate(damageEffect, transform.position, Quaternion.identity);
+                fx.transform.SetParent(transform);
+                Destroy(fx, 2f);
             }
 
-            if (damageSound != null)
-                AudioSource.PlayClipAtPoint(damageSound, transform.position);
+            if (damageSound != null) AudioSource.PlayClipAtPoint(damageSound, transform.position);
 
             UpdateHealthUI();
 
-            // Animation โดนตี
-            Animator anim = GetComponent<Animator>();
-            if (anim != null)
-                anim.SetTrigger("GetHit");
+            var anim = GetComponent<Animator>();
+            if (anim != null) anim.SetTrigger("GetHit");
 
             OnHPChanged?.Invoke(currentHealth, maxHealth);
             OnDamaged?.Invoke();
 
-            if (currentHealth <= 0)
-                Die();
+            if (currentHealth <= 0) Die();
         }
-
-        // ========================================
-        // Die
-        // ========================================
 
         void Die()
         {
@@ -163,10 +129,8 @@ namespace MOMO.Player
             Debug.Log("<color=red>[Player]</color> Died!");
             StartCoroutine(PulseVibration(1.0f, 5, 0.2f, 0.1f));
 
-            // ── Animation ตายปกติ ──
-            Animator anim = GetComponent<Animator>();
-            if (anim != null)
-                anim.SetTrigger("Die");        // ← ท่าตายปกติ เช่น ล้มลง
+            var anim = GetComponent<Animator>();
+            if (anim != null) anim.SetTrigger("Die");
 
             var tpc = GetComponent<StarterAssets.ThirdPersonController>();
             if (tpc != null) tpc.enabled = false;
@@ -176,33 +140,25 @@ namespace MOMO.Player
         }
 
         public void FallDeath()
-{
-    if (_isDead) return;
-    _isDead = true;
+        {
+            if (_isDead) return;
+            _isDead = true;
 
-    Debug.Log("<color=red>[Player]</color> Fell off the platform!");
+            currentHealth = 0;
+            UpdateHealthUI();
+            OnHPChanged?.Invoke(currentHealth, maxHealth);
 
-    currentHealth = 0;
-    UpdateHealthUI();
-    OnHPChanged?.Invoke(currentHealth, maxHealth);
+            StartCoroutine(PulseVibration(1.0f, 3, 0.3f, 0.1f));
 
-    StartCoroutine(PulseVibration(1.0f, 3, 0.3f, 0.1f));
+            var anim = GetComponent<Animator>();
+            if (anim != null) anim.SetTrigger("DieFall");
 
-    // ── Animation ตายจากตก ──
-    Animator anim = GetComponent<Animator>();
-    if (anim != null)
-        anim.SetTrigger("DieFall");    // ← ท่าตกหายไป/หมุน
+            var tpc = GetComponent<StarterAssets.ThirdPersonController>();
+            if (tpc != null) tpc.enabled = false;
 
-    var tpc = GetComponent<StarterAssets.ThirdPersonController>();
-    if (tpc != null) tpc.enabled = false;
-
-    DeathScreenManager.Instance?.ShowDeathScreen();
-    OnDied?.Invoke();
-}
-
-        // ========================================
-        // Auto Regen
-        // ========================================
+            DeathScreenManager.Instance?.ShowDeathScreen();
+            OnDied?.Invoke();
+        }
 
         private void HandleRegen()
         {
@@ -220,10 +176,6 @@ namespace MOMO.Player
             }
         }
 
-        // ========================================
-        // UI
-        // ========================================
-
         public void UpdateHealthUI()
         {
             if (healthText != null)
@@ -236,35 +188,24 @@ namespace MOMO.Player
             }
         }
 
-        // ========================================
-        // Haptic
-        // ========================================
-
         private void VibrateController(float intensity, float duration)
         {
             if (!enableHaptics) return;
             if (gamepad == null) gamepad = Gamepad.current;
             if (gamepad == null) return;
 
-            var haptics = gamepad as IDualMotorRumble;
-            if (haptics == null) return;
-
-            haptics.SetMotorSpeeds(intensity, intensity);
+            (gamepad as IDualMotorRumble)?.SetMotorSpeeds(intensity, intensity);
             StartCoroutine(StopVibrationAfterDelay(duration));
         }
 
         private IEnumerator StopVibrationAfterDelay(float delay)
         {
             yield return new WaitForSeconds(delay);
-            if (gamepad != null)
-            {
-                var haptics = gamepad as IDualMotorRumble;
-                haptics?.SetMotorSpeeds(0f, 0f);
-            }
+            (gamepad as IDualMotorRumble)?.SetMotorSpeeds(0f, 0f);
         }
 
         private IEnumerator PulseVibration(float intensity, int pulseCount,
-            float pulseDuration, float pauseDuration)
+                                           float pulseDuration, float pauseDuration)
         {
             if (!enableHaptics) yield break;
             if (gamepad == null) gamepad = Gamepad.current;
@@ -278,7 +219,6 @@ namespace MOMO.Player
                 haptics.SetMotorSpeeds(intensity, intensity);
                 yield return new WaitForSeconds(pulseDuration);
                 haptics.SetMotorSpeeds(0f, 0f);
-
                 if (i < pulseCount - 1)
                     yield return new WaitForSeconds(pauseDuration);
             }
@@ -288,12 +228,6 @@ namespace MOMO.Player
             => VibrateController(intensity, duration);
 
         public void StopVibration()
-        {
-            if (gamepad != null)
-            {
-                var haptics = gamepad as IDualMotorRumble;
-                haptics?.SetMotorSpeeds(0f, 0f);
-            }
-        }
+            => (gamepad as IDualMotorRumble)?.SetMotorSpeeds(0f, 0f);
     }
 }
