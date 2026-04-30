@@ -1,3 +1,7 @@
+// ============================================================
+// FILE: SaveManager.cs
+// PATH: Assets/Version 1/Script/SaveSystem/SaveManager.cs
+// ============================================================
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -13,6 +17,7 @@ public class SaveManager : MonoBehaviour
     public static event System.Action<SaveData> OnSaved;
     public static event System.Action<SaveData> OnLoaded;
 
+    // ─────────────────────────────────────────────────────────
     #region Unity Lifecycle
 
     private void Awake()
@@ -27,6 +32,7 @@ public class SaveManager : MonoBehaviour
 
     #endregion
 
+    // ─────────────────────────────────────────────────────────
     #region Save
 
     public void SaveAtPoint(SavePoint savePoint)
@@ -36,12 +42,14 @@ public class SaveManager : MonoBehaviour
         var ph = FindFirstObjectByType<MOMO.Player.PlayerHealth>();
         if (ph != null)
         {
+            // ตรวจว่า HP ไม่เต็มก่อน → ถ้าเต็มอยู่แล้วไม่ต้องเล่น VFX
             bool needHeal = ph.currentHealth < ph.maxHealth;
 
             ph.currentHealth = ph.maxHealth;
             ph.UpdateHealthUI();
             ph.NotifyHPChanged();
 
+            // ✅ เล่น healEffect เหมือนตอนเก็บ Soul (เฉพาะตอนที่ HP ไม่เต็ม)
             if (needHeal && ph.healEffect != null)
             {
                 GameObject fx = Object.Instantiate(ph.healEffect, ph.transform.position, Quaternion.identity);
@@ -52,14 +60,16 @@ public class SaveManager : MonoBehaviour
             _currentSave.playerCurrentHP = ph.currentHealth;
             _currentSave.playerMaxHP = ph.maxHealth;
         }
-
         _currentSave.savePointID = savePoint.savePointID;
         _currentSave.sceneName = SceneManager.GetActiveScene().name;
         _currentSave.SetRespawnPosition(savePoint.GetRespawnPosition());
         _currentSave.savedAt = System.DateTime.Now.ToString("dd/MM/yyyy HH:mm");
 
         WriteToDisk(_currentSave);
-        Debug.Log($"💾 [SaveManager] Saved at [{savePoint.savePointID}] HP={_currentSave.playerCurrentHP}/{_currentSave.playerMaxHP}");
+
+        Debug.Log($"💾 [SaveManager] Saved at [{savePoint.savePointID}] | " +
+                  $"HP={_currentSave.playerCurrentHP}/{_currentSave.playerMaxHP}");
+
         OnSaved?.Invoke(_currentSave);
     }
 
@@ -69,6 +79,7 @@ public class SaveManager : MonoBehaviour
         {
             _currentSave.killedMonsterIDs.Add(monsterID);
             WriteToDisk(_currentSave);
+            Debug.Log($"☠️ [SaveManager] Monster killed & saved: {monsterID}");
         }
     }
 
@@ -78,11 +89,13 @@ public class SaveManager : MonoBehaviour
         {
             _currentSave.completedSideQuests.Add(questID);
             WriteToDisk(_currentSave);
+            Debug.Log($"✅ [SaveManager] Quest completed & saved: {questID}");
         }
     }
 
     #endregion
 
+    // ─────────────────────────────────────────────────────────
     #region Load / Respawn
 
     public void RespawnAtLastSavePoint()
@@ -119,32 +132,30 @@ public class SaveManager : MonoBehaviour
             player.transform.position = _currentSave.GetRespawnPosition();
 
         // ── คืน HP + Reset Death State ───────────────────────
-        var ph = FindObjectOfType<MOMO.Player.PlayerHealth>();
+        var ph = FindFirstObjectByType<MOMO.Player.PlayerHealth>();
         if (ph != null)
         {
             ph.currentHealth = _currentSave.playerCurrentHP;
             ph.maxHealth = _currentSave.playerMaxHP;
-            ph._isDead = false;       // ✅ Bug 1 Fix
+            ph._isDead = false;
             ph.regenTimer = 0f;
             ph.isRegenActive = false;
 
-            // ✅ Bug 2 Fix: Invoke OnHPChanged ให้ UI ทุกตัวอัปเดต
             ph.UpdateHealthUI();
             ph.NotifyHPChanged();
 
-            // ✅ เปิด ThirdPersonController กลับมา
+            // ── เปิด ThirdPersonController กลับมา ────────────
             var tpc = ph.GetComponent<StarterAssets.ThirdPersonController>();
             if (tpc != null) tpc.enabled = true;
 
-            // ✅ Bug 1 Fix: Reset Animation กลับไป Idle/Locomotion
+            // ── Reset Animation ───────────────────────────────
             var anim = ph.GetComponent<Animator>();
             if (anim != null)
             {
                 anim.ResetTrigger("Die");
                 anim.ResetTrigger("DieFall");
-                anim.ResetTrigger("GetHit");        // ✅ Reset ทุก Trigger กัน Override
-                anim.Play("Idle Walk Run Blend", 0, 0f);  // ✅ ชื่อ State จริง
-
+                anim.ResetTrigger("GetHit");
+                anim.Play("Idle Walk Run Blend", 0, 0f);
             }
 
             Debug.Log($"❤️ [SaveManager] Player revived | HP={ph.currentHealth}/{ph.maxHealth}");
@@ -157,7 +168,7 @@ public class SaveManager : MonoBehaviour
 
     private void RestoreMonsterStates()
     {
-        var allMonsters = FindObjectsOfType<MonoBehaviour>();
+        var allMonsters = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
         foreach (var mb in allMonsters)
         {
             if (_currentSave.killedMonsterIDs.Contains(mb.gameObject.name))
@@ -181,6 +192,7 @@ public class SaveManager : MonoBehaviour
 
     #endregion
 
+    // ─────────────────────────────────────────────────────────
     #region Disk IO
 
     private void WriteToDisk(SaveData data)

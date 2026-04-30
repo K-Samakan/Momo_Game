@@ -31,6 +31,7 @@ public class SavePoint : MonoBehaviour
 
     [Header("=== Notification ===")]
     [Tooltip("Canvas แสดง 'บันทึกแล้ว!'")]
+    public GameObject saveNotificationPanel;
     public TextMeshProUGUI saveNotificationText;
     public float notificationDuration = 2f;
 
@@ -185,9 +186,11 @@ public class SavePoint : MonoBehaviour
 
     private IEnumerator NotificationRoutine()
     {
+        if (saveNotificationPanel != null) saveNotificationPanel.SetActive(true);
         saveNotificationText.gameObject.SetActive(true);
-        saveNotificationText.text = "💾 บันทึกแล้ว!";
+        saveNotificationText.text = "พบจุดพักพิงแล้ว\nบันทึกเกมสำเร็จ";
 
+        // Fade In
         var color = saveNotificationText.color;
         color.a = 0f;
         saveNotificationText.color = color;
@@ -203,6 +206,7 @@ public class SavePoint : MonoBehaviour
 
         yield return new WaitForSeconds(notificationDuration);
 
+        // Fade Out
         t = 0f;
         while (t < 0.5f)
         {
@@ -212,9 +216,10 @@ public class SavePoint : MonoBehaviour
             yield return null;
         }
 
+        // ✅ ปิด Panel หลัง Fade Out
         saveNotificationText.gameObject.SetActive(false);
+        if (saveNotificationPanel != null) saveNotificationPanel.SetActive(false);
     }
-
     #endregion
 
     // ─────────────────────────────────────────────────────────
