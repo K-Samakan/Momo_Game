@@ -28,6 +28,8 @@ TagManager:
   - NavmeshSurface
   - FxTemporaire
   - Cage
+  - BreakableWall
+  - GloveHitbox
   layers:
   - Default
   - TransparentFX
