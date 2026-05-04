@@ -2,22 +2,28 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using System;
 using UnityEngine.InputSystem;
-using System.Collections; // เพิ่มสำหรับ Coroutine
+using System.Collections;
 using UnityEngine.UI;
 
 public class PuzzleManager : MonoBehaviour
 {
     public HapticManager hapticManager;
-    [SerializeField] private GameObject selectedIconsContainer; // Container สำหรับไอคอน
-    [SerializeField] private GameObject shortIconPrefab; // Prefab ของ ShortIcon
-    [SerializeField] private GameObject longIconPrefab; // Prefab ของ LongIcon
-    private HapticPatternType[] targetPattern = new HapticPatternType[5]; // การสั่นที่กำหนด
-    private HapticPatternType[] playerPattern = new HapticPatternType[5]; // การสั่นที่เลือก
+
+    [SerializeField] private GameObject selectedIconsContainer;
+    [SerializeField] private GameObject shortIconPrefab;
+    [SerializeField] private GameObject longIconPrefab;
+
+    private HapticPatternType[] targetPattern = new HapticPatternType[5];
+    private HapticPatternType[] playerPattern = new HapticPatternType[5];
     private int currentIndex = 0;
-    private GameObject[] iconInstances = new GameObject[5]; // อาร์เรย์เก็บไอคอนที่สร้าง
+    private GameObject[] iconInstances = new GameObject[5];
+
     [SerializeField] private GameObject _puzzleCanvas;
     [SerializeField] private PlayerInput playerInput;
-    [SerializeField] private GameObject Door;
+
+    [Header("Doors")]
+    [SerializeField] private GameObject Door;      // ประตูหน้า → ห้อง Item (เปิดตอนแก้ Puzzle สำเร็จ)
+    [SerializeField] private GameObject DoorBack;  // ประตูหลัง → เปิดตอนรับถุงมือ (ไม่ต้องทำอะไรตรงนี้)
 
     [Header("Hearts UI")]
     [SerializeField] private Image[] heartImages;
@@ -33,27 +39,27 @@ public class PuzzleManager : MonoBehaviour
 
     private bool isPuzzleActive = false;
 
-
+    // ─────────────────────────────────────────────
     void Start()
     {
-
         if (hapticManager == null)
         {
-            Debug.LogError("HapticManager not assigned!");
+            Debug.LogError("[PuzzleManager] ❌ HapticManager not assigned!");
             return;
         }
         if (selectedIconsContainer == null || shortIconPrefab == null || longIconPrefab == null)
         {
-            Debug.LogError("SelectedIconsContainer, ShortIconPrefab, or LongIconPrefab not assigned!");
+            Debug.LogError("[PuzzleManager] ❌ SelectedIconsContainer, ShortIconPrefab, or LongIconPrefab not assigned!");
             return;
         }
-        GenerateRandomPattern();
-        StartCoroutine(PlayPatternWithDelay()); // ใช้ Coroutine สำหรับการหน่วงเวลา
 
         UpdateHeartsUI();
-
-        StartCoroutine(InitializePuzzle());
+        StartCoroutine(InitializePuzzle()); // ✅ เรียกแค่นี้อย่างเดียว
     }
+
+    // ─────────────────────────────────────────────
+    // Initialize
+    // ─────────────────────────────────────────────
     IEnumerator InitializePuzzle()
     {
         // 1. แสดง Intro Screen
@@ -66,37 +72,48 @@ public class PuzzleManager : MonoBehaviour
         // 2. สร้าง Pattern
         GenerateRandomPattern();
 
-        // 3. เล่น Pattern
+        // 3. หน่วง 10 วินาที หลัง PuzzleCanvas แสดง
+        yield return new WaitForSeconds(10f);
+
+        // 4. เล่น Pattern ครั้งเดียว
         yield return StartCoroutine(PlayPatternWithDelay());
 
-        // 4. เปิดให้ผู้เล่นเล่นได้
+        // 5. เปิดให้ผู้เล่นเล่นได้
         isPuzzleActive = true;
-        Debug.Log("✅ Puzzle is now active!");
+        Debug.Log("[PuzzleManager] ✅ Puzzle is now active!");
     }
+
+    // ─────────────────────────────────────────────
+    // Pattern
+    // ─────────────────────────────────────────────
     void GenerateRandomPattern()
     {
         for (int i = 0; i < 5; i++)
         {
-            targetPattern[i] = UnityEngine.Random.value > 0.5f ? HapticPatternType.Short : HapticPatternType.Long;
+            targetPattern[i] = UnityEngine.Random.value > 0.5f
+                ? HapticPatternType.Short
+                : HapticPatternType.Long;
         }
     }
 
     private IEnumerator PlayPatternWithDelay()
     {
-        string patternLog = "Target Pattern: ";
+        string patternLog = "[PuzzleManager] Target Pattern: ";
         for (int i = 0; i < 5; i++)
         {
             patternLog += targetPattern[i] == HapticPatternType.Short ? "S " : "L ";
             hapticManager.PlayPattern(targetPattern[i]);
-            yield return new WaitForSeconds(1f); // หน่วงเวลา 0.3 วินาทีระหว่างการสั่น
+            yield return new WaitForSeconds(1f);
         }
-        Debug.Log(patternLog); // แสดงลำดับการสั่นใน Console หลังจากเล่นเสร็จ
+        Debug.Log(patternLog);
     }
 
+    // ─────────────────────────────────────────────
+    // Player Input
+    // ─────────────────────────────────────────────
     public void OnShortVibration()
     {
         if (!isPuzzleActive) return;
-
         if (currentIndex < 5)
         {
             playerPattern[currentIndex] = HapticPatternType.Short;
@@ -109,7 +126,6 @@ public class PuzzleManager : MonoBehaviour
     public void OnLongVibration()
     {
         if (!isPuzzleActive) return;
-
         if (currentIndex < 5)
         {
             playerPattern[currentIndex] = HapticPatternType.Long;
@@ -119,6 +135,9 @@ public class PuzzleManager : MonoBehaviour
         }
     }
 
+    // ─────────────────────────────────────────────
+    // Icon
+    // ─────────────────────────────────────────────
     void CreateIcon(HapticPatternType type)
     {
         if (currentIndex < 5 && iconInstances[currentIndex] == null)
@@ -127,127 +146,6 @@ public class PuzzleManager : MonoBehaviour
             iconInstances[currentIndex] = Instantiate(prefab, selectedIconsContainer.transform);
             iconInstances[currentIndex].SetActive(true);
         }
-    }
-
-    void UpdateHeartsUI()
-    {
-        // หัวใจแดง = เหลือโอกาส, หัวใจดำ = โอกาสหมด
-        for (int i = 0; i < heartImages.Length; i++)
-        {
-            if (i < failCount)
-            {
-                heartImages[i].sprite = blackHeartSprite; // ผิด แสดงหัวใจดำ
-            }
-            else
-            {
-                heartImages[i].sprite = redHeartSprite; // ยังโอเค แสดงหัวใจแดง
-            }
-        }
-    }
-
-    void CheckPattern()
-    {
-        if (currentIndex == 5)
-        {
-            bool isCorrect = true;
-            for (int i = 0; i < 5; i++)
-            {
-                if (playerPattern[i] != targetPattern[i])
-                {
-                    isCorrect = false;
-                    break;
-                }
-            }
-            if (isCorrect)
-            {
-                StartCoroutine(OnPuzzleSolved());
-                /*hapticManager.PlayPattern(HapticPatternType.Success);
-
-                if (Inventory.Instance != null)
-                {
-                    Inventory.Instance.CorrectPuzzle = true;
-                    Debug.Log("Puzzle solved! CorrectPuzzle set to true.");
-                }
-                _puzzleCanvas.SetActive(false);
-                Door.SetActive(false);
-*/
-            }
-            else
-            {
-                failCount++;
-                UpdateHeartsUI();
-
-                Debug.Log("failCount: " + failCount);
-                if (failCount >= 5)
-                {
-                    Debug.Log("ล้มเหลว");
-                    Debug.Log("ถึงจุดจะ Load Scene!");
-                    // ตรงนี้จะเพิ่มฟังก์ชัน GameOver หรือปิด puzzle ก็ได้
-                    StartCoroutine(ShowUnsolvedAndLoadScene());
-
-                }
-                else
-                {
-                    Debug.Log("Puzzle failed " + failCount + " times.");
-                }
-
-                hapticManager.PlayPattern(HapticPatternType.Fail);
-                currentIndex = 0;
-                Array.Clear(playerPattern, 0, 5);
-                ClearIcons();
-            }
-        }
-    }
-
-    IEnumerator OnPuzzleSolved()
-    {
-        isPuzzleActive = false; // ล็อคการกดปุ่ม
-
-        // 1. เล่น Success Haptic
-        hapticManager.PlayPattern(HapticPatternType.Success);
-
-        // 2. บันทึกสถานะ
-        if (Inventory.Instance != null)
-        {
-            Inventory.Instance.CorrectPuzzle = true;
-            Debug.Log("Puzzle solved! CorrectPuzzle set to true.");
-        }
-
-        // 3. แสดง Clear UI
-        if (puzzleClearUI != null)
-        {
-            puzzleClearUI.Show();
-            yield return new WaitForSeconds(3.5f); // รอ ClearUI จบ (2s display + 1s fade + 0.5s buffer)
-        }
-
-        // 4. ปิด Puzzle Canvas
-        _puzzleCanvas.SetActive(false);
-
-        // 5. ปิด/ทำลาย Door
-        if (Door != null)
-        {
-            Door.SetActive(false);
-            Debug.Log("🚪 Door removed!");
-        }
-
-        // 6. คืน Control ให้ผู้เล่น
-        if (playerInput != null)
-        {
-            playerInput.SwitchCurrentActionMap("Player");
-        }
-    }
-
-    private IEnumerator ShowUnsolvedAndLoadScene()
-    {
-        isPuzzleActive = false;
-        Debug.Log("เริ่ม coroutine");
-        if (unsolvedCanvas != null) unsolvedCanvas.SetActive(true);
-
-        yield return new WaitForSeconds(5f);
-        if (unsolvedCanvas != null) unsolvedCanvas.SetActive(false);
-
-        Debug.Log("กำลังโหลด map1");
-        SceneManager.LoadScene("Map1");
     }
 
     void ClearIcons()
@@ -262,57 +160,143 @@ public class PuzzleManager : MonoBehaviour
         }
     }
 
+    // ─────────────────────────────────────────────
+    // Hearts UI
+    // ─────────────────────────────────────────────
+    void UpdateHeartsUI()
+    {
+        for (int i = 0; i < heartImages.Length; i++)
+        {
+            heartImages[i].sprite = i < failCount ? blackHeartSprite : redHeartSprite;
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    // Check Pattern
+    // ─────────────────────────────────────────────
+    void CheckPattern()
+    {
+        if (currentIndex < 5) return;
+
+        bool isCorrect = true;
+        for (int i = 0; i < 5; i++)
+        {
+            if (playerPattern[i] != targetPattern[i])
+            {
+                isCorrect = false;
+                break;
+            }
+        }
+
+        if (isCorrect)
+        {
+            StartCoroutine(OnPuzzleSolved());
+        }
+        else
+        {
+            failCount++;
+            UpdateHeartsUI();
+            Debug.Log($"[PuzzleManager] ❌ Puzzle failed {failCount} times.");
+
+            if (failCount >= 5)
+            {
+                Debug.Log("[PuzzleManager] ❌ ล้มเหลว 5 ครั้ง!");
+                StartCoroutine(ShowUnsolvedAndLoadScene());
+            }
+
+            hapticManager.PlayPattern(HapticPatternType.Fail);
+            currentIndex = 0;
+            Array.Clear(playerPattern, 0, 5);
+            ClearIcons();
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    // Puzzle Solved
+    // ─────────────────────────────────────────────
+    IEnumerator OnPuzzleSolved()
+    {
+        isPuzzleActive = false;
+
+        // 1. Haptic Success
+        hapticManager.PlayPattern(HapticPatternType.Success);
+
+        // 2. บันทึกสถานะ
+        if (Inventory.Instance != null)
+        {
+            Inventory.Instance.CorrectPuzzle = true;
+            Debug.Log("[PuzzleManager] ✅ Puzzle solved! CorrectPuzzle = true");
+        }
+
+        // 3. แสดง Clear UI
+        if (puzzleClearUI != null)
+        {
+            puzzleClearUI.Show();
+            yield return new WaitForSeconds(3.5f);
+        }
+
+        // 4. ปิด Puzzle Canvas
+        _puzzleCanvas.SetActive(false);
+
+        // 5. เปิดประตูหน้า (ไปห้อง Item) เท่านั้น
+        //    ประตูหลัง (DoorBack) จะเปิดตอนรับถุงมือใน GlovePickup
+        if (Door != null)
+        {
+            Door.SetActive(false);
+            Debug.Log("[PuzzleManager] 🚪 ประตูหน้าเปิดแล้ว! (ไปห้อง Item)");
+        }
+        else
+        {
+            Debug.LogWarning("[PuzzleManager] ⚠️ ไม่พบ Door!");
+        }
+
+        // DoorBack ไม่เปิดที่นี่ — เปิดตอนรับถุงมือใน GlovePickup
+        Debug.Log("[PuzzleManager] ℹ️ DoorBack จะเปิดหลังรับถุงมือลิง");
+
+        // 6. คืน Control ให้ผู้เล่น
+        if (playerInput != null)
+        {
+            playerInput.SwitchCurrentActionMap("Player");
+            Debug.Log("[PuzzleManager] ✅ คืน Control ให้ผู้เล่นแล้ว");
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    // Puzzle Failed — Load Scene
+    // ─────────────────────────────────────────────
+    private IEnumerator ShowUnsolvedAndLoadScene()
+    {
+        isPuzzleActive = false;
+
+        if (unsolvedCanvas != null) unsolvedCanvas.SetActive(true);
+        yield return new WaitForSeconds(5f);
+        if (unsolvedCanvas != null) unsolvedCanvas.SetActive(false);
+
+        Debug.Log("[PuzzleManager] 🔄 โหลด Map1 ใหม่...");
+        SceneManager.LoadScene("Map1");
+    }
+
+    // ─────────────────────────────────────────────
+    // Public Methods
+    // ─────────────────────────────────────────────
     public void ReplayPattern()
     {
         if (!isPuzzleActive) return;
-        StartCoroutine(PlayPatternWithDelay()); // ใช้ Coroutine เมื่อกด Replay
+        StartCoroutine(PlayPatternWithDelay());
     }
 
     public void CancelLast()
     {
-        if (currentIndex > 0)
+        if (currentIndex <= 0) return;
+
+        currentIndex--;
+        playerPattern[currentIndex] = 0;
+        if (iconInstances[currentIndex] != null)
         {
-            currentIndex--;
-            playerPattern[currentIndex] = 0;
-            if (iconInstances[currentIndex] != null)
-            {
-                Destroy(iconInstances[currentIndex]);
-                iconInstances[currentIndex] = null;
-            }
+            Destroy(iconInstances[currentIndex]);
+            iconInstances[currentIndex] = null;
         }
     }
-
-    private void OnEnable()
-    {
-        if (playerInput != null)
-        {
-            playerInput.actions["Short"].performed += OnShortVibrationAction;
-            playerInput.actions["Long"].performed += OnLongVibrationAction;
-            playerInput.actions["Cancel"].performed += OnCancelLastAction;
-            playerInput.actions["Exit"].performed += OnExitToSceneAction;
-            playerInput.actions["Replay"].performed += OnReplayPatternAction;
-            playerInput.SwitchCurrentActionMap("PuzzleUI1");
-        }
-    }
-    private void OnDisable()
-    {
-        if (playerInput != null)
-        {
-            playerInput.actions["Short"].performed -= OnShortVibrationAction;
-            playerInput.actions["Long"].performed -= OnLongVibrationAction;
-            playerInput.actions["Cancel"].performed -= OnCancelLastAction;
-            playerInput.actions["Exit"].performed -= OnExitToSceneAction;
-            playerInput.actions["Replay"].performed -= OnReplayPatternAction;
-            playerInput.SwitchCurrentActionMap("Player");
-        }
-    }
-
-    private void OnShortVibrationAction(InputAction.CallbackContext ctx) => OnShortVibration();
-    private void OnLongVibrationAction(InputAction.CallbackContext ctx) => OnLongVibration();
-    private void OnCancelLastAction(InputAction.CallbackContext ctx) => CancelLast();
-    private void OnExitToSceneAction(InputAction.CallbackContext ctx) => ExitToScene();
-    private void OnReplayPatternAction(InputAction.CallbackContext ctx) => ReplayPattern();
-
 
     public void ExitToScene()
     {
@@ -320,5 +304,36 @@ public class PuzzleManager : MonoBehaviour
         playerInput.SwitchCurrentActionMap("Player");
     }
 
+    // ─────────────────────────────────────────────
+    // Enable / Disable
+    // ─────────────────────────────────────────────
+    private void OnEnable()
+    {
+        if (playerInput == null) return;
 
+        playerInput.actions["Short"].performed += OnShortVibrationAction;
+        playerInput.actions["Long"].performed += OnLongVibrationAction;
+        playerInput.actions["Cancel"].performed += OnCancelLastAction;
+        playerInput.actions["Exit"].performed += OnExitToSceneAction;
+        playerInput.actions["Replay"].performed += OnReplayPatternAction;
+        playerInput.SwitchCurrentActionMap("PuzzleUI1");
+    }
+
+    private void OnDisable()
+    {
+        if (playerInput == null) return;
+
+        playerInput.actions["Short"].performed -= OnShortVibrationAction;
+        playerInput.actions["Long"].performed -= OnLongVibrationAction;
+        playerInput.actions["Cancel"].performed -= OnCancelLastAction;
+        playerInput.actions["Exit"].performed -= OnExitToSceneAction;
+        playerInput.actions["Replay"].performed -= OnReplayPatternAction;
+        playerInput.SwitchCurrentActionMap("Player");
+    }
+
+    private void OnShortVibrationAction(InputAction.CallbackContext ctx) => OnShortVibration();
+    private void OnLongVibrationAction(InputAction.CallbackContext ctx) => OnLongVibration();
+    private void OnCancelLastAction(InputAction.CallbackContext ctx) => CancelLast();
+    private void OnExitToSceneAction(InputAction.CallbackContext ctx) => ExitToScene();
+    private void OnReplayPatternAction(InputAction.CallbackContext ctx) => ReplayPattern();
 }
