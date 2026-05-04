@@ -27,5 +27,5 @@ MonoBehaviour:
   waypointReachedDistance: 0.5
   soulPrefab: {fileID: 3184123916568575828, guid: f1d20fcb76bb7024a988760c282b2be4,
     type: 3}
-  soulDropCount: 1
+  soulDropCount: 2
   soulDropChance: 1
