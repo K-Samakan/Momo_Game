@@ -188,7 +188,7 @@ public class SavePoint : MonoBehaviour
     {
         if (saveNotificationPanel != null) saveNotificationPanel.SetActive(true);
         saveNotificationText.gameObject.SetActive(true);
-        saveNotificationText.text = "พบจุดพักพิงแล้ว\nบันทึกเกมสำเร็จ";
+        saveNotificationText.text = "Shelter Found\nGame Saved Successfully";
 
         // Fade In
         var color = saveNotificationText.color;

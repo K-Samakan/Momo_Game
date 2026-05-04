@@ -3,6 +3,7 @@
 // PATH: Assets/Version 1/Script/SaveSystem/SaveManager.cs
 // ============================================================
 using UnityEngine;
+using System.Collections.Generic;
 using UnityEngine.SceneManagement;
 
 public class SaveManager : MonoBehaviour
@@ -16,6 +17,9 @@ public class SaveManager : MonoBehaviour
 
     public static event System.Action<SaveData> OnSaved;
     public static event System.Action<SaveData> OnLoaded;
+
+    private List<string> _tempKilledMonsters = new List<string>();
+    private List<string> _tempCompletedQuests = new List<string>();
 
     // ─────────────────────────────────────────────────────────
     #region Unity Lifecycle
@@ -65,6 +69,17 @@ public class SaveManager : MonoBehaviour
         _currentSave.SetRespawnPosition(savePoint.GetRespawnPosition());
         _currentSave.savedAt = System.DateTime.Now.ToString("dd/MM/yyyy HH:mm");
 
+
+        foreach (var m in _tempKilledMonsters)
+            if (!_currentSave.killedMonsterIDs.Contains(m))
+                _currentSave.killedMonsterIDs.Add(m);
+
+        foreach (var q in _tempCompletedQuests)
+            if (!_currentSave.completedSideQuests.Contains(q))
+                _currentSave.completedSideQuests.Add(q);
+
+        _tempKilledMonsters.Clear();
+        _tempCompletedQuests.Clear();
         WriteToDisk(_currentSave);
 
         Debug.Log($"💾 [SaveManager] Saved at [{savePoint.savePointID}] | " +
@@ -75,21 +90,19 @@ public class SaveManager : MonoBehaviour
 
     public void RegisterMonsterKill(string monsterID)
     {
-        if (!_currentSave.killedMonsterIDs.Contains(monsterID))
+        if (!_tempKilledMonsters.Contains(monsterID))
         {
-            _currentSave.killedMonsterIDs.Add(monsterID);
-            WriteToDisk(_currentSave);
-            Debug.Log($"☠️ [SaveManager] Monster killed & saved: {monsterID}");
+            _tempKilledMonsters.Add(monsterID);
+            Debug.Log($"☠️ [SaveManager] Monster killed (temp): {monsterID}");
         }
     }
 
     public void RegisterQuestComplete(string questID)
     {
-        if (!_currentSave.completedSideQuests.Contains(questID))
+        if (!_tempCompletedQuests.Contains(questID))
         {
-            _currentSave.completedSideQuests.Add(questID);
-            WriteToDisk(_currentSave);
-            Debug.Log($"✅ [SaveManager] Quest completed & saved: {questID}");
+            _tempCompletedQuests.Add(questID);
+            Debug.Log($"📋 [SaveManager] Quest completed (temp): {questID}");
         }
     }
 
@@ -100,6 +113,9 @@ public class SaveManager : MonoBehaviour
 
     public void RespawnAtLastSavePoint()
     {
+        _tempKilledMonsters.Clear();
+        _tempCompletedQuests.Clear();
+
         if (_currentSave == null || string.IsNullOrEmpty(_currentSave.savePointID))
         {
             Debug.LogWarning("⚠️ [SaveManager] No save data! Reloading scene.");
@@ -182,8 +198,8 @@ public class SaveManager : MonoBehaviour
     }
 
     public bool IsMonsterDead(string monsterID)
-        => _currentSave != null && _currentSave.killedMonsterIDs.Contains(monsterID);
-
+=> (_currentSave != null && _currentSave.killedMonsterIDs.Contains(monsterID))
+    || _tempKilledMonsters.Contains(monsterID);
     public bool IsQuestCompleted(string questID)
         => _currentSave != null && _currentSave.completedSideQuests.Contains(questID);
 

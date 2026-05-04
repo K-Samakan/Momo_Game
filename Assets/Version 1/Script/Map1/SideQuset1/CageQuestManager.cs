@@ -76,7 +76,7 @@ public class CageQuestManager : MonoBehaviour
         // Text Punch Effect
         if (questCompleteText)
         {
-            questCompleteText.text = "ช่วยเหลือเสือออกจากกรงสำเร็จ!";
+            questCompleteText.text = "Tiger rescued successfully!";
             yield return StartCoroutine(PunchTextEffect(questCompleteText));
         }
 
@@ -144,6 +144,6 @@ public class CageQuestManager : MonoBehaviour
     void UpdateUI()
     {
         if (questCounterText)
-            questCounterText.text = $"ช่วยเหลือเสือออกจากกรง : {freedCages}/{totalCages}";
+            questCounterText.text = $"Tigers rescued : {freedCages}/{totalCages}";
     }
 }

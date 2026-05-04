@@ -14,14 +14,14 @@ public class PuzzleUI2Manager : MonoBehaviour
     public Slider mirrorCheckProgressBar;
     public GameObject controlsPanel;
     public GameObject completionPanel;
-    
+
     [Header("Visual Feedback")]
     public Image dangerOverlay;
     public Image safeOverlay;
     public Color dangerColor = Color.red;
     public Color safeColor = Color.green;
     public AnimationCurve overlayFadeCurve;
-    
+
     [Header("Audio")]
     public AudioSource uiAudioSource;
     public AudioClip buttonClickSound;
@@ -37,7 +37,7 @@ public class PuzzleUI2Manager : MonoBehaviour
     {
         puzzleManager = FindObjectOfType<MirrorLightPuzzle>();
         hapticManager = HapticManager.Instance;
-        
+
         InitializeUI();
         UpdateMirrorCount();
     }
@@ -52,13 +52,13 @@ public class PuzzleUI2Manager : MonoBehaviour
         if (puzzleCanvas) puzzleCanvas.gameObject.SetActive(true);
         if (completionPanel) completionPanel.SetActive(false);
         if (mirrorCheckProgressBar) mirrorCheckProgressBar.gameObject.SetActive(false);
-        
+
         if (instructionText)
         {
-            instructionText.text = "🔍 คลิกที่กระจกเพื่อตรวจสอบ\n" +
-                                  "⚠️ ระวัง! กระจกหลอกจะระเบิด\n" +
-                                  "🔄 ใช้ Q/E เพื่อหมุนกระจกจริง\n" +
-                                  "🎯 ส่องแสงไปที่สัญลักษณ์พระอาทิตย์";
+            instructionText.text = "🔍 Click mirror to inspect\n" +
+                      "⚠️ Warning! Fake mirrors will explode\n" +
+                      "🔄 Use Q/E to rotate real mirrors\n" +
+                      "🎯 Reflect light to the sun symbol";
         }
 
         if (controlsPanel)
@@ -67,21 +67,21 @@ public class PuzzleUI2Manager : MonoBehaviour
             TextMeshProUGUI controlsText = controlsPanel.GetComponentInChildren<TextMeshProUGUI>();
             if (controlsText)
             {
-                controlsText.text = "🖱️ คลิกซ้าย: เลือกกระจก\n" +
-                                   "⌨️ Q: หมุนซ้าย\n" +
-                                   "⌨️ E: หมุนขวา\n" +
-                                   "⌨️ ESC: ยกเลิกการเลือก\n" +
-                                   "🎮 จับจอยแน่นเพื่อรู้สึกถึงประเภทกระจก!";
+                controlsText.text = "🖱️ Left Click: Select mirror\n" +
+                   "⌨️ Q: Rotate left\n" +
+                   "⌨️ E: Rotate right\n" +
+                   "⌨️ ESC: Deselect\n" +
+                   "🎮 Hold controller to feel the mirror type!";
             }
         }
 
         // ซ่อน overlay ในตอนเริ่ม
-        if (dangerOverlay) 
+        if (dangerOverlay)
         {
             dangerOverlay.color = new Color(dangerColor.r, dangerColor.g, dangerColor.b, 0);
             dangerOverlay.gameObject.SetActive(false);
         }
-        if (safeOverlay) 
+        if (safeOverlay)
         {
             safeOverlay.color = new Color(safeColor.r, safeColor.g, safeColor.b, 0);
             safeOverlay.gameObject.SetActive(false);
@@ -95,7 +95,7 @@ public class PuzzleUI2Manager : MonoBehaviour
         UpdateMirrorCount();
         UpdateHealthDisplay();
         UpdateStatusText();
-        
+
         if (puzzleManager.IsPuzzleCompleted() && completionPanel && !completionPanel.activeInHierarchy)
         {
             ShowCompletionScreen();
@@ -108,7 +108,7 @@ public class PuzzleUI2Manager : MonoBehaviour
 
         int activeMirrors = puzzleManager.GetActiveMirrorsCount();
         int remainingFakes = puzzleManager.GetRemainingFakeMirrors();
-        
+
         mirrorCountText.text = $"🪞 กระจกใช้งานได้: {activeMirrors}/5\n" +
                               $"💣 กระจกหลอกเหลือ: {remainingFakes}";
     }
@@ -116,18 +116,18 @@ public class PuzzleUI2Manager : MonoBehaviour
     void UpdateHealthDisplay()
     {
         if (!healthText) return;
-        
+
         // เชื่อมต่อกับระบบ Health ของเกม
         // ตัวอย่าง:
         // int currentHealth = PlayerHealth.Instance.GetCurrentHealth();
         // int maxHealth = PlayerHealth.Instance.GetMaxHealth();
-        
+
         // สำหรับตัวอย่าง ใช้ค่าคงที่
         int currentHealth = 5; // ควรเปลี่ยนเป็นค่าจริง
         int maxHealth = 5;
-        
+
         healthText.text = $"❤️ HP: {currentHealth}/{maxHealth}";
-        
+
         // เปลี่ยนสีตาม HP
         if (currentHealth <= 1)
         {
@@ -209,7 +209,7 @@ public class PuzzleUI2Manager : MonoBehaviour
         {
             mirrorCheckProgressBar.gameObject.SetActive(false);
         }
-        
+
         HideFeedbackOverlays();
     }
 
@@ -223,7 +223,7 @@ public class PuzzleUI2Manager : MonoBehaviour
         }
 
         feedbackCoroutine = StartCoroutine(ShowDangerOverlay(intensity));
-        
+
         // เล่นเสียงเตือน
         if (uiAudioSource && warningSound && !uiAudioSource.isPlaying)
         {
@@ -248,10 +248,10 @@ public class PuzzleUI2Manager : MonoBehaviour
         if (!dangerOverlay) yield break;
 
         dangerOverlay.gameObject.SetActive(true);
-        
+
         float targetAlpha = Mathf.Lerp(0.1f, 0.5f, intensity);
         float currentAlpha = dangerOverlay.color.a;
-        
+
         float duration = 0.3f;
         for (float t = 0; t < duration; t += Time.deltaTime)
         {
@@ -259,7 +259,7 @@ public class PuzzleUI2Manager : MonoBehaviour
             dangerOverlay.color = new Color(dangerColor.r, dangerColor.g, dangerColor.b, alpha);
             yield return null;
         }
-        
+
         dangerOverlay.color = new Color(dangerColor.r, dangerColor.g, dangerColor.b, targetAlpha);
     }
 
@@ -268,10 +268,10 @@ public class PuzzleUI2Manager : MonoBehaviour
         if (!safeOverlay) yield break;
 
         safeOverlay.gameObject.SetActive(true);
-        
+
         float targetAlpha = Mathf.Lerp(0.05f, 0.2f, intensity);
         float currentAlpha = safeOverlay.color.a;
-        
+
         float duration = 0.2f;
         for (float t = 0; t < duration; t += Time.deltaTime)
         {
@@ -279,7 +279,7 @@ public class PuzzleUI2Manager : MonoBehaviour
             safeOverlay.color = new Color(safeColor.r, safeColor.g, safeColor.b, alpha);
             yield return null;
         }
-        
+
         safeOverlay.color = new Color(safeColor.r, safeColor.g, safeColor.b, targetAlpha);
     }
 
@@ -296,27 +296,27 @@ public class PuzzleUI2Manager : MonoBehaviour
     IEnumerator FadeOutOverlays()
     {
         float duration = 0.5f;
-        
+
         Color dangerStart = dangerOverlay ? dangerOverlay.color : Color.clear;
         Color safeStart = safeOverlay ? safeOverlay.color : Color.clear;
-        
+
         for (float t = 0; t < duration; t += Time.deltaTime)
         {
             float alpha = Mathf.Lerp(1f, 0f, t / duration);
-            
+
             if (dangerOverlay)
             {
                 dangerOverlay.color = new Color(dangerStart.r, dangerStart.g, dangerStart.b, dangerStart.a * alpha);
             }
-            
+
             if (safeOverlay)
             {
                 safeOverlay.color = new Color(safeStart.r, safeStart.g, safeStart.b, safeStart.a * alpha);
             }
-            
+
             yield return null;
         }
-        
+
         if (dangerOverlay) dangerOverlay.gameObject.SetActive(false);
         if (safeOverlay) safeOverlay.gameObject.SetActive(false);
     }
@@ -332,7 +332,7 @@ public class PuzzleUI2Manager : MonoBehaviour
         if (!completionPanel) return;
 
         completionPanel.SetActive(true);
-        
+
         // เล่นเสียงสำเร็จ
         if (uiAudioSource && successChime)
         {
@@ -368,7 +368,7 @@ public class PuzzleUI2Manager : MonoBehaviour
     public void OnMirrorCheckComplete(bool wasDangerous, bool exploded)
     {
         HideMirrorCheckProgress();
-        
+
         if (exploded)
         {
             if (statusText)
@@ -376,7 +376,7 @@ public class PuzzleUI2Manager : MonoBehaviour
                 statusText.text = "💥 กระจกหลอกระเบิด! HP -1";
                 statusText.color = Color.red;
             }
-            
+
             // แสดงเอฟเฟคระเบิด
             StartCoroutine(ShowExplosionEffect());
         }
@@ -388,7 +388,7 @@ public class PuzzleUI2Manager : MonoBehaviour
                 statusText.color = Color.green;
             }
         }
-        
+
         // รีเซ็ตข้อความหลังจาก 3 วินาที
         StartCoroutine(ResetStatusTextAfterDelay(3f));
     }
@@ -400,12 +400,12 @@ public class PuzzleUI2Manager : MonoBehaviour
         {
             dangerOverlay.gameObject.SetActive(true);
             dangerOverlay.color = new Color(1, 0, 0, 0.8f);
-            
+
             yield return new WaitForSeconds(0.1f);
-            
+
             dangerOverlay.color = new Color(1, 0, 0, 0.4f);
             yield return new WaitForSeconds(0.1f);
-            
+
             dangerOverlay.color = new Color(1, 0, 0, 0);
             dangerOverlay.gameObject.SetActive(false);
         }
@@ -414,7 +414,7 @@ public class PuzzleUI2Manager : MonoBehaviour
     IEnumerator ResetStatusTextAfterDelay(float delay)
     {
         yield return new WaitForSeconds(delay);
-        
+
         if (statusText && !puzzleManager.IsPuzzleCompleted())
         {
             statusText.text = "🔍 กำลังแก้ Puzzle...";
@@ -428,7 +428,7 @@ public class PuzzleUI2Manager : MonoBehaviour
         {
             uiAudioSource.PlayOneShot(buttonClickSound);
         }
-        
+
         // รีสตาร์ท Puzzle
         UnityEngine.SceneManagement.SceneManager.LoadScene(
             UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex
@@ -441,7 +441,7 @@ public class PuzzleUI2Manager : MonoBehaviour
         {
             uiAudioSource.PlayOneShot(buttonClickSound);
         }
-        
+
         Application.Quit();
     }
 }

@@ -140,8 +140,6 @@ public class GloveController : MonoBehaviour
         if (line != null) line.enabled = true;
 
         // Animation
-        if (_animator != null)
-            _animator.SetTrigger(_hashExtendPunch);
 
         // Haptic
         HapticManager.Instance?.Vibrate(0.2f, 0.5f, 0.1f);

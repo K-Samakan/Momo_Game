@@ -202,15 +202,38 @@ public class GlovePickup : MonoBehaviour
         if (modelDefault != null)
         {
             modelDefault.SetActive(false);
-            Debug.Log("[GlovePickup] 🔄 ซ่อน Model เดิม (Spaceboy)");
+            Debug.Log("[GlovePickup] 🔄 Hide Default Model");
         }
-        else Debug.LogWarning("[GlovePickup] ⚠️ ไม่พบ modelDefault!");
 
         if (modelWithGlove != null)
         {
             modelWithGlove.SetActive(true);
-            Debug.Log("[GlovePickup] 🔄 แสดง Model ใหม่ (Spaceboy_item1Ver2)");
+            Debug.Log("[GlovePickup] 🔄 Show Glove Model");
+
+            // ✅ หา Animator จาก Model ใหม่
+            Animator newAnimator = modelWithGlove
+                .GetComponentInChildren<Animator>();
+
+            if (newAnimator != null)
+            {
+                // ✅ อัพเดท ThirdPersonController
+                var tpc = FindFirstObjectByType
+                    <StarterAssets.ThirdPersonController>();
+                if (tpc != null)
+                    tpc._animator = newAnimator;
+
+                // ✅ อัพเดท MOMOCharacterBridge
+                var bridge = FindFirstObjectByType
+                    <MOMOCharacterBridge>();
+                if (bridge != null)
+                    bridge.Animator = newAnimator;
+
+                Debug.Log("[GlovePickup] ✅ Animator Swapped!");
+            }
+            else
+            {
+                Debug.LogWarning("[GlovePickup] ⚠️ ไม่พบ Animator ใน Model ใหม่!");
+            }
         }
-        else Debug.LogWarning("[GlovePickup] ⚠️ ไม่พบ modelWithGlove!");
     }
 }

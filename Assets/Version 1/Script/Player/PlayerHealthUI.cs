@@ -1,20 +1,27 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
-using MOMO.Player; // ✅ เพิ่มบรรทัดนี้
+using MOMO.Player;
 
-namespace MOMO.UI // ✅ ใส่ namespace ให้เข้ากับโปรเจกต์
+namespace MOMO.UI
 {
     public class PlayerHealthUI : MonoBehaviour
     {
         [Header("References")]
-        public PlayerHealth playerHealth; // ✅ ตอนนี้หาเจอแล้ว
+        public PlayerHealth playerHealth;
 
         [Header("HP Slots")]
         public Image[] hpSlots;
         public Color slotActiveColor = Color.green;
         public Color slotEmptyColor = new Color(0.3f, 0.3f, 0.3f, 0.5f);
+
+        [Header("Dynamic Slot Spawn")]
+        [Tooltip("ลาก HPSlot_1 (1 ช่อง) มาเป็น Prefab")]
+        public GameObject hpSlotPrefab;
+        [Tooltip("ลาก BarContainer มาใส่")]
+        public Transform hpSlotContainer;
 
         [Header("HP Text")]
         public TextMeshProUGUI hpCounterText;
@@ -31,14 +38,16 @@ namespace MOMO.UI // ✅ ใส่ namespace ให้เข้ากับโ�
         [Header("Slot Animation")]
         public float slotScalePunchAmount = 0.3f;
 
+        // ── Private ──
         private int currentDisplayHP;
         private Coroutine flashCoroutine;
+        private List<Image> slotList = new List<Image>();
 
+        // ─────────────────────────────────────────────
         void Start()
         {
-            // Auto หา PlayerHealth ถ้าไม่ได้ลาก
             if (playerHealth == null)
-                playerHealth = FindObjectOfType<PlayerHealth>();
+                playerHealth = FindFirstObjectByType<PlayerHealth>();
 
             if (playerHealth == null)
             {
@@ -46,16 +55,17 @@ namespace MOMO.UI // ✅ ใส่ namespace ให้เข้ากับโ�
                 return;
             }
 
+            // ย้าย hpSlots ที่ลาก Inspector ไปใส่ List
+            slotList = new List<Image>(hpSlots);
+
             // Subscribe Events
             playerHealth.OnHPChanged += UpdateHPDisplay;
-            playerHealth.OnDamaged   += PlayDamageEffect;
-            playerHealth.OnHealed    += PlayHealEffect;
+            playerHealth.OnDamaged += PlayDamageEffect;
+            playerHealth.OnHealed += PlayHealEffect;
 
-            // ซ่อน Flash เริ่มต้น
             if (damageFlashImage != null)
                 SetFlashAlpha(0);
 
-            // แสดงผลเริ่มต้น
             currentDisplayHP = playerHealth.currentHealth;
             UpdateHPDisplay(playerHealth.currentHealth, playerHealth.maxHealth);
         }
@@ -64,37 +74,70 @@ namespace MOMO.UI // ✅ ใส่ namespace ให้เข้ากับโ�
         {
             if (playerHealth == null) return;
             playerHealth.OnHPChanged -= UpdateHPDisplay;
-            playerHealth.OnDamaged   -= PlayDamageEffect;
-            playerHealth.OnHealed    -= PlayHealEffect;
+            playerHealth.OnDamaged -= PlayDamageEffect;
+            playerHealth.OnHealed -= PlayHealEffect;
         }
 
-        // ===== อัปเดต Slot + ตัวเลข =====
+        // ─────────────────────────────────────────────
+        // อัปเดต Slot + ตัวเลข
+        // ─────────────────────────────────────────────
         private void UpdateHPDisplay(int current, int max)
         {
+            // ✅ ถ้า Slot ไม่พอ → Spawn เพิ่มจนครบ
+            while (slotList.Count < max)
+                AddHPSlot();
+
             // ✅ อัปเดตตัวเลข
             if (hpCounterText != null)
                 hpCounterText.text = $"{current}/{max}";
 
-            // ✅ อัปเดต Slots
-            for (int i = 0; i < hpSlots.Length; i++)
+            // ✅ อัปเดต Slot ทั้งหมด
+            for (int i = 0; i < slotList.Count; i++)
             {
-                if (hpSlots[i] == null) continue;
+                if (slotList[i] == null) continue;
 
+                // แสดง/ซ่อนตาม maxHP
+                slotList[i].gameObject.SetActive(i < max);
+
+                // สีตาม currentHP
                 bool isActive = i < current;
-                hpSlots[i].color = isActive ? slotActiveColor : slotEmptyColor;
+                slotList[i].color = isActive ? slotActiveColor : slotEmptyColor;
 
-                // Punch เฉพาะ Slot ที่เพิ่งเปลี่ยน
+                // Punch Animation
                 if (i == current && current < currentDisplayHP)
-                    StartCoroutine(SlotPunchScale(hpSlots[i].transform, false)); // เสีย HP
+                    StartCoroutine(SlotPunchScale(slotList[i].transform, false)); // เสีย HP
 
                 if (i == current - 1 && current > currentDisplayHP)
-                    StartCoroutine(SlotPunchScale(hpSlots[i].transform, true));  // ฟื้น HP
+                    StartCoroutine(SlotPunchScale(slotList[i].transform, true));  // ฟื้น HP
             }
 
             currentDisplayHP = current;
         }
 
-        // ===== Flash Effects =====
+        // ─────────────────────────────────────────────
+        // Spawn HP Slot เพิ่ม
+        // ─────────────────────────────────────────────
+        private void AddHPSlot()
+        {
+            if (hpSlotPrefab == null || hpSlotContainer == null)
+            {
+                Debug.LogWarning("[PlayerHealthUI] ⚠️ ไม่พบ hpSlotPrefab หรือ hpSlotContainer!");
+                return;
+            }
+
+            GameObject newSlot = Instantiate(hpSlotPrefab, hpSlotContainer);
+            Image slotImage = newSlot.GetComponent<Image>();
+
+            if (slotImage != null)
+            {
+                slotList.Add(slotImage);
+                Debug.Log($"[PlayerHealthUI] ➕ เพิ่ม HP Slot | รวม {slotList.Count} slots");
+            }
+        }
+
+        // ─────────────────────────────────────────────
+        // Flash Effects
+        // ─────────────────────────────────────────────
         private void PlayDamageEffect()
         {
             if (flashCoroutine != null) StopCoroutine(flashCoroutine);
@@ -113,9 +156,7 @@ namespace MOMO.UI // ✅ ใส่ namespace ให้เข้ากับโ�
 
             for (int i = 0; i < count; i++)
             {
-                // Fade In
                 yield return StartCoroutine(FadeFlash(color, 0f, color.a));
-                // Fade Out
                 yield return StartCoroutine(FadeFlash(color, color.a, 0f));
             }
 
@@ -142,7 +183,9 @@ namespace MOMO.UI // ✅ ใส่ namespace ให้เข้ากับโ�
             damageFlashImage.color = c;
         }
 
-        // ===== Slot Punch Scale =====
+        // ─────────────────────────────────────────────
+        // Slot Punch Scale
+        // ─────────────────────────────────────────────
         private IEnumerator SlotPunchScale(Transform slot, bool isHeal)
         {
             Vector3 originalScale = slot.localScale;
@@ -152,14 +195,12 @@ namespace MOMO.UI // ✅ ใส่ namespace ให้เข้ากับโ�
 
             float duration = 0.1f;
 
-            // Scale ออก
             for (float t = 0; t < duration; t += Time.deltaTime)
             {
                 slot.localScale = originalScale * Mathf.Lerp(1f, targetScale, t / duration);
                 yield return null;
             }
 
-            // กลับ Normal
             for (float t = 0; t < duration * 1.5f; t += Time.deltaTime)
             {
                 slot.localScale = originalScale * Mathf.Lerp(targetScale, 1f, t / (duration * 1.5f));

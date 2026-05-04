@@ -408,4 +408,10 @@ public class SmartAttackSystem : MonoBehaviour
             Gizmos.DrawWireSphere(kickPoint.position, kickDetectRadius);
         }
     }
+
+    public void SetAnimator(Animator newAnimator)
+    {
+        _animator = newAnimator;
+        Debug.Log("[SmartAttackSystem] ✅ Animator อัพเดทแล้ว!");
+    }
 }
