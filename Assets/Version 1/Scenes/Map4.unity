@@ -134418,7 +134418,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &533630787
 Transform:
   m_ObjectHideFlags: 0
@@ -281216,7 +281216,7 @@ LineRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1083877196}
-  m_Enabled: 1
+  m_Enabled: 0
   m_CastShadows: 1
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
@@ -417636,6 +417636,8 @@ MonoBehaviour:
   - {fileID: 1984512537}
   slotActiveColor: {r: 0.59607846, g: 0.9254902, b: 0.5372549, a: 1}
   slotEmptyColor: {r: 0.3, g: 0.3, b: 0.3, a: 0.5}
+  hpSlotPrefab: {fileID: 0}
+  hpSlotContainer: {fileID: 0}
   hpCounterText: {fileID: 1115940208}
   damageFlashImage: {fileID: 0}
   flashDuration: 0.15
@@ -482627,7 +482629,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1955455863
 Transform:
   m_ObjectHideFlags: 0
@@ -506841,7 +506843,7 @@ LineRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2087321326}
-  m_Enabled: 1
+  m_Enabled: 0
   m_CastShadows: 1
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
@@ -508569,7 +508571,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &2101158154
 Transform:
   m_ObjectHideFlags: 0

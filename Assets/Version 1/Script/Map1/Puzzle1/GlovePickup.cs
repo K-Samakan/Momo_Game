@@ -4,14 +4,12 @@ using MOMO.Player;
 
 /// <summary>
 /// แท่นวางถุงมือลิง
-/// ผู้เล่นเข้าใกล้แล้วกด □ (Square/Attack) เพื่อรับ
+/// ผู้เล่นเข้าใกล้แล้วกด □ (Attack) เพื่อรับ
 /// ถอดไม่ได้ — Equip ครั้งเดียวถาวร
-/// หลัง Equip:
-///   - HP Max +2, Heal +2
-///   - ATK +1
-///   - Swap Model เป็น Spaceboy_item1Ver2
-///   - เปิดประตูด้านหลัง (DoorBack)
-///   - เปิด GloveController
+/// 
+/// วิธีนี้ใช้ SetActive แสดง/ซ่อน Mesh ถุงมือ
+/// แทนการ Swap Model ทั้งตัว
+/// → Animation ทำงานปกติ 100%
 /// </summary>
 public class GlovePickup : MonoBehaviour
 {
@@ -24,21 +22,25 @@ public class GlovePickup : MonoBehaviour
     public int atkBonus = 1;
 
     [Header("UI Prompt")]
-    [Tooltip("GameObject UI ที่แสดงข้อความ 'กด □ เพื่อรับถุงมือ'")]
+    [Tooltip("GameObject UI 'Press □ to equip Monkey Glove'")]
     public GameObject promptUI;
 
-    [Header("Model Swap")]
-    [Tooltip("Model Momo ปกติ (Spaceboy)")]
-    public GameObject modelDefault;
-    [Tooltip("Model Momo สวมถุงมือ (Spaceboy_item1Ver2)")]
-    public GameObject modelWithGlove;
+    [Header("Glove Visual — ลาก Mesh จาก Spaceboy Model")]
+    [Tooltip("ปลอกแขนขวา (Mesh_0.001)")]
+    public GameObject gloveSleeveR;
+    [Tooltip("ปลอกแขนซ้าย (Mesh_0)")]
+    public GameObject gloveSleeveL;
+    [Tooltip("หมัดขวา (Mesh_0.002)")]
+    public GameObject gloveFistR;
+    [Tooltip("หมัดซ้าย (Mesh_0.003)")]
+    public GameObject gloveFistL;
 
     [Header("Door")]
-    [Tooltip("ประตูด้านหลังที่จะเปิดหลังรับถุงมือ")]
+    [Tooltip("ประตูด้านหลังที่เปิดหลังรับถุงมือ")]
     public GameObject doorBack;
 
-    [Header("Cutscene (เตรียมไว้ก่อน ยังไม่ต้องทำ)")]
-    [Tooltip("Cutscene Object (ยังไม่ต้องทำ — เตรียม Reference ไว้ก่อน)")]
+    [Header("Cutscene (เตรียมไว้ก่อน)")]
+    [Tooltip("Cutscene Object — ยังไม่ต้องทำ")]
     public GameObject cutsceneObject;
 
     [Header("VFX (Optional)")]
@@ -57,11 +59,13 @@ public class GlovePickup : MonoBehaviour
     // ─────────────────────────────────────────────
     void Start()
     {
+        // ซ่อน Prompt UI ตอนเริ่ม
         if (promptUI != null) promptUI.SetActive(false);
 
-        // ตรวจสอบ Model ตอนเริ่ม
-        if (modelWithGlove != null) modelWithGlove.SetActive(false);
+        // ซ่อน Mesh ถุงมือตอนเริ่ม
+        HideGloveVisual();
 
+        // หา PlayerInput
         _playerInput = FindFirstObjectByType<PlayerInput>();
         if (_playerInput == null)
         {
@@ -69,7 +73,7 @@ public class GlovePickup : MonoBehaviour
             return;
         }
 
-        // ใช้ปุ่ม Attack (□) รับไอเทม
+        // Subscribe Attack (□) เพื่อรับไอเทม
         var playerMap = _playerInput.actions.FindActionMap("Player");
         if (playerMap != null)
         {
@@ -104,9 +108,9 @@ public class GlovePickup : MonoBehaviour
 
         if (promptUI != null) promptUI.SetActive(true);
 
-        Debug.Log("╔══════════════════════════════════╗");
-        Debug.Log("║  🥊 ถุงมือลิง — กด □ เพื่อรับไอเทม ║");
-        Debug.Log("╚══════════════════════════════════╝");
+        Debug.Log("╔══════════════════════════════════════╗");
+        Debug.Log("║  🥊 Monkey Glove — Press □ to equip  ║");
+        Debug.Log("╚══════════════════════════════════════╝");
     }
 
     void OnTriggerExit(Collider other)
@@ -117,7 +121,7 @@ public class GlovePickup : MonoBehaviour
     }
 
     // ─────────────────────────────────────────────
-    // Input Callback
+    // Input
     // ─────────────────────────────────────────────
     void OnInteract(InputAction.CallbackContext context)
     {
@@ -148,22 +152,14 @@ public class GlovePickup : MonoBehaviour
             _smartAttack.punchDamage2 += atkBonus;
             _smartAttack.kickDamage += atkBonus;
             _smartAttack.kickDamage2 += atkBonus;
-            Debug.Log($"[GlovePickup] ⚔️ ATK +{atkBonus} | punch={_smartAttack.punchDamage} kick={_smartAttack.kickDamage}");
+            Debug.Log($"[GlovePickup] ⚔️ ATK +{atkBonus} | punch={_smartAttack.punchDamage}");
         }
         else Debug.LogWarning("[GlovePickup] ⚠️ ไม่พบ SmartAttackSystem!");
 
-        // ── 3) Cutscene (เตรียมไว้ก่อน ยังไม่ต้องทำ) ──
-        if (cutsceneObject != null)
-        {
-            cutsceneObject.SetActive(true);
-            Debug.Log("[GlovePickup] 🎬 Cutscene เริ่ม!");
-            // TODO: รอ Cutscene จบแล้วค่อย SwapModel
-        }
+        // ── 3) แสดง Mesh ถุงมือ ──
+        ShowGloveVisual();
 
-        // ── 4) Swap Model ──
-        SwapModel();
-
-        // ── 5) GloveController ──
+        // ── 4) เปิด GloveController ──
         if (gloveController != null)
         {
             gloveController.enabled = true;
@@ -172,13 +168,20 @@ public class GlovePickup : MonoBehaviour
         }
         else Debug.LogWarning("[GlovePickup] ⚠️ ไม่พบ GloveController!");
 
-        // ── 6) เปิดประตูหลัง ──
+        // ── 5) เปิดประตูหลัง ──
         if (doorBack != null)
         {
             doorBack.SetActive(false);
             Debug.Log("[GlovePickup] 🚪 ประตูด้านหลังเปิดแล้ว!");
         }
         else Debug.LogWarning("[GlovePickup] ⚠️ ไม่พบ DoorBack!");
+
+        // ── 6) Cutscene (TODO) ──
+        if (cutsceneObject != null)
+        {
+            cutsceneObject.SetActive(true);
+            Debug.Log("[GlovePickup] 🎬 Cutscene เริ่ม!");
+        }
 
         // ── 7) Haptic ──
         HapticManager.Instance?.PlayPattern(HapticPatternType.Success);
@@ -190,50 +193,27 @@ public class GlovePickup : MonoBehaviour
         // ── 9) ซ่อน UI + Disable แท่นวาง ──
         if (promptUI != null) promptUI.SetActive(false);
 
-        Debug.Log("[GlovePickup] ✅ รับถุงมือลิงสำเร็จ! ถอดไม่ได้แล้ว");
+        Debug.Log("[GlovePickup] ✅ Monkey Glove equipped! Cannot be removed.");
         gameObject.SetActive(false);
     }
 
     // ─────────────────────────────────────────────
-    // Swap Model
+    // Glove Visual
     // ─────────────────────────────────────────────
-    void SwapModel()
+    void ShowGloveVisual()
     {
-        if (modelDefault != null)
-        {
-            modelDefault.SetActive(false);
-            Debug.Log("[GlovePickup] 🔄 Hide Default Model");
-        }
+        if (gloveSleeveR != null) gloveSleeveR.SetActive(true);
+        if (gloveSleeveL != null) gloveSleeveL.SetActive(true);
+        if (gloveFistR != null) gloveFistR.SetActive(true);
+        if (gloveFistL != null) gloveFistL.SetActive(true);
+        Debug.Log("[GlovePickup] 🥊 Glove Visual แสดงแล้ว!");
+    }
 
-        if (modelWithGlove != null)
-        {
-            modelWithGlove.SetActive(true);
-            Debug.Log("[GlovePickup] 🔄 Show Glove Model");
-
-            // ✅ หา Animator จาก Model ใหม่
-            Animator newAnimator = modelWithGlove
-                .GetComponentInChildren<Animator>();
-
-            if (newAnimator != null)
-            {
-                // ✅ อัพเดท ThirdPersonController
-                var tpc = FindFirstObjectByType
-                    <StarterAssets.ThirdPersonController>();
-                if (tpc != null)
-                    tpc._animator = newAnimator;
-
-                // ✅ อัพเดท MOMOCharacterBridge
-                var bridge = FindFirstObjectByType
-                    <MOMOCharacterBridge>();
-                if (bridge != null)
-                    bridge.Animator = newAnimator;
-
-                Debug.Log("[GlovePickup] ✅ Animator Swapped!");
-            }
-            else
-            {
-                Debug.LogWarning("[GlovePickup] ⚠️ ไม่พบ Animator ใน Model ใหม่!");
-            }
-        }
+    void HideGloveVisual()
+    {
+        if (gloveSleeveR != null) gloveSleeveR.SetActive(false);
+        if (gloveSleeveL != null) gloveSleeveL.SetActive(false);
+        if (gloveFistR != null) gloveFistR.SetActive(false);
+        if (gloveFistL != null) gloveFistL.SetActive(false);
     }
 }

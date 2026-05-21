@@ -73,7 +73,7 @@ public class PuzzleManager : MonoBehaviour
         GenerateRandomPattern();
 
         // 3. หน่วง 10 วินาที หลัง PuzzleCanvas แสดง
-        yield return new WaitForSeconds(10f);
+        yield return new WaitForSeconds(3f);
 
         // 4. เล่น Pattern ครั้งเดียว
         yield return StartCoroutine(PlayPatternWithDelay());
