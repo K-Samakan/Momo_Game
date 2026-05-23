@@ -1,20 +1,14 @@
+// ============================================================
+// FILE: GlovePickup.cs
+// PATH: Assets/Version 1/Script/Map1/Puzzle1/GlovePickup.cs
+// ============================================================
 using UnityEngine;
 using UnityEngine.InputSystem;
 using MOMO.Player;
 
-/// <summary>
-/// แท่นวางถุงมือลิง
-/// ผู้เล่นเข้าใกล้แล้วกด □ (Attack) เพื่อรับ
-/// ถอดไม่ได้ — Equip ครั้งเดียวถาวร
-/// 
-/// วิธีนี้ใช้ SetActive แสดง/ซ่อน Mesh ถุงมือ
-/// แทนการ Swap Model ทั้งตัว
-/// → Animation ทำงานปกติ 100%
-/// </summary>
 public class GlovePickup : MonoBehaviour
 {
     [Header("References")]
-    [Tooltip("ลาก GloveController จาก GloveSystem มาใส่")]
     public GloveController gloveController;
 
     [Header("Pickup Settings")]
@@ -22,29 +16,29 @@ public class GlovePickup : MonoBehaviour
     public int atkBonus = 1;
 
     [Header("UI Prompt")]
-    [Tooltip("GameObject UI 'Press □ to equip Monkey Glove'")]
     public GameObject promptUI;
 
     [Header("Glove Visual — ลาก Mesh จาก Spaceboy Model")]
-    [Tooltip("ปลอกแขนขวา (Mesh_0.001)")]
     public GameObject gloveSleeveR;
-    [Tooltip("ปลอกแขนซ้าย (Mesh_0)")]
     public GameObject gloveSleeveL;
-    [Tooltip("หมัดขวา (Mesh_0.002)")]
     public GameObject gloveFistR;
-    [Tooltip("หมัดซ้าย (Mesh_0.003)")]
     public GameObject gloveFistL;
 
+    [Header("Pedestal")]
+    [Tooltip("ลาก ItemT (ถุงมือบนแท่น) มาใส่ — จะหายไปตอน Equip")]
+    public GameObject pedestalItem;
+
     [Header("Door")]
-    [Tooltip("ประตูด้านหลังที่เปิดหลังรับถุงมือ")]
     public GameObject doorBack;
 
     [Header("Cutscene (เตรียมไว้ก่อน)")]
-    [Tooltip("Cutscene Object — ยังไม่ต้องทำ")]
     public GameObject cutsceneObject;
 
     [Header("VFX (Optional)")]
     public GameObject pickupEffect;
+
+    [Header("Debug (Editor Only)")]
+    [SerializeField] private bool _debugIgnoreSave = false;
 
     // ── Private ──
     private bool _playerInRange = false;
@@ -52,20 +46,30 @@ public class GlovePickup : MonoBehaviour
     private PlayerInput _playerInput;
     private InputAction _interactAction;
 
-    // Cache
     private PlayerHealth _playerHealth;
     private SmartAttackSystem _smartAttack;
 
     // ─────────────────────────────────────────────
     void Start()
     {
-        // ซ่อน Prompt UI ตอนเริ่ม
         if (promptUI != null) promptUI.SetActive(false);
-
-        // ซ่อน Mesh ถุงมือตอนเริ่ม
         HideGloveVisual();
 
-        // หา PlayerInput
+        bool shouldHide = SaveManager.Instance != null
+                       && SaveManager.Instance.CurrentSave.hasMonkeyGlove;
+
+#if UNITY_EDITOR
+        if (_debugIgnoreSave) shouldHide = false;
+#endif
+
+        if (shouldHide)
+        {
+            // ✅ ซ่อนแค่ถุงมือบนแท่น ไม่ซ่อนทั้งแท่น
+            if (pedestalItem != null) pedestalItem.SetActive(false);
+            this.enabled = false;
+            return;
+        }
+
         _playerInput = FindFirstObjectByType<PlayerInput>();
         if (_playerInput == null)
         {
@@ -73,7 +77,6 @@ public class GlovePickup : MonoBehaviour
             return;
         }
 
-        // Subscribe Attack (□) เพื่อรับไอเทม
         var playerMap = _playerInput.actions.FindActionMap("Player");
         if (playerMap != null)
         {
@@ -95,8 +98,6 @@ public class GlovePickup : MonoBehaviour
             _interactAction.performed -= OnInteract;
     }
 
-    // ─────────────────────────────────────────────
-    // Trigger Zone
     // ─────────────────────────────────────────────
     void OnTriggerEnter(Collider other)
     {
@@ -121,8 +122,6 @@ public class GlovePickup : MonoBehaviour
     }
 
     // ─────────────────────────────────────────────
-    // Input
-    // ─────────────────────────────────────────────
     void OnInteract(InputAction.CallbackContext context)
     {
         if (!_playerInRange || _pickedUp) return;
@@ -130,29 +129,45 @@ public class GlovePickup : MonoBehaviour
     }
 
     // ─────────────────────────────────────────────
-    // Equip Logic
-    // ─────────────────────────────────────────────
     void EquipGlove()
     {
         _pickedUp = true;
 
+        // ✅ บันทึก flag ลง disk ทันที
+        if (SaveManager.Instance != null)
+        {
+            SaveManager.Instance.CurrentSave.hasMonkeyGlove = true;
+            SaveManager.Instance.ForceSaveCurrentState();
+        }
+
         // ── 1) HP Max + Heal ──
         if (_playerHealth != null)
         {
+            int oldMax = _playerHealth.maxHealth;
+            int oldCurrent = _playerHealth.currentHealth;
+
             _playerHealth.maxHealth += hpBonus;
             _playerHealth.Heal(hpBonus);
-            Debug.Log($"[GlovePickup] ❤️ maxHP +{hpBonus} → maxHP = {_playerHealth.maxHealth}");
+
+            Debug.Log($"[GlovePickup] ❤️ HP STAT CHANGED | maxHP: {oldMax} → {_playerHealth.maxHealth} | current: {oldCurrent} → {_playerHealth.currentHealth}");
+
+            if (SaveManager.Instance != null)
+                SaveManager.Instance.ForceSaveCurrentState();
         }
         else Debug.LogWarning("[GlovePickup] ⚠️ ไม่พบ PlayerHealth!");
 
         // ── 2) ATK ──
         if (_smartAttack != null)
         {
+            int oldPunch = _smartAttack.punchDamage;
+            int oldKick = _smartAttack.kickDamage;
+
             _smartAttack.punchDamage += atkBonus;
             _smartAttack.punchDamage2 += atkBonus;
             _smartAttack.kickDamage += atkBonus;
             _smartAttack.kickDamage2 += atkBonus;
-            Debug.Log($"[GlovePickup] ⚔️ ATK +{atkBonus} | punch={_smartAttack.punchDamage}");
+
+            Debug.Log($"[GlovePickup] ⚔️ ATK STAT CHANGED | punch: {oldPunch} → {_smartAttack.punchDamage} | kick: {oldKick} → {_smartAttack.kickDamage}");
         }
         else Debug.LogWarning("[GlovePickup] ⚠️ ไม่พบ SmartAttackSystem!");
 
@@ -176,7 +191,7 @@ public class GlovePickup : MonoBehaviour
         }
         else Debug.LogWarning("[GlovePickup] ⚠️ ไม่พบ DoorBack!");
 
-        // ── 6) Cutscene (TODO) ──
+        // ── 6) Cutscene ──
         if (cutsceneObject != null)
         {
             cutsceneObject.SetActive(true);
@@ -190,15 +205,58 @@ public class GlovePickup : MonoBehaviour
         if (pickupEffect != null)
             Instantiate(pickupEffect, transform.position, Quaternion.identity);
 
-        // ── 9) ซ่อน UI + Disable แท่นวาง ──
+        // ── 9) ซ่อนแค่ถุงมือบนแท่น ──
         if (promptUI != null) promptUI.SetActive(false);
+        if (pedestalItem != null) pedestalItem.SetActive(false);
+        this.enabled = false;
 
         Debug.Log("[GlovePickup] ✅ Monkey Glove equipped! Cannot be removed.");
-        gameObject.SetActive(false);
     }
 
     // ─────────────────────────────────────────────
-    // Glove Visual
+    // ✅ เรียกจาก SaveManager ตอน Respawn
+    // ─────────────────────────────────────────────
+    public void ForceEquipOnRespawn()
+    {
+        if (_pickedUp) return;
+        _pickedUp = true;
+
+        Debug.Log("╔══════════════════════════════════════╗");
+        Debug.Log("║  🔄 RESPAWN — Restoring Glove Stats  ║");
+        Debug.Log("╚══════════════════════════════════════╝");
+
+        var smartAttack = FindFirstObjectByType<SmartAttackSystem>();
+        if (smartAttack != null)
+        {
+            int oldPunch = smartAttack.punchDamage;
+            int oldKick = smartAttack.kickDamage;
+
+            smartAttack.punchDamage += atkBonus;
+            smartAttack.punchDamage2 += atkBonus;
+            smartAttack.kickDamage += atkBonus;
+            smartAttack.kickDamage2 += atkBonus;
+
+            Debug.Log($"[GlovePickup] ⚔️ ATK RESTORED | punch: {oldPunch} → {smartAttack.punchDamage} | kick: {oldKick} → {smartAttack.kickDamage}");
+        }
+
+        ShowGloveVisual();
+
+        if (gloveController != null)
+        {
+            gloveController.enabled = true;
+            gloveController.OnEquip();
+        }
+
+        if (doorBack != null)
+            doorBack.SetActive(false);
+
+        // ✅ ซ่อนแค่ถุงมือบนแท่น
+        if (pedestalItem != null) pedestalItem.SetActive(false);
+        this.enabled = false;
+
+        Debug.Log("[GlovePickup] 🥊 Glove restored from save!");
+    }
+
     // ─────────────────────────────────────────────
     void ShowGloveVisual()
     {

@@ -1,53 +1,36 @@
-using System.Collections;
+// ============================================================
+// FILE: GloveController.cs
+// PATH: Assets/Version 1/Script/Map1/Item1/GloveController.cs
+// ============================================================
 using UnityEngine;
 using UnityEngine.InputSystem;
 using MOMO.AI.Monster;
 
-/// <summary>
-/// ระบบถุงมือลิง — ยืดหมัดโจมตี + ทำลาย BreakableWall
-/// ไม่มีปลอกแขน — แสดงแค่ FistHead + LineRenderer
-/// สลับมือซ้าย/ขวาตาม Combo
-/// </summary>
 public class GloveController : MonoBehaviour
 {
-    [Header("Right Hand")]
-    public Transform shoulderOrigin_R;
-    public Transform fistHead_R;
-    public LineRenderer chainLine_R;
+    [Header("Shockwave")]
+    [Tooltip("ลาก GloveShockwave Prefab มาใส่")]
+    public GameObject shockwavePrefab;
 
-    [Header("Left Hand")]
-    public Transform shoulderOrigin_L;
-    public Transform fistHead_L;
-    public LineRenderer chainLine_L;
-
-    [Header("Extend Settings")]
-    public float maxExtendDistance = 6f;
-    public float extendSpeed = 18f;
-    public float retractSpeed = 25f;
-    public float attackCooldown = 0.8f;
+    [Header("Spawn Points")]
+    [Tooltip("ลาก houlderOrigin_R มาใส่ — จุด Spawn Shockwave ขวา")]
+    public Transform spawnPoint_R;
+    [Tooltip("ลาก houlderOrigin_L มาใส่ — จุด Spawn Shockwave ซ้าย")]
+    public Transform spawnPoint_L;
 
     [Header("Damage")]
     public int gloveDamage = 2;
 
+    [Header("Attack Cooldown")]
+    public float attackCooldown = 0.8f;
+
     // ── Private ──
-    private bool _isExtending = false;
+    private bool _isEquipped = false;
     private float _lastAttackTime = -999f;
-    private bool _useRightHand = true; // สลับซ้าย/ขวา
     private InputAction _attackAction;
     private PlayerInput _playerInput;
-    private Animator _animator;
-    private int _hashExtendPunch;
 
     // ─────────────────────────────────────────────
-    void Awake()
-    {
-        _animator = GetComponentInParent<Animator>();
-        _hashExtendPunch = Animator.StringToHash("ExtendPunch");
-
-        // ซ่อนทุกอย่างตอนเริ่ม
-        HideAll();
-    }
-
     void OnEnable()
     {
         _playerInput = GetComponentInParent<PlayerInput>();
@@ -73,178 +56,89 @@ public class GloveController : MonoBehaviour
     {
         if (_attackAction != null)
             _attackAction.performed -= OnAttackInput;
-        HideAll();
     }
 
-    // ─────────────────────────────────────────────
-    // เรียกจาก GlovePickup ตอน Equip
     // ─────────────────────────────────────────────
     public void OnEquip()
     {
-        Debug.Log("[GloveController] 🥊 Equipped! FistHead พร้อมแล้ว");
-        // FistHead ยังซ่อนอยู่ จะโผล่เฉพาะตอนโจมตี
+        _isEquipped = true;
+        Debug.Log("[GloveController] 🥊 Equipped! พร้อมใช้งาน");
     }
 
     // ─────────────────────────────────────────────
-    // Input
+    // Input — ใช้สำหรับ Cooldown check เท่านั้น
+    // Shockwave จริงๆ เรียกจาก Animation Event
     // ─────────────────────────────────────────────
     void OnAttackInput(InputAction.CallbackContext context)
     {
-        if (_isExtending) return;
+        if (!_isEquipped) return;
         if (Time.time < _lastAttackTime + attackCooldown) return;
-
-        // สลับมือ
-        bool useRight = _useRightHand;
-        _useRightHand = !_useRightHand;
-
-        Transform fist = useRight ? fistHead_R : fistHead_L;
-        Transform origin = useRight ? shoulderOrigin_R : shoulderOrigin_L;
-        LineRenderer line = useRight ? chainLine_R : chainLine_L;
-
-        if (fist == null || origin == null)
-        {
-            Debug.LogWarning("[GloveController] ⚠️ FistHead หรือ ShoulderOrigin ยังไม่ได้ลาก Reference!");
-            return;
-        }
-
-        StartCoroutine(ExtendPunch(fist, origin, line));
-    }
-
-    // ─────────────────────────────────────────────
-    // LateUpdate — อัพเดท LineRenderer
-    // ─────────────────────────────────────────────
-    void LateUpdate()
-    {
-        UpdateLine(chainLine_R, shoulderOrigin_R, fistHead_R);
-        UpdateLine(chainLine_L, shoulderOrigin_L, fistHead_L);
-    }
-
-    void UpdateLine(LineRenderer line, Transform origin, Transform fist)
-    {
-        if (line == null || !line.enabled || origin == null || fist == null) return;
-        line.SetPosition(0, origin.position);
-        line.SetPosition(1, fist.position);
-    }
-
-    // ─────────────────────────────────────────────
-    // Extend Punch
-    // ─────────────────────────────────────────────
-    IEnumerator ExtendPunch(Transform fist, Transform origin, LineRenderer line)
-    {
-        _isExtending = true;
         _lastAttackTime = Time.time;
-
-        // เริ่มต้น
-        fist.position = origin.position;
-        fist.gameObject.SetActive(true);
-        if (line != null) line.enabled = true;
-
-        // Animation
-
-        // Haptic
-        HapticManager.Instance?.Vibrate(0.2f, 0.5f, 0.1f);
-
-        Debug.Log($"[GloveController] 👊 ยืดหมัดออก | มือ: {fist.name}");
-
-        Vector3 targetPos = origin.position + transform.forward * maxExtendDistance;
-        bool hitSomething = false;
-
-        // ── Phase 1: พุ่งออก ──
-        while (Vector3.Distance(fist.position, targetPos) > 0.15f)
-        {
-            fist.position = Vector3.MoveTowards(
-                fist.position, targetPos, extendSpeed * Time.deltaTime);
-
-            Collider[] hits = Physics.OverlapSphere(fist.position, 0.35f);
-            foreach (var hit in hits)
-            {
-                if (hit.CompareTag("Enemy"))
-                {
-                    DealDamage(hit);
-                    hitSomething = true;
-                    break;
-                }
-                if (hit.CompareTag("BreakableWall"))
-                {
-                    hit.GetComponent<BreakableWall>()?.Break();
-                    hitSomething = true;
-                    break;
-                }
-            }
-            if (hitSomething) break;
-            yield return null;
-        }
-
-        yield return new WaitForSeconds(0.05f);
-
-        // ── Phase 2: ดึงกลับ ──
-        while (Vector3.Distance(fist.position, origin.position) > 0.1f)
-        {
-            fist.position = Vector3.MoveTowards(
-                fist.position, origin.position, retractSpeed * Time.deltaTime);
-            yield return null;
-        }
-
-        // ── จบ ──
-        fist.gameObject.SetActive(false);
-        if (line != null) line.enabled = false;
-        _isExtending = false;
-
-        Debug.Log("[GloveController] 🥊 หมัดกลับแล้ว");
+        // Animation Event จะเรียก SpawnShockwaveRight/Left เอง
     }
 
     // ─────────────────────────────────────────────
-    // Deal Damage
+    // Animation Events — เรียกจาก Animation Clip
     // ─────────────────────────────────────────────
-    void DealDamage(Collider enemyCol)
+    public void SpawnShockwaveRight()
     {
-        MonsterBT bt = enemyCol.GetComponent<MonsterBT>();
-        if (bt != null)
+        if (!_isEquipped) return;
+        SpawnShockwave(spawnPoint_R);
+        Debug.Log("[GloveController] 👊 Shockwave Right!");
+    }
+
+    public void SpawnShockwaveLeft()
+    {
+        if (!_isEquipped) return;
+        SpawnShockwave(spawnPoint_L);
+        Debug.Log("[GloveController] 👊 Shockwave Left!");
+    }
+
+    void SpawnShockwave(Transform spawnPoint)
+    {
+        if (shockwavePrefab == null)
         {
-            bt.TakeDamage(gloveDamage);
-            Debug.Log($"[GloveController] 💥 Hit BT: {enemyCol.name} | DMG: {gloveDamage}");
-            HapticManager.Instance?.Vibrate(0.15f, 0.5f, 0.12f);
+            Debug.LogWarning("[GloveController] ⚠️ ไม่พบ shockwavePrefab!");
             return;
         }
 
-        MonsterHealth mh = enemyCol.GetComponent<MonsterHealth>();
-        if (mh != null && mh.IsAlive())
+        if (spawnPoint == null)
         {
-            mh.TakeDamage(gloveDamage, enemyCol.transform.position);
-            Debug.Log($"[GloveController] 💥 Hit MH: {enemyCol.name} | DMG: {gloveDamage}");
-            HapticManager.Instance?.Vibrate(0.15f, 0.5f, 0.12f);
+            Debug.LogWarning("[GloveController] ⚠️ ไม่พบ SpawnPoint!");
+            return;
         }
+
+        // Spawn Shockwave ที่ตำแหน่ง spawnPoint
+        // หมุนให้หน้าตรงกับทิศที่ตัวละครหัน
+        GameObject sw = Instantiate(
+            shockwavePrefab,
+            spawnPoint.position,
+            Quaternion.LookRotation(transform.root.forward)
+        );
+
+        var shockwave = sw.GetComponent<GloveShockwave>();
+        if (shockwave != null)
+            shockwave.Launch(transform.root.forward, gloveDamage);
+
+        HapticManager.Instance?.Vibrate(0.2f, 0.5f, 0.1f);
     }
 
-    // ─────────────────────────────────────────────
-    // Helper
-    // ─────────────────────────────────────────────
-    void HideAll()
-    {
-        if (fistHead_R != null) fistHead_R.gameObject.SetActive(false);
-        if (fistHead_L != null) fistHead_L.gameObject.SetActive(false);
-        if (chainLine_R != null) chainLine_R.enabled = false;
-        if (chainLine_L != null) chainLine_L.enabled = false;
-    }
-
-    // ─────────────────────────────────────────────
-    // Gizmos
     // ─────────────────────────────────────────────
     void OnDrawGizmosSelected()
     {
-        if (shoulderOrigin_R != null)
+        if (spawnPoint_R != null)
         {
             Gizmos.color = Color.cyan;
-            Gizmos.DrawLine(shoulderOrigin_R.position,
-                shoulderOrigin_R.position + transform.forward * maxExtendDistance);
-            Gizmos.DrawWireSphere(
-                shoulderOrigin_R.position + transform.forward * maxExtendDistance, 0.35f);
+            Gizmos.DrawWireSphere(spawnPoint_R.position, 0.15f);
+            Gizmos.DrawLine(spawnPoint_R.position,
+                spawnPoint_R.position + transform.root.forward * 6f);
         }
-        if (shoulderOrigin_L != null)
+        if (spawnPoint_L != null)
         {
             Gizmos.color = Color.yellow;
-            Gizmos.DrawLine(shoulderOrigin_L.position,
-                shoulderOrigin_L.position + transform.forward * maxExtendDistance);
+            Gizmos.DrawWireSphere(spawnPoint_L.position, 0.15f);
+            Gizmos.DrawLine(spawnPoint_L.position,
+                spawnPoint_L.position + transform.root.forward * 6f);
         }
     }
 }

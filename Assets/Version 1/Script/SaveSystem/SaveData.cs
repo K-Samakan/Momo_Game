@@ -21,11 +21,14 @@ public class SaveData
     // ─── Quest Progress ─────────────────────────────────────
     public List<string> completedSideQuests = new List<string>();
 
-    // ─── Monster Kills ───────────────────────────────────────
+    // ─── Monster Kills ──────────────────────────────────────
     public List<string> killedMonsterIDs = new List<string>();
 
     // ─── Timestamp ──────────────────────────────────────────
     public string savedAt = "";
+
+    // ─── Item Flags ─────────────────────────────────────────
+    public bool hasMonkeyGlove = false;
 
     public Vector3 GetRespawnPosition() => new Vector3(posX, posY, posZ);
 

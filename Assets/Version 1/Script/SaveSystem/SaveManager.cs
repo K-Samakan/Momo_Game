@@ -46,14 +46,12 @@ public class SaveManager : MonoBehaviour
         var ph = FindFirstObjectByType<MOMO.Player.PlayerHealth>();
         if (ph != null)
         {
-            // ตรวจว่า HP ไม่เต็มก่อน → ถ้าเต็มอยู่แล้วไม่ต้องเล่น VFX
             bool needHeal = ph.currentHealth < ph.maxHealth;
 
             ph.currentHealth = ph.maxHealth;
             ph.UpdateHealthUI();
             ph.NotifyHPChanged();
 
-            // ✅ เล่น healEffect เหมือนตอนเก็บ Soul (เฉพาะตอนที่ HP ไม่เต็ม)
             if (needHeal && ph.healEffect != null)
             {
                 GameObject fx = Object.Instantiate(ph.healEffect, ph.transform.position, Quaternion.identity);
@@ -64,11 +62,11 @@ public class SaveManager : MonoBehaviour
             _currentSave.playerCurrentHP = ph.currentHealth;
             _currentSave.playerMaxHP = ph.maxHealth;
         }
+
         _currentSave.savePointID = savePoint.savePointID;
         _currentSave.sceneName = SceneManager.GetActiveScene().name;
         _currentSave.SetRespawnPosition(savePoint.GetRespawnPosition());
         _currentSave.savedAt = System.DateTime.Now.ToString("dd/MM/yyyy HH:mm");
-
 
         foreach (var m in _tempKilledMonsters)
             if (!_currentSave.killedMonsterIDs.Contains(m))
@@ -83,9 +81,23 @@ public class SaveManager : MonoBehaviour
         WriteToDisk(_currentSave);
 
         Debug.Log($"💾 [SaveManager] Saved at [{savePoint.savePointID}] | " +
-                  $"HP={_currentSave.playerCurrentHP}/{_currentSave.playerMaxHP}");
+                  $"HP={_currentSave.playerCurrentHP}/{_currentSave.playerMaxHP} | " +
+                  $"hasGlove={_currentSave.hasMonkeyGlove}");
 
         OnSaved?.Invoke(_currentSave);
+    }
+
+    // ✅ Save ค่าปัจจุบันทันทีโดยไม่ต้องแตะ SavePoint
+    public void ForceSaveCurrentState()
+    {
+        var ph = FindFirstObjectByType<MOMO.Player.PlayerHealth>();
+        if (ph != null)
+        {
+            _currentSave.playerCurrentHP = ph.currentHealth;
+            _currentSave.playerMaxHP = ph.maxHealth;
+        }
+        WriteToDisk(_currentSave);
+        Debug.Log($"💾 [SaveManager] Force saved | hasGlove={_currentSave.hasMonkeyGlove} | maxHP={_currentSave.playerMaxHP}");
     }
 
     public void RegisterMonsterKill(string monsterID)
@@ -160,11 +172,9 @@ public class SaveManager : MonoBehaviour
             ph.UpdateHealthUI();
             ph.NotifyHPChanged();
 
-            // ── เปิด ThirdPersonController กลับมา ────────────
             var tpc = ph.GetComponent<StarterAssets.ThirdPersonController>();
             if (tpc != null) tpc.enabled = true;
 
-            // ── Reset Animation ───────────────────────────────
             var anim = ph.GetComponent<Animator>();
             if (anim != null)
             {
@@ -174,12 +184,34 @@ public class SaveManager : MonoBehaviour
                 anim.Play("Idle Walk Run Blend", 0, 0f);
             }
 
-            Debug.Log($"❤️ [SaveManager] Player revived | HP={ph.currentHealth}/{ph.maxHealth}");
+            Debug.Log("╔══════════════════════════════════════════╗");
+            Debug.Log("║        🔄 RESPAWN STAT SUMMARY           ║");
+            Debug.Log($"║  ❤️  HP  : {ph.currentHealth} / {ph.maxHealth}");
+            Debug.Log($"║  🥊 Glove: {(_currentSave.hasMonkeyGlove ? "Equipped ✅" : "Not equipped ❌")}");
+            Debug.Log("╚══════════════════════════════════════════╝");
         }
+
+        // ✅ Restore Glove ถ้าเคยรับไปแล้ว
+        if (_currentSave.hasMonkeyGlove)
+            RestoreGlove();
 
         RestoreMonsterStates();
         RestoreQuestStates();
         OnLoaded?.Invoke(_currentSave);
+    }
+
+    private void RestoreGlove()
+    {
+        var glovePickup = FindFirstObjectByType<GlovePickup>();
+        if (glovePickup != null)
+        {
+            glovePickup.ForceEquipOnRespawn();
+            Debug.Log("[SaveManager] 🥊 Glove restored after respawn!");
+        }
+        else
+        {
+            Debug.LogWarning("[SaveManager] ⚠️ ไม่พบ GlovePickup ใน scene (อาจ SetActive=false แล้ว)");
+        }
     }
 
     private void RestoreMonsterStates()
@@ -198,8 +230,9 @@ public class SaveManager : MonoBehaviour
     }
 
     public bool IsMonsterDead(string monsterID)
-=> (_currentSave != null && _currentSave.killedMonsterIDs.Contains(monsterID))
-    || _tempKilledMonsters.Contains(monsterID);
+        => (_currentSave != null && _currentSave.killedMonsterIDs.Contains(monsterID))
+        || _tempKilledMonsters.Contains(monsterID);
+
     public bool IsQuestCompleted(string questID)
         => _currentSave != null && _currentSave.completedSideQuests.Contains(questID);
 
