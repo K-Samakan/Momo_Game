@@ -30,6 +30,9 @@ public class GloveController : MonoBehaviour
     private InputAction _attackAction;
     private PlayerInput _playerInput;
 
+    // ✅ Property ให้ SmartAttackSystem เช็คได้
+    public bool IsEquipped => _isEquipped;
+
     // ─────────────────────────────────────────────
     void OnEnable()
     {
@@ -66,19 +69,15 @@ public class GloveController : MonoBehaviour
     }
 
     // ─────────────────────────────────────────────
-    // Input — ใช้สำหรับ Cooldown check เท่านั้น
-    // Shockwave จริงๆ เรียกจาก Animation Event
-    // ─────────────────────────────────────────────
     void OnAttackInput(InputAction.CallbackContext context)
     {
         if (!_isEquipped) return;
         if (Time.time < _lastAttackTime + attackCooldown) return;
         _lastAttackTime = Time.time;
-        // Animation Event จะเรียก SpawnShockwaveRight/Left เอง
     }
 
     // ─────────────────────────────────────────────
-    // Animation Events — เรียกจาก Animation Clip
+    // Animation Events — เรียกจาก SmartAttackSystem
     // ─────────────────────────────────────────────
     public void SpawnShockwaveRight()
     {
@@ -96,29 +95,16 @@ public class GloveController : MonoBehaviour
 
     void SpawnShockwave(Transform spawnPoint)
     {
-        if (shockwavePrefab == null)
-        {
-            Debug.LogWarning("[GloveController] ⚠️ ไม่พบ shockwavePrefab!");
-            return;
-        }
+        if (shockwavePrefab == null || spawnPoint == null) return;
 
-        if (spawnPoint == null)
-        {
-            Debug.LogWarning("[GloveController] ⚠️ ไม่พบ SpawnPoint!");
-            return;
-        }
+        Vector3 forward = transform.root.forward;
+        Quaternion rotation = Quaternion.LookRotation(forward);
 
-        // Spawn Shockwave ที่ตำแหน่ง spawnPoint
-        // หมุนให้หน้าตรงกับทิศที่ตัวละครหัน
-        GameObject sw = Instantiate(
-            shockwavePrefab,
-            spawnPoint.position,
-            Quaternion.LookRotation(transform.root.forward)
-        );
+        GameObject sw = Instantiate(shockwavePrefab, spawnPoint.position, rotation);
 
         var shockwave = sw.GetComponent<GloveShockwave>();
         if (shockwave != null)
-            shockwave.Launch(transform.root.forward, gloveDamage);
+            shockwave.Launch(forward, gloveDamage);
 
         HapticManager.Instance?.Vibrate(0.2f, 0.5f, 0.1f);
     }

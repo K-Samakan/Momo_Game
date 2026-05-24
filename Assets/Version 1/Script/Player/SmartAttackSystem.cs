@@ -1,25 +1,12 @@
+// ============================================================
+// FILE: SmartAttackSystem.cs
+// PATH: Assets/Version 1/Script/Player/SmartAttackSystem.cs
+// ============================================================
 using System.Collections;
 using UnityEngine;
 using MOMO.Combat;
 using MOMO.AI.Monster;
 
-/// <summary>
-/// Smart Attack System
-/// 
-/// Punch Combo (3 ครั้ง ต่อเนื่อง):
-///   ครั้งที่ 1 → PunchRight  (ขวาแบบที่ 1)
-///   ครั้งที่ 2 → PunchLeft   (ซ้าย)
-///   ครั้งที่ 3 → PunchRight2 (ขวาแบบที่ 2 / ท่าจบ)
-///   → วนกลับครั้งที่ 1 ถ้ากดต่อเนื่อง
-///
-/// Kick Combo (3 ครั้ง ต่อเนื่อง) เมื่อ Monster เล็ก:
-///   ครั้งที่ 1 → KickRight
-///   ครั้งที่ 2 → KickLeft
-///   ครั้งที่ 3 → KickRight2
-///   → วนกลับครั้งที่ 1 ถ้ากดต่อเนื่อง
-///
-/// ถ้าหยุดกดนานเกิน comboResetTime → reset กลับครั้งที่ 1
-/// </summary>
 public class SmartAttackSystem : MonoBehaviour
 {
     // ────────────────────────────────────────
@@ -42,24 +29,27 @@ public class SmartAttackSystem : MonoBehaviour
 
     [Header("Damage")]
     public int punchDamage = 1;
-    public int punchDamage2 = 2;  // ท่าจบ Punch แรงกว่า
+    public int punchDamage2 = 2;
     public int kickDamage = 1;
-    public int kickDamage2 = 2;  // ท่าจบ Kick แรงกว่า
+    public int kickDamage2 = 2;
 
     [Header("Detection Radius")]
     public float punchDetectRadius = 1.5f;
     public float kickDetectRadius = 1.8f;
 
+    [Header("Glove Settings")]
+    [Tooltip("Hitbox radius เพิ่มขึ้นเมื่อสวมถุงมือ")]
+    public float glovePunchDetectRadius = 3f;
+
     [Header("Animator Parameters")]
-    public string punchRightTrigger = "PunchRight";   // ขวาแบบที่ 1
-    public string punchLeftTrigger = "PunchLeft";    // ซ้าย
-    public string punchRight2Trigger = "PunchRight2";  // ขวาแบบที่ 2 (ท่าจบ)
-    public string kickRightTrigger = "KickRight";    // เตะขวาแบบที่ 1
-    public string kickLeftTrigger = "KickLeft";     // เตะซ้าย
-    public string kickRight2Trigger = "KickRight2";   // เตะขวาแบบที่ 2 (ท่าจบ)
+    public string punchRightTrigger = "PunchRight";
+    public string punchLeftTrigger = "PunchLeft";
+    public string punchRight2Trigger = "PunchRight2";
+    public string kickRightTrigger = "KickRight";
+    public string kickLeftTrigger = "KickLeft";
+    public string kickRight2Trigger = "KickRight2";
 
     [Header("Combo Settings")]
-    [Tooltip("ถ้าหยุดกดนานเกินนี้ (วินาที) → reset combo กลับครั้งที่ 1")]
     public float comboResetTime = 1.2f;
 
     [Header("Debug")]
@@ -73,12 +63,10 @@ public class SmartAttackSystem : MonoBehaviour
     private bool _isExecuting = false;
     private GameObject _lockedTarget;
 
-    // Combo step: 0 = ครั้งที่1, 1 = ครั้งที่2, 2 = ครั้งที่3
     private int _punchStep = 0;
     private int _kickStep = 0;
     private float _lastAttackTime = -99f;
 
-    // Animator Hashes
     private int _hashPunchRight;
     private int _hashPunchLeft;
     private int _hashPunchRight2;
@@ -86,15 +74,18 @@ public class SmartAttackSystem : MonoBehaviour
     private int _hashKickLeft;
     private int _hashKickRight2;
 
+    // ✅ Reference to GloveController
+    private GloveController _gloveController;
+
     // ────────────────────────────────────────
     // Enum
     // ────────────────────────────────────────
 
     enum AttackType
     {
-        PunchRight,   // ขวาแบบที่ 1
-        PunchLeft,    // ซ้าย
-        PunchRight2,  // ขวาแบบที่ 2 (ท่าจบ)
+        PunchRight,
+        PunchLeft,
+        PunchRight2,
         KickRight,
         KickLeft,
         KickRight2
@@ -119,6 +110,15 @@ public class SmartAttackSystem : MonoBehaviour
         if (kickPoint == null) kickPoint = transform;
     }
 
+    void Start()
+    {
+        _gloveController = FindFirstObjectByType<GloveController>();
+        if (_gloveController != null)
+            Debug.Log("[SmartAttack] ✅ พบ GloveController");
+        else
+            Debug.Log("[SmartAttack] ℹ️ ไม่พบ GloveController (ปกติถ้ายังไม่ได้สวมถุงมือ)");
+    }
+
     // ────────────────────────────────────────
     // Public API
     // ────────────────────────────────────────
@@ -133,9 +133,37 @@ public class SmartAttackSystem : MonoBehaviour
     // Animation Events
     // ────────────────────────────────────────
 
-    public void OnPunchRightHit() => DoDetection(punchPoint, punchDetectRadius, punchDamage);
-    public void OnPunchLeftHit() => DoDetection(punchPoint, punchDetectRadius, punchDamage);
-    public void OnPunchRight2Hit() => DoDetection(punchPoint, punchDetectRadius, punchDamage2);
+    public void OnPunchRightHit()
+    {
+        // ✅ ใช้ radius ใหญ่ขึ้นถ้าสวมถุงมือ
+        float radius = (_gloveController != null && _gloveController.IsEquipped)
+            ? glovePunchDetectRadius
+            : punchDetectRadius;
+
+        DoDetection(punchPoint, radius, punchDamage);
+        _gloveController?.SpawnShockwaveRight();
+    }
+
+    public void OnPunchLeftHit()
+    {
+        float radius = (_gloveController != null && _gloveController.IsEquipped)
+            ? glovePunchDetectRadius
+            : punchDetectRadius;
+
+        DoDetection(punchPoint, radius, punchDamage);
+        _gloveController?.SpawnShockwaveLeft();
+    }
+
+    public void OnPunchRight2Hit()
+    {
+        float radius = (_gloveController != null && _gloveController.IsEquipped)
+            ? glovePunchDetectRadius
+            : punchDetectRadius;
+
+        DoDetection(punchPoint, radius, punchDamage2);
+        _gloveController?.SpawnShockwaveRight();
+    }
+
     public void OnKickRightHit() => DoDetection(kickPoint, kickDetectRadius, kickDamage);
     public void OnKickLeftHit() => DoDetection(kickPoint, kickDetectRadius, kickDamage);
     public void OnKickRight2Hit() => DoDetection(kickPoint, kickDetectRadius, kickDamage2);
@@ -148,7 +176,6 @@ public class SmartAttackSystem : MonoBehaviour
     {
         _isExecuting = true;
 
-        // ── เช็ค Combo Reset ──
         float timeSinceLast = Time.time - _lastAttackTime;
         if (timeSinceLast > comboResetTime)
         {
@@ -158,14 +185,11 @@ public class SmartAttackSystem : MonoBehaviour
         }
         _lastAttackTime = Time.time;
 
-        // ── หาเป้า ──
         _lockedTarget = FindBestTarget();
 
-        // ── หันหน้าหาเป้า ──
         if (_lockedTarget != null)
             yield return StartCoroutine(SnapRotateToTarget(_lockedTarget.transform));
 
-        // ── ตัดสินใจและโจมตี ──
         AttackType type = DetermineAttackType(_lockedTarget);
         ExecuteAnimation(type);
 
@@ -227,8 +251,19 @@ public class SmartAttackSystem : MonoBehaviour
 
     AttackType DetermineAttackType(GameObject target)
     {
-        bool isSmall = false;
+        // ✅ ถ้าสวมถุงมือ → ใช้แต่ Punch เท่านั้น ไม่มี Kick
+        if (_gloveController != null && _gloveController.IsEquipped)
+        {
+            switch (_punchStep)
+            {
+                case 0: return AttackType.PunchRight;
+                case 1: return AttackType.PunchLeft;
+                default: return AttackType.PunchRight2;
+            }
+        }
 
+        // ── ปกติ (ไม่มีถุงมือ) ──
+        bool isSmall = false;
         if (target != null)
         {
             MonsterSizeProfile profile = target.GetComponent<MonsterSizeProfile>();
@@ -243,7 +278,6 @@ public class SmartAttackSystem : MonoBehaviour
 
         if (isSmall)
         {
-            // Kick combo 3 ขั้น
             switch (_kickStep)
             {
                 case 0: return AttackType.KickRight;
@@ -253,7 +287,6 @@ public class SmartAttackSystem : MonoBehaviour
         }
         else
         {
-            // Punch combo 3 ขั้น
             switch (_punchStep)
             {
                 case 0: return AttackType.PunchRight;
@@ -285,9 +318,9 @@ public class SmartAttackSystem : MonoBehaviour
 
             case AttackType.PunchRight2:
                 _animator.SetTrigger(_hashPunchRight2);
-                _punchStep = 0; // วนกลับครั้งที่ 1
+                _punchStep = 0;
                 Debug.Log("[SmartAttack] ครั้งที่ 3 → PUNCH RIGHT2 (ท่าจบ) → reset");
-                HapticManager.Instance?.Vibrate(0.25f, 0.6f, 0.2f); // แรงกว่า
+                HapticManager.Instance?.Vibrate(0.25f, 0.6f, 0.2f);
                 break;
 
             case AttackType.KickRight:
@@ -306,9 +339,9 @@ public class SmartAttackSystem : MonoBehaviour
 
             case AttackType.KickRight2:
                 _animator.SetTrigger(_hashKickRight2);
-                _kickStep = 0; // วนกลับครั้งที่ 1
+                _kickStep = 0;
                 Debug.Log("[SmartAttack] ครั้งที่ 3 → KICK RIGHT2 (ท่าจบ) → reset");
-                HapticManager.Instance?.Vibrate(0.25f, 0.6f, 0.2f); // แรงกว่า
+                HapticManager.Instance?.Vibrate(0.25f, 0.6f, 0.2f);
                 break;
         }
     }
@@ -321,19 +354,13 @@ public class SmartAttackSystem : MonoBehaviour
     {
         Debug.Log($"[DoDetection] Called! origin={origin.name}");
 
-        // ── ตรวจกรง ──
         Collider[] allHits = Physics.OverlapSphere(transform.position, attackRange);
-        Debug.Log($"[DoDetection] OverlapSphere พบ {allHits.Length} Collider, attackRange={attackRange}");
-
         foreach (var col in allHits)
         {
-            Debug.Log($"[DoDetection] พบ: {col.name} | Tag: {col.tag}"); // ✅ ดูทุก Collider
-
             if (!col.CompareTag("Cage")) continue;
 
             Vector3 dir = (col.transform.position - transform.position).normalized;
             float angle = Vector3.Angle(transform.forward, dir);
-            Debug.Log($"[DoDetection] Cage พบ! angle={angle} | attackAngle/2={attackAngle / 2f}");
 
             if (angle > attackAngle / 2f) continue;
 
@@ -344,13 +371,8 @@ public class SmartAttackSystem : MonoBehaviour
                 Debug.Log($"[SmartAttack] Hit Cage: {col.name}");
                 HapticManager.Instance?.Vibrate(0.2f, 0.3f, 0.1f);
             }
-            else
-            {
-                Debug.Log($"[DoDetection] ไม่พบ CageController บน {col.name}!");
-            }
         }
 
-        // ── ตรวจศัตรู (ของเดิม ไม่แตะ) ──
         Collider[] hits = Physics.OverlapSphere(origin.position, radius);
         foreach (var col in hits)
         {
@@ -399,7 +421,10 @@ public class SmartAttackSystem : MonoBehaviour
         if (punchPoint)
         {
             Gizmos.color = Color.blue;
-            Gizmos.DrawWireSphere(punchPoint.position, punchDetectRadius);
+            // ✅ แสดง radius ที่ใหญ่ขึ้นถ้าสวมถุงมือ
+            bool equipped = _gloveController != null && _gloveController.IsEquipped;
+            Gizmos.DrawWireSphere(punchPoint.position,
+                equipped ? glovePunchDetectRadius : punchDetectRadius);
         }
 
         if (kickPoint)
