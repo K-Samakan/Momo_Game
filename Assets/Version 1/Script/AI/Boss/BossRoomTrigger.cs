@@ -3,7 +3,7 @@ using UnityEngine;
 public class BossRoomTrigger : MonoBehaviour
 {
     [Header("References")]
-    public BossMap1Controller bossController;
+    public BossMap1BT bossController;
     public BossMap1UI bossUI;
     public GameObject sideQuestUI;
 

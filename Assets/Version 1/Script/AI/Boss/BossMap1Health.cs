@@ -8,7 +8,7 @@ public class BossMap1Health : MonoBehaviour
     private int _lastSoulDropHP;
 
     [Header("References")]
-    public BossMap1Controller bossController;
+    public BossMap1BT bossController;
     public BossMap1UI bossUI;
     public GameObject soulPrefab;
 
