@@ -12,13 +12,24 @@ public class BossMap1BT : MonoBehaviour
     public BossMap1Health health;
     public BossMap1UI bossUI;
 
+    [Header("Attack Hitbox")]
+    public BossAttackHitbox attackHitboxL;
+    public BossAttackHitbox attackHitboxR;
+
+    [Header("Hit VFX")]
+    public GameObject hitVFX;
+
+    [Header("Death VFX")]
+    public GameObject deathVFX;
+    public float deathVFXDuration = 2f;
+
     [Header("Settings")]
     public float introDelay = 3f;
     public float slamStuckDuration = 1.5f;
     public float spinDizzyDuration = 3f;
     public float staggerDuration = 5f;
-    public float attackRange = 3f;
-    public float detectionRange = 15f;
+    public float attackRange = 5f;
+    public float detectionRange = 20f;
     public float moveSpeed = 4f;
     public float spinMoveSpeed = 5f;
     public float pathUpdateInterval = 0.3f;
@@ -27,7 +38,10 @@ public class BossMap1BT : MonoBehaviour
     public Color hitFlashColor = Color.red;
     public float hitFlashDuration = 0.2f;
 
-    // ── State Flags ─────────────────────────────────────────
+    [Header("Death Fade")]
+    public float deathAnimDuration = 3f;
+    public float fadeDuration = 1.5f;
+
     private bool _isIntro = true;
     private bool _isDead = false;
     private bool _isStagger = false;
@@ -35,43 +49,35 @@ public class BossMap1BT : MonoBehaviour
     private bool _isSlamming = false;
     private bool _isSpinning = false;
     private bool _isHit = false;
+    private bool _isPatternRunning = false;
+    private bool _deathTriggered = false;
     private float _hitRecoveryTimer;
 
-    // ── Combo (โดนโจมตี 5 ครั้ง → Stagger) ─────────────────
     private int _comboCount = 0;
 
-    // ── Spin Counter ─────────────────────────────────────────
     private int _spinCount = 0;
     private float _spinSwingTimer = 0f;
     private float _spinSwingInterval = 0.5f;
 
-    // ── NavMesh / Player ─────────────────────────────────────
     private NavMeshAgent _agent;
     private Transform _player;
     private float _lastPathUpdateTime;
 
-    // ── Animator Hashes ─────────────────────────────────────
     private static readonly int HashSlamLeft = Animator.StringToHash("SlamLeft");
     private static readonly int HashSlamRight = Animator.StringToHash("SlamRight");
     private static readonly int HashSlamJump = Animator.StringToHash("SlamJump");
     private static readonly int HashStagger = Animator.StringToHash("Stagger");
     private static readonly int HashDead = Animator.StringToHash("Dead");
+    private static readonly int HashSpeed = Animator.StringToHash("Speed");
 
-    // ── BT ──────────────────────────────────────────────────
     private BTNode _root;
 
-    // ── Hit Flash ───────────────────────────────────────────
     private Renderer[] _renderers;
     private Color[] _originalColors;
     private bool _isFlashing = false;
 
-    // ── Tiger ───────────────────────────────────────────────
     private TigerAllyEffect _tigerAllyEffect;
     private MonsterHealth _monsterHealth;
-
-    // ════════════════════════════════════════════════════════
-    // Unity Lifecycle
-    // ════════════════════════════════════════════════════════
 
     void Awake()
     {
@@ -101,7 +107,7 @@ public class BossMap1BT : MonoBehaviour
         yield return null;
         yield return null;
 
-        if (NavMesh.SamplePosition(transform.position, out var hit, 3f, NavMesh.AllAreas))
+        if (NavMesh.SamplePosition(transform.position, out var hit, 5f, NavMesh.AllAreas))
             transform.position = hit.position;
         else
         {
@@ -124,82 +130,63 @@ public class BossMap1BT : MonoBehaviour
 
     void Update()
     {
-        if (_isDead || _root == null) return;
+        if (_isDead || _agent == null || !_agent.enabled || !_agent.isOnNavMesh || _root == null) return;
         _root.Tick();
     }
 
-    // ════════════════════════════════════════════════════════
-    // Build Tree
-    // ════════════════════════════════════════════════════════
-
     BTNode BuildTree() => new BTSelector(new List<BTNode>
     {
-        // 1. ตาย
         new BTSequence(new List<BTNode>
         {
             new BTLeaf(IsDead),
             new BTLeaf(DoDead)
         }),
-        // 2. Intro หน่วง 3 วิ
         new BTSequence(new List<BTNode>
         {
             new BTLeaf(IsIntro),
             new BTLeaf(DoIntroIdle)
         }),
-        // 3. โดนโจมตี (Hit Stun)
         new BTSequence(new List<BTNode>
         {
             new BTLeaf(IsHit),
             new BTLeaf(DoHitStun)
         }),
-        // 4. Stagger (โดน combo 5 ครั้ง)
         new BTSequence(new List<BTNode>
         {
             new BTLeaf(IsStagger),
             new BTLeaf(DoStagger)
         }),
-        // 5. Dizzy (หลัง Spin ครบ 5 รอบ)
         new BTSequence(new List<BTNode>
         {
             new BTLeaf(IsDizzy),
             new BTLeaf(DoDizzy)
         }),
-        // 6. กำลัง Slam
         new BTSequence(new List<BTNode>
         {
             new BTLeaf(IsSlamming),
             new BTLeaf(DoSlam)
         }),
-        // 7. กำลัง Spin
         new BTSequence(new List<BTNode>
         {
             new BTLeaf(IsSpinning),
             new BTLeaf(DoSpin)
         }),
-        // 8. เห็นผู้เล่น → เลือก Attack หรือ Chase
         new BTSequence(new List<BTNode>
         {
             new BTLeaf(CanSeePlayer),
             new BTSelector(new List<BTNode>
             {
-                // โจมตีถ้าอยู่ในระยะ
                 new BTSequence(new List<BTNode>
                 {
                     new BTLeaf(InAttackRange),
                     new BTLeaf(FaceTarget),
                     new BTLeaf(ChoosePattern)
                 }),
-                // ไล่ถ้ายังไม่ถึง
                 new BTLeaf(DoChase)
             })
         }),
-        // 9. Idle
         new BTLeaf(DoIdle)
     });
-
-    // ════════════════════════════════════════════════════════
-    // Conditions
-    // ════════════════════════════════════════════════════════
 
     BTStatus IsDead() => _isDead ? BTStatus.Success : BTStatus.Failure;
     BTStatus IsIntro() => _isIntro ? BTStatus.Success : BTStatus.Failure;
@@ -223,24 +210,26 @@ public class BossMap1BT : MonoBehaviour
         return dist <= attackRange ? BTStatus.Success : BTStatus.Failure;
     }
 
-    // ════════════════════════════════════════════════════════
-    // Actions
-    // ════════════════════════════════════════════════════════
-
     BTStatus DoDead()
     {
+        if (_deathTriggered) return BTStatus.Running;
+        _deathTriggered = true;
+
+        Debug.Log("💀 Boss กำลังตาย - เริ่ม DeathSequence");
+
+        StopAllCoroutines();
         _agent.isStopped = true;
         _agent.ResetPath();
-        animator.SetTrigger(HashDead);
+        animator.SetFloat(HashSpeed, 0f);
         bossUI.HideBossUI();
-        Destroy(gameObject, 3f);
+        StartCoroutine(DeathSequence());
         return BTStatus.Running;
     }
 
     BTStatus DoIntroIdle()
     {
-        // ยืนนิ่งระหว่าง intro — Coroutine จัดการ flag
         _agent.isStopped = true;
+        animator.SetFloat(HashSpeed, 0f);
         return BTStatus.Running;
     }
 
@@ -255,33 +244,32 @@ public class BossMap1BT : MonoBehaviour
 
     BTStatus DoStagger()
     {
-        // Coroutine จัดการ — BT แค่รอ flag หาย
         _agent.isStopped = true;
+        animator.SetFloat(HashSpeed, 0f);
         return BTStatus.Running;
     }
 
     BTStatus DoDizzy()
     {
-        // Coroutine จัดการ — BT แค่รอ flag หาย
         _agent.isStopped = true;
+        animator.SetFloat(HashSpeed, 0f);
         return BTStatus.Running;
     }
 
     BTStatus DoSlam()
     {
-        // Coroutine จัดการ — BT แค่รอ flag หาย
         _agent.isStopped = true;
+        animator.SetFloat(HashSpeed, 0f);
         return BTStatus.Running;
     }
 
     BTStatus DoSpin()
     {
-        // เคลื่อนที่หาผู้เล่นขณะ Spin
         _agent.isStopped = false;
         _agent.speed = spinMoveSpeed;
+        animator.SetFloat(HashSpeed, 1f);
         ChasePlayer();
 
-        // นับ swing ทุก interval
         _spinSwingTimer += Time.deltaTime;
         if (_spinSwingTimer >= _spinSwingInterval)
         {
@@ -312,7 +300,8 @@ public class BossMap1BT : MonoBehaviour
 
     BTStatus ChoosePattern()
     {
-        // สุ่ม Pattern — 70% Slam, 30% Spin
+        if (_isPatternRunning) return BTStatus.Running;
+
         if (Random.value < 0.7f)
             StartCoroutine(SlamSequence());
         else
@@ -325,7 +314,7 @@ public class BossMap1BT : MonoBehaviour
     {
         _agent.isStopped = false;
         _agent.speed = moveSpeed;
-        animator.SetBool("IsChasing", true);
+        animator.SetFloat(HashSpeed, 1f);
         ChasePlayer();
         return BTStatus.Running;
     }
@@ -334,55 +323,56 @@ public class BossMap1BT : MonoBehaviour
     {
         _agent.isStopped = true;
         _agent.ResetPath();
-        animator.SetBool("IsChasing", false);
+        animator.SetFloat(HashSpeed, 0f);
         return BTStatus.Running;
     }
-
-    // ════════════════════════════════════════════════════════
-    // Coroutines
-    // ════════════════════════════════════════════════════════
 
     IEnumerator IntroSequence()
     {
         _isIntro = true;
-        animator.SetBool("IsChasing", false);
         yield return new WaitForSeconds(introDelay);
         _isIntro = false;
     }
 
     IEnumerator SlamSequence()
     {
+        _isPatternRunning = true;
         _isSlamming = true;
         _agent.isStopped = true;
+        animator.SetFloat(HashSpeed, 0f);
 
-        // ครั้งที่ 1
         animator.SetTrigger(HashSlamLeft);
         yield return new WaitForSeconds(0.8f);
 
-        // ครั้งที่ 2
         FaceTarget();
         animator.SetTrigger(HashSlamRight);
         yield return new WaitForSeconds(0.8f);
 
-        // ครั้งที่ 3 — กระโดดลงพื้น + ค้าง
         FaceTarget();
         animator.SetTrigger(HashSlamJump);
+
+        yield return new WaitForSeconds(0.5f);
+        animator.speed = 0f;
+        yield return new WaitForSeconds(1.0f);
+        animator.speed = 1f;
+
         yield return new WaitForSeconds(slamStuckDuration);
 
         _isSlamming = false;
+        _isPatternRunning = false;
     }
 
     IEnumerator SpinSequence()
     {
+        _isPatternRunning = true;
         _isSpinning = true;
         _spinCount = 0;
         _spinSwingTimer = 0f;
 
         animator.SetBool("IsSpinning", true);
-
-        // DoSpin() จะนับและจัดการ loop เอง
-        // รอจน _isSpinning = false (set จาก DizzySequence)
         yield return new WaitUntil(() => !_isSpinning);
+
+        _isPatternRunning = false;
     }
 
     IEnumerator DizzySequence()
@@ -397,28 +387,77 @@ public class BossMap1BT : MonoBehaviour
     IEnumerator StaggerSequence()
     {
         _isStagger = true;
+        animator.SetFloat(HashSpeed, 0f);
         animator.SetTrigger(HashStagger);
         yield return new WaitForSeconds(staggerDuration);
         _isStagger = false;
     }
 
-    // ════════════════════════════════════════════════════════
-    // Public API
-    // ════════════════════════════════════════════════════════
+    // ✅ แก้ไข DeathSequence
+    IEnumerator DeathSequence()
+    {
+        Debug.Log("🎬 เริ่ม DeathSequence");
 
-    // เรียกจาก BossRoomTrigger
+        // ซ่อน UI
+        if (bossUI != null)
+        {
+            bossUI.HideBossUI();
+        }
+
+        // ✅ Spawn VFX แยกจาก Boss
+        if (deathVFX != null)
+        {
+            Debug.Log($"✨ Spawn VFX: {deathVFX.name} ที่ตำแหน่ง {transform.position}");
+
+            GameObject vfx = Instantiate(deathVFX, transform.position, Quaternion.identity, null);
+
+            ParticleSystem[] particleSystems = vfx.GetComponentsInChildren<ParticleSystem>();
+            float maxDuration = 2f;
+
+            foreach (var ps in particleSystems)
+            {
+                if (ps != null)
+                {
+                    var main = ps.main;
+                    float duration = main.duration + main.startLifetime.constantMax;
+                    if (duration > maxDuration)
+                        maxDuration = duration;
+                }
+            }
+
+            Debug.Log($"⏱️ VFX ใช้เวลา: {maxDuration} วินาที");
+            Destroy(vfx, maxDuration + 0.5f);
+        }
+        else
+        {
+            Debug.LogWarning("⚠️ Death VFX เป็น null");
+        }
+
+        // ✅ ปิด Boss ทันที
+        Debug.Log("👋 ปิด Boss GameObject");
+        gameObject.SetActive(false);
+
+        yield break;  // สิ้นสุด Coroutine
+    }
+
     public void OnPlayerEnterBossRoom()
     {
         StartCoroutine(IntroSequence());
     }
 
-    // เรียกจาก BossMap1Health
     public void OnHitByPlayer()
     {
         if (_isDead) return;
 
         _isHit = true;
         _hitRecoveryTimer = 0.3f;
+
+        if (hitVFX != null)
+        {
+            GameObject vfx = Instantiate(hitVFX, transform.position + Vector3.up, Quaternion.identity);
+            Destroy(vfx, 2f);
+        }
+
         StartCoroutine(HitFlash());
 
         _comboCount++;
@@ -432,15 +471,37 @@ public class BossMap1BT : MonoBehaviour
         }
     }
 
+    // ✅ แก้ OnDead() ให้เรียก DeathSequence ทันที
     public void OnDead()
     {
+        if (_isDead) return;  // ป้องกันเรียกซ้ำ
+
+        Debug.Log("☠️ OnDead() ถูกเรียก - เริ่ม DeathSequence ทันที");
         _isDead = true;
-        StopAllCoroutines();
+
+        // ✅ เรียก DeathSequence ทันที (ไม่รอ BT)
+        StartCoroutine(DeathSequence());
     }
 
-    // ════════════════════════════════════════════════════════
-    // Helpers
-    // ════════════════════════════════════════════════════════
+    public void OnHitboxOpenLeft(int damage)
+    {
+        attackHitboxL?.EnableHitbox(damage);
+    }
+
+    public void OnHitboxCloseLeft()
+    {
+        attackHitboxL?.DisableHitbox();
+    }
+
+    public void OnHitboxOpenRight(int damage)
+    {
+        attackHitboxR?.EnableHitbox(damage);
+    }
+
+    public void OnHitboxCloseRight()
+    {
+        attackHitboxR?.DisableHitbox();
+    }
 
     void ChasePlayer()
     {

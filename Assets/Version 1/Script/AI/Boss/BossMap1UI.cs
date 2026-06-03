@@ -59,7 +59,7 @@ public class BossMap1UI : MonoBehaviour
     public void UpdateHealthBar(int currentHP)
     {
         currentHP = Mathf.Clamp(currentHP, 0, maxHP);
-        hpText.text = currentHP > 0 ? $"{currentHP} / {maxHP}" : "ตาย";
+        hpText.text = currentHP > 0 ? $"{currentHP} / {maxHP}" : "DEAD";
 
         for (int slot = 0; slot < 5; slot++)
         {

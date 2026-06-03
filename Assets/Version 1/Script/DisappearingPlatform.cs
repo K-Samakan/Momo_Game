@@ -5,44 +5,44 @@ public class DisappearingPlatform : MonoBehaviour
 {
     // ─── Timing ───────────────────────────────────────────────────
     [Header("⏱ Timing")]
-    public float delayBeforeFade  = 0.5f;
-    public float fadeOutDuration  = 1.0f;
-    public float respawnDelay     = 3.0f;
-    public float fadeInDuration   = 1.0f;
+    public float delayBeforeFade = 0.5f;
+    public float fadeOutDuration = 1.0f;
+    public float respawnDelay = 3.0f;
+    public float fadeInDuration = 1.0f;
 
     // ─── Warning Blink ────────────────────────────────────────────
     [Header("⚠️ Warning Blink")]
-    public bool  enableBlink      = true;
-    public int   blinkCount       = 3;
-    public float blinkInterval    = 0.12f;
+    public bool enableBlink = true;
+    public int blinkCount = 3;
+    public float blinkInterval = 0.12f;
 
     // ─── Visual Sound Effect ──────────────────────────────────────
     [Header("🔊 Visual Sound Effect")]
-    public bool   enableVSE       = true;
-    public string vseTagStep      = "Event";
-    public string vseTagCrumble   = "Event";
-    public string vseTagRespawn   = "Event";
+    public bool enableVSE = true;
+    public string vseTagStep = "FootStep";   // สีขาว — เสียงเหยียบ
+    public string vseTagCrumble = "Warning";    // สีเหลือง — platform กำลังพัง
+    public string vseTagRespawn = "Respawn";    // สีเขียว — platform กลับมา
     [Range(0f, 1f)]
-    public float  vseIntensity    = 0.75f;
+    public float vseIntensity = 0.75f;
 
     // ─── Haptic ───────────────────────────────────────────────────
     [Header("📳 Haptic Feedback")]
-    public bool enableHaptic      = true;
+    public bool enableHaptic = true;
     public HapticPatternType hapticOnStep = HapticPatternType.Success;
     public HapticPatternType hapticOnFade = HapticPatternType.Boom;
 
     // ─── Detection ────────────────────────────────────────────────
     [Header("🎯 Detection")]
-    public float     detectionRadius = 1.0f;
+    public float detectionRadius = 1.0f;
     public LayerMask playerLayer;
 
     // ─── Components ───────────────────────────────────────────────
     [Header("🔧 Components")]
     public Renderer[] targetRenderers;
-    public Collider   platformCollider;
+    public Collider platformCollider;
 
     // ─── Private ──────────────────────────────────────────────────
-    private bool    _isRunning = false;
+    private bool _isRunning = false;
     private Color[] _originalColors;
 
     // ══════════════════════════════════════════════════════════════

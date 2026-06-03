@@ -12,20 +12,39 @@ public class BossMap1Health : MonoBehaviour
     public BossMap1UI bossUI;
     public GameObject soulPrefab;
 
+    [Header("Damage Cooldown")]
+    public float damageCooldown = 0.1f;
+    private float _lastDamageTime = -1f;
+
     private void Awake()
     {
         _currentHP = maxHP;
         _lastSoulDropHP = maxHP;
+
+        // ✅ ตรวจสอบว่ามี bossController หรือไม่
+        if (bossController == null)
+        {
+            Debug.LogError("❌ BossMap1Health: ไม่ได้ต่อ bossController ใน Inspector!");
+        }
+        else
+        {
+            Debug.Log("✅ BossMap1Health: เชื่อมต่อ bossController สำเร็จ");
+        }
     }
 
     public void TakeDamage(int damage)
     {
         if (_currentHP <= 0) return;
 
-        _currentHP = Mathf.Max(0, _currentHP - damage);
+        // ✅ กัน damage ซ้ำถี่เกินไป
+        if (Time.time - _lastDamageTime < damageCooldown) return;
+        _lastDamageTime = Time.time;
 
-        // อัปเดต HP Bar
+        _currentHP = Mathf.Max(0, _currentHP - damage);
         bossUI.UpdateHealthBar(_currentHP);
+
+        // ✅ Debug HP
+        Debug.Log($"💔 Boss HP: {_currentHP}/{maxHP}");
 
         // Soul Drop ทุก HP -10
         if (_lastSoulDropHP - _currentHP >= 10)
@@ -34,11 +53,15 @@ public class BossMap1Health : MonoBehaviour
             DropSouls(5);
         }
 
-        // แจ้ง Combo
         bossController.OnHitByPlayer();
 
         if (_currentHP <= 0)
+        {
+            // ✅ Debug ตาย
+            Debug.Log("💀 Boss HP = 0 → เรียก OnDead()");
             bossController.OnDead();
+            bossUI.HideBossUI();
+        }
     }
 
     private void DropSouls(int count)

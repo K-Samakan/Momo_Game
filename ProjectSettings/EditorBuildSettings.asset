@@ -18,9 +18,6 @@ EditorBuildSettings:
     path: Assets/Scenes/Forest_EnvironmentSample_Collisions.unity
     guid: b113fbf76ecc0f047b63fe945ed1f232
   - enabled: 1
-    path: Assets/Version 1/Scenes/PuzzleMap2.unity
-    guid: 8923621e809a5964fb0110532bfd9b4f
-  - enabled: 1
     path: Assets/Version 1/Scenes/Main.unity
     guid: 3dd1685c43c641842be898e507e7983d
   - enabled: 1
@@ -29,6 +26,18 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Version 1/Scenes/Map1.unity
     guid: 606b8adc77a75134d9d1ad3f91a3df42
+  - enabled: 1
+    path: Assets/Version 1/Scenes/Map2.unity
+    guid: a7a9ea069634aeb47a871c564a4ce0ec
+  - enabled: 1
+    path: Assets/Version 1/Scenes/Map3.unity
+    guid: 99946e699a9f6184b99ec55c886fb056
+  - enabled: 1
+    path: Assets/Version 1/Scenes/Map4.unity
+    guid: 3f1a4f71579ce2149a4a453d08f70382
+  - enabled: 0
+    path: Assets/Version 1/Scenes/PuzzleMap2.unity
+    guid: 8923621e809a5964fb0110532bfd9b4f
   m_configObjects:
     com.unity.addressableassets: {fileID: 11400000, guid: 1f51e280b83e58c4c8e5fb541dc5a85b,
       type: 2}

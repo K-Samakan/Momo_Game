@@ -42,6 +42,16 @@ namespace MOMO.AI.Monster
         [Tooltip("Particle prefab เมื่อโดนโจมตี")]
         public GameObject hitEffectPrefab;
 
+        [Header("Visual Sound Effect")]
+        [Tooltip("SoundEmitter สำหรับเสียง Monster — Add SoundEmitter Component แล้วลากมาใส่")]
+        public SoundEmitter sfxEmitter;
+
+        private float _lastFootstepEmit = -999f;
+
+        [SerializeField]
+        [Tooltip("ส่งเสียงฝีเท้าทุกกี่วินาที ขณะ Chase")]
+        private float footstepEmitInterval = 0.5f;
+
         // ─── Properties ─────────────────────────────────────────
         public float CurrentHealth { get; private set; }
 
@@ -307,6 +317,8 @@ namespace MOMO.AI.Monster
             _lastAttackTime = Time.time;
             monsterAnimator?.PlayAttack();
 
+            sfxEmitter?.Emit();
+
             // ── เปลี่ยนจาก Damage ทันที → รอ Animation ถึง attackDamagePoint ──
             StartCoroutine(DealDamageDelayed());
 
@@ -343,6 +355,12 @@ namespace MOMO.AI.Monster
             {
                 _agent.SetDestination(_player.position);
                 _lastPathUpdateTime = Time.time;
+            }
+
+            if (_player != null && Time.time >= _lastFootstepEmit + footstepEmitInterval)
+            {
+                _lastFootstepEmit = Time.time;
+                sfxEmitter?.EmitByDistance(_player);
             }
 
             return BTStatus.Running;
