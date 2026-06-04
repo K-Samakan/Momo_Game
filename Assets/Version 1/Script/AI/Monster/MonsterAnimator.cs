@@ -52,8 +52,8 @@ namespace MOMO.AI.Monster
 
         void UpdateMovementAnimation()
         {
-            float speed = agent.isStopped ? 0f : agent.velocity.magnitude;
-            animator.SetFloat(SPEED, speed, speedDampTime, Time.deltaTime);
+            //float speed = agent.isStopped ? 0f : agent.velocity.magnitude;
+            //animator.SetFloat(SPEED, speed, speedDampTime, Time.deltaTime);
         }
 
         // ✅ เพิ่มใหม่ — MonsterBT เรียกเพื่อ set speed โดยตรง

@@ -40,6 +40,8 @@ public class SoundEmitter : MonoBehaviour
         _lastEmitTime = Time.time;
         VisualSoundEffectManager.Instance?.ShowIcon(
             transform.position, baseIntensity, soundTag);
+
+        InGameCCManager.Instance?.ShowCC(transform.position, soundTag);
     }
 
     /// <summary>
@@ -54,11 +56,14 @@ public class SoundEmitter : MonoBehaviour
         float dist = Vector3.Distance(transform.position, playerTransform.position);
         float intensity = 1f - Mathf.Clamp01(dist / maxHearingRadius);
 
-        if (intensity <= 0.05f) return; // ไกลเกินไป ไม่แสดง
+        // ยิ่งไกล intensity ยิ่งน้อย → icon เล็กลงและจางลง
+        if (intensity <= 0.05f) return;
 
         _lastEmitTime = Time.time;
         VisualSoundEffectManager.Instance?.ShowIcon(
             transform.position, intensity, soundTag);
+
+        InGameCCManager.Instance?.ShowCC(transform.position, soundTag);
     }
 
     /// <summary>

@@ -21,6 +21,7 @@ public class CageController : MonoBehaviour
     [Header("VSE")]
     public float vseIntensity = 0.8f;
     public float vseInterval = 2f;
+    public float vseMaxRadius = 15f;
 
     [Header("UI")]
     public Slider hpBar;
@@ -53,10 +54,25 @@ public class CageController : MonoBehaviour
 
     IEnumerator VSELoop()
     {
+        Transform player = GameObject.FindWithTag("Player")?.transform;
+
         while (!isBroken)
         {
-            VisualSoundEffectManager.Instance?.ShowIcon(
-                transform.position, vseIntensity, "Event");
+            if (player != null)
+            {
+                float dist = Vector3.Distance(transform.position, player.position);
+                float intensity = 1f - Mathf.Clamp01(dist / vseMaxRadius);
+
+                // ขึ้น VSE เฉพาะตอนอยู่ในระยะเท่านั้น
+                if (intensity > 0.05f)
+                {
+                    VisualSoundEffectManager.Instance?.ShowIcon(
+                        transform.position, intensity, "Cage"); // ← เปลี่ยนจาก "Event"
+
+                    InGameCCManager.Instance?.ShowCC(transform.position, "Cage");
+                }
+            }
+
             yield return new WaitForSeconds(vseInterval);
         }
     }

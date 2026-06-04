@@ -172,31 +172,31 @@ namespace MOMO.AI.Monster
         {
             new BTSequence(new List<BTNode>
             {
-                new BTLeaf(IsDead),
-                new BTLeaf(DoBehaviorDead)
+                new BTLeaf("dead",IsDead),
+                new BTLeaf("doDead",DoBehaviorDead)
             }),
             new BTSequence(new List<BTNode>
             {
-                new BTLeaf(IsHit),
-                new BTLeaf(DoHitStun)
+                new BTLeaf("hit", IsHit),
+                new BTLeaf("doHitStun", DoHitStun)
             }),
             new BTSequence(new List<BTNode>
             {
-                new BTLeaf(CanAttack),
-                new BTLeaf(FaceTarget),
-                new BTLeaf(DoAttack)
+                new BTLeaf("canAttack", CanAttack),
+                new BTLeaf("faceTarget", FaceTarget),
+                new BTLeaf("doAttack", DoAttack)
             }),
             new BTSequence(new List<BTNode>
             {
-                new BTLeaf(CanSeePlayer),
-                new BTLeaf(DoChase)
+                new BTLeaf("canSeePlayer", CanSeePlayer),
+                new BTLeaf("doChase", DoChase)
             }),
             new BTSequence(new List<BTNode>
             {
-                new BTLeaf(HasPatrol),
-                new BTLeaf(DoPatrol)
+                new BTLeaf("hasPatrol", HasPatrol),
+                new BTLeaf("doPatrol", DoPatrol)
             }),
-            new BTLeaf(DoIdle)
+            new BTLeaf("doIdle", DoIdle)
         });
 
         // ════════════════════════════════════════════════════════
@@ -317,7 +317,7 @@ namespace MOMO.AI.Monster
             _lastAttackTime = Time.time;
             monsterAnimator?.PlayAttack();
 
-            sfxEmitter?.Emit();
+            sfxEmitter?.EmitByDistance(_player);
 
             // ── เปลี่ยนจาก Damage ทันที → รอ Animation ถึง attackDamagePoint ──
             StartCoroutine(DealDamageDelayed());

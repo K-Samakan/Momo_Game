@@ -6,7 +6,11 @@ namespace MOMO.AI.BehaviorTree
     public class BTLeaf : BTNode
     {
         readonly Func<BTStatus> _fn;
-        public BTLeaf(Func<BTStatus> fn) => _fn = fn;
+        public BTLeaf(string name, Func<BTStatus> fn)
+        {
+            _fn = fn;
+            nodeName = name;
+        }
         public override BTStatus Tick() => _fn();
     }
 }

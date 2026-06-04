@@ -59,7 +59,7 @@ public class BossMap1BT : MonoBehaviour
     private float _spinSwingTimer = 0f;
     private float _spinSwingInterval = 0.5f;
 
-    private NavMeshAgent _agent;
+    public NavMeshAgent _agent;
     private Transform _player;
     private float _lastPathUpdateTime;
 
@@ -82,7 +82,7 @@ public class BossMap1BT : MonoBehaviour
     void Awake()
     {
         _agent = GetComponent<NavMeshAgent>();
-        _agent.enabled = false;
+
 
         _renderers = GetComponentsInChildren<Renderer>();
         _originalColors = new Color[_renderers.Length];
@@ -100,6 +100,10 @@ public class BossMap1BT : MonoBehaviour
         _monsterHealth = GetComponent<MonsterHealth>();
 
         StartCoroutine(InitNavMesh());
+
+        _root = BuildTree();
+
+        _agent.SetDestination(_player.position);
     }
 
     IEnumerator InitNavMesh()
@@ -120,72 +124,73 @@ public class BossMap1BT : MonoBehaviour
         _agent.stoppingDistance = attackRange * 0.8f;
         _agent.acceleration = 12f;
         _agent.angularSpeed = 360f;
-        _agent.isStopped = true;
+        //_agent.isStopped = true;
 
         yield return null;
 
-        if (_agent.isOnNavMesh)
-            _root = BuildTree();
+        //if (_agent.isOnNavMesh)
+
     }
 
     void Update()
     {
-        if (_isDead || _agent == null || !_agent.enabled || !_agent.isOnNavMesh || _root == null) return;
+        //if (_isDead || _agent == null || !_agent.enabled || !_agent.isOnNavMesh || _root == null) return;
         _root.Tick();
+
     }
 
     BTNode BuildTree() => new BTSelector(new List<BTNode>
     {
         new BTSequence(new List<BTNode>
         {
-            new BTLeaf(IsDead),
-            new BTLeaf(DoDead)
+            new BTLeaf("dead",IsDead),
+            new BTLeaf("doDead",DoDead)
         }),
         new BTSequence(new List<BTNode>
         {
-            new BTLeaf(IsIntro),
-            new BTLeaf(DoIntroIdle)
+            new BTLeaf("intro",IsIntro),
+            new BTLeaf("doIntroIdle",DoIntroIdle)
         }),
         new BTSequence(new List<BTNode>
         {
-            new BTLeaf(IsHit),
-            new BTLeaf(DoHitStun)
+            new BTLeaf("hit",IsHit),
+            new BTLeaf("doHitStun",DoHitStun)
         }),
         new BTSequence(new List<BTNode>
         {
-            new BTLeaf(IsStagger),
-            new BTLeaf(DoStagger)
+            new BTLeaf("stagger",IsStagger),
+            new BTLeaf("doStagger",DoStagger)
         }),
         new BTSequence(new List<BTNode>
         {
-            new BTLeaf(IsDizzy),
-            new BTLeaf(DoDizzy)
+            new BTLeaf("dizzy",IsDizzy),
+            new BTLeaf("doDizzy",DoDizzy)
         }),
         new BTSequence(new List<BTNode>
         {
-            new BTLeaf(IsSlamming),
-            new BTLeaf(DoSlam)
+            new BTLeaf("slam",IsSlamming),
+            new BTLeaf("doSlam",DoSlam)
         }),
         new BTSequence(new List<BTNode>
         {
-            new BTLeaf(IsSpinning),
-            new BTLeaf(DoSpin)
+            new BTLeaf("spinning",IsSpinning),
+            new BTLeaf("doSpin",DoSpin)
         }),
         new BTSequence(new List<BTNode>
         {
-            new BTLeaf(CanSeePlayer),
+            new BTLeaf("canSeePlayer",CanSeePlayer),
             new BTSelector(new List<BTNode>
             {
                 new BTSequence(new List<BTNode>
                 {
-                    new BTLeaf(InAttackRange),
-                    new BTLeaf(FaceTarget),
-                    new BTLeaf(ChoosePattern)
+                    new BTLeaf("inAttackRange",InAttackRange),
+                    new BTLeaf("faceTarget",FaceTarget),
+                    new BTLeaf("choosePattern",ChoosePattern)
                 }),
-                new BTLeaf(DoChase)
+                new BTLeaf("doChase",DoChase)
             })
         }),
-        new BTLeaf(DoIdle)
+        new BTLeaf("doIdle",DoIdle)
     });
 
     BTStatus IsDead() => _isDead ? BTStatus.Success : BTStatus.Failure;
@@ -218,7 +223,7 @@ public class BossMap1BT : MonoBehaviour
         Debug.Log("💀 Boss กำลังตาย - เริ่ม DeathSequence");
 
         StopAllCoroutines();
-        _agent.isStopped = true;
+        //_agent.isStopped = true;
         _agent.ResetPath();
         animator.SetFloat(HashSpeed, 0f);
         bossUI.HideBossUI();
@@ -228,14 +233,14 @@ public class BossMap1BT : MonoBehaviour
 
     BTStatus DoIntroIdle()
     {
-        _agent.isStopped = true;
+        //_agent.isStopped = true;
         animator.SetFloat(HashSpeed, 0f);
         return BTStatus.Running;
     }
 
     BTStatus DoHitStun()
     {
-        _agent.isStopped = true;
+        //_agent.isStopped = true;
         _hitRecoveryTimer -= Time.deltaTime;
         if (_hitRecoveryTimer <= 0f)
             _isHit = false;
@@ -244,28 +249,28 @@ public class BossMap1BT : MonoBehaviour
 
     BTStatus DoStagger()
     {
-        _agent.isStopped = true;
+        //_agent.isStopped = true;
         animator.SetFloat(HashSpeed, 0f);
         return BTStatus.Running;
     }
 
     BTStatus DoDizzy()
     {
-        _agent.isStopped = true;
+        //_agent.isStopped = true;
         animator.SetFloat(HashSpeed, 0f);
         return BTStatus.Running;
     }
 
     BTStatus DoSlam()
     {
-        _agent.isStopped = true;
+        //_agent.isStopped = true;
         animator.SetFloat(HashSpeed, 0f);
         return BTStatus.Running;
     }
 
     BTStatus DoSpin()
     {
-        _agent.isStopped = false;
+        //_agent.isStopped = false;
         _agent.speed = spinMoveSpeed;
         animator.SetFloat(HashSpeed, 1f);
         ChasePlayer();
@@ -312,7 +317,7 @@ public class BossMap1BT : MonoBehaviour
 
     BTStatus DoChase()
     {
-        _agent.isStopped = false;
+        //_agent.isStopped = false;
         _agent.speed = moveSpeed;
         animator.SetFloat(HashSpeed, 1f);
         ChasePlayer();
@@ -321,7 +326,7 @@ public class BossMap1BT : MonoBehaviour
 
     BTStatus DoIdle()
     {
-        _agent.isStopped = true;
+        //_agent.isStopped = true;
         _agent.ResetPath();
         animator.SetFloat(HashSpeed, 0f);
         return BTStatus.Running;
@@ -338,7 +343,7 @@ public class BossMap1BT : MonoBehaviour
     {
         _isPatternRunning = true;
         _isSlamming = true;
-        _agent.isStopped = true;
+        //_agent.isStopped = true;
         animator.SetFloat(HashSpeed, 0f);
 
         animator.SetTrigger(HashSlamLeft);
@@ -505,11 +510,25 @@ public class BossMap1BT : MonoBehaviour
 
     void ChasePlayer()
     {
-        if (_player == null || !_agent.isOnNavMesh) return;
+        print("ChasePlayer");
+
+        if (_player == null)
+        {
+            print("player null");
+            return;
+        }
+
+        if (!_agent.isOnNavMesh)
+        {
+            print("is not on navmesh"); return;
+        }
+
+        //if (_player == null || !_agent.isOnNavMesh) return;
         if (Time.time >= _lastPathUpdateTime + pathUpdateInterval)
         {
-            _agent.SetDestination(_player.position);
+            //_agent.SetDestination(_player.position);
             _lastPathUpdateTime = Time.time;
+            print("set destination");
         }
     }
 
