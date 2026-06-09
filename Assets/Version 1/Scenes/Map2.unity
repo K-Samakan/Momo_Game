@@ -36908,6 +36908,11 @@ PrefabInstance:
       propertyPath: m_Name
       value: MirrorInteractionManager
       objectReference: {fileID: 0}
+    - target: {fileID: 2815734186646338794, guid: 04ae85d8c21aa9546b3e779851a8787d,
+        type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 3628644866732179146, guid: 04ae85d8c21aa9546b3e779851a8787d,
         type: 3}
       propertyPath: player

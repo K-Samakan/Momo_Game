@@ -9,6 +9,10 @@ namespace MomoGame.MainMenu
     /// จัดการ Navigation ด้วย DualSense Controller
     /// Asian Layout: Circle=Confirm, Cross=Cancel
     /// D-Pad + Left Stick = เลื่อนขึ้น-ลง
+    ///
+    /// FIX: ข้ามปุ่มที่ถูกซ่อน (inactive) หรือ non-interactable อัตโนมัติ
+    /// เช่น เมื่อซ่อนปุ่ม Options การเลื่อน NewGame <-> Quit จะทำงานถูกต้อง
+    /// โดยไม่ต้องไปแก้ช่อง Navigation ใน Inspector ของแต่ละปุ่ม
     /// </summary>
     public class MenuNavigator : MonoBehaviour
     {
@@ -30,6 +34,9 @@ namespace MomoGame.MainMenu
 
         private float lastNavigationTime;
         private Vector2 lastAxisValue;
+
+        // ป้องกันการวน loop ไม่รู้จบเวลาเดินตาม navigation chain
+        private const int MaxNavigationSteps = 32;
 
         private void Awake()
         {
@@ -124,18 +131,16 @@ namespace MomoGame.MainMenu
             if (eventSystem.currentSelectedGameObject == null)
             {
                 SelectFirstButton();
+                lastNavigationTime = Time.unscaledTime;
                 return;
             }
 
             Selectable current = eventSystem.currentSelectedGameObject.GetComponent<Selectable>();
             if (current == null) return;
 
-            Selectable next = current.FindSelectableOnUp();
+            Selectable next = GetAdjacentSelectable(current, moveUp: true);
 
-            if (next == null && enableWrapping)
-                next = FindLastSelectableInGroup(current);
-
-            if (next != null)
+            if (next != null && next != current)
             {
                 SelectButton(next.gameObject);
                 OnNavigationFeedback();
@@ -149,18 +154,16 @@ namespace MomoGame.MainMenu
             if (eventSystem.currentSelectedGameObject == null)
             {
                 SelectFirstButton();
+                lastNavigationTime = Time.unscaledTime;
                 return;
             }
 
             Selectable current = eventSystem.currentSelectedGameObject.GetComponent<Selectable>();
             if (current == null) return;
 
-            Selectable next = current.FindSelectableOnDown();
+            Selectable next = GetAdjacentSelectable(current, moveUp: false);
 
-            if (next == null && enableWrapping)
-                next = FindFirstSelectableInGroup(current);
-
-            if (next != null)
+            if (next != null && next != current)
             {
                 SelectButton(next.gameObject);
                 OnNavigationFeedback();
@@ -175,6 +178,73 @@ namespace MomoGame.MainMenu
             {
                 hapticController.TriggerHaptic(navigateHapticIntensity, 0.05f);
             }
+        }
+
+        #endregion
+
+        #region Selectable Resolution (FIX)
+
+        /// <summary>
+        /// ปุ่มนี้ "ใช้งานได้จริง" หรือไม่
+        /// - ต้อง active ใน hierarchy (ไม่ใช่ปุ่มที่ถูกซ่อน เช่น Options)
+        /// - ต้อง interactable
+        /// - ต้องไม่ได้ตั้ง Navigation = None
+        /// </summary>
+        private bool IsValidTarget(Selectable s)
+        {
+            return s != null
+                && s.gameObject.activeInHierarchy
+                && s.interactable
+                && s.navigation.mode != Navigation.Mode.None;
+        }
+
+        /// <summary>
+        /// หาปุ่มถัดไปในทิศที่กด โดยข้ามปุ่มที่ถูกซ่อน/ปิดอยู่
+        /// และ wrap ไปยังขอบฝั่งตรงข้ามเฉพาะปุ่มที่ใช้งานได้จริง
+        /// </summary>
+        private Selectable GetAdjacentSelectable(Selectable current, bool moveUp)
+        {
+            if (current == null) return null;
+
+            // 1) เดินตามทิศที่กด ข้ามปุ่มที่ใช้ไม่ได้ จนเจอปุ่มที่ valid
+            Selectable cursor = current;
+            for (int i = 0; i < MaxNavigationSteps; i++)
+            {
+                Selectable next = moveUp
+                    ? cursor.FindSelectableOnUp()
+                    : cursor.FindSelectableOnDown();
+
+                if (next == null || next == current)
+                    break; // ถึงปลายทาง หรือวนกลับมาที่เดิม
+
+                if (IsValidTarget(next))
+                    return next;
+
+                cursor = next; // เป็นปุ่มที่ซ่อนอยู่ -> ข้ามไปต่อในทิศเดิม
+            }
+
+            // 2) ไม่เจอปุ่ม valid ในทิศนั้น -> wrap ไปขอบฝั่งตรงข้าม (ถ้าเปิด wrapping)
+            if (!enableWrapping)
+                return null;
+
+            Selectable farValid = null;
+            cursor = current;
+            for (int i = 0; i < MaxNavigationSteps; i++)
+            {
+                Selectable next = moveUp
+                    ? cursor.FindSelectableOnDown()
+                    : cursor.FindSelectableOnUp();
+
+                if (next == null || next == current)
+                    break;
+
+                if (IsValidTarget(next))
+                    farValid = next; // จำปุ่ม valid ที่ไกลสุดไว้
+
+                cursor = next;
+            }
+
+            return farValid; // อาจเป็น null ถ้ามีปุ่มที่ใช้ได้แค่ปุ่มเดียว
         }
 
         #endregion
@@ -279,36 +349,6 @@ namespace MomoGame.MainMenu
             {
                 SelectFirstButton();
             }
-        }
-
-        private Selectable FindFirstSelectableInGroup(Selectable current)
-        {
-            Selectable first = current;
-
-            while (true)
-            {
-                Selectable next = first.FindSelectableOnUp();
-                if (next == null || next == current)
-                    break;
-                first = next;
-            }
-
-            return first;
-        }
-
-        private Selectable FindLastSelectableInGroup(Selectable current)
-        {
-            Selectable last = current;
-
-            while (true)
-            {
-                Selectable next = last.FindSelectableOnDown();
-                if (next == null || next == current)
-                    break;
-                last = next;
-            }
-
-            return last;
         }
 
         #endregion

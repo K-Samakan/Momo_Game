@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 32ce215cf66ff4249a55885ca53ad570, type: 3}
+  m_Name: 2_e4
+  m_EditorClassIdentifier: 
+  type: 0
+  image: {fileID: 21300000, guid: 0a0c3da495ac7bd40878aa0b9b730545, type: 3}
+  videoClip: {fileID: 0}
+  loopVideo: 0
+  sfx: {fileID: 0}
+  sfxVolume: 0.8
+  loopSfx: 1
+  subtitleText: "The desert is restored to splendor... but the road continues, leading
+    into the unknown secrets of the polar lands.\r"
+  typeSpeed: 0.04
+  autoAdvanceDelay: 5
+  playHapticOnShow: 1
+  hapticLeft: 0.3
+  hapticRight: 0.3
+  hapticDuration: 0.4
+  fadeInDuration: 0

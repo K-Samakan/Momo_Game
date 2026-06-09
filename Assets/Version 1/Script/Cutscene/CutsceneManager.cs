@@ -1,612 +1,418 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using UnityEngine.InputSystem;   // New Input System
 using UnityEngine.Video;
 using TMPro;
 using System.Collections;
 
 namespace MOMO.Cutscene
 {
+    /// <summary>
+    /// จัดการ Cutscene แบบสไลด์ (รองรับทั้งภาพนิ่งและวิดีโอ)
+    ///
+    /// การควบคุมด้วย DualSense:
+    ///  - ✕ (buttonSouth) กดค้าง  → ข้ามไปสไลด์ถัดไป (ทีละสไลด์)
+    ///  - ⭘ (buttonEast) แตะ ขณะพิมพ์ → โชว์ข้อความเต็มทันที
+    ///  - ⭘ (buttonEast) แตะ หลังพิมพ์ครบ → ไปสไลด์ถัดไป
+    ///  - ไม่กดอะไรหลังพิมพ์ครบนานเกิน autoAdvanceDelay → ไปสไลด์ถัดไปอัตโนมัติ
+    /// </summary>
     public class CutsceneManager : MonoBehaviour
     {
-        [Header("=== Video Slides Data ===")]
-        [Tooltip("รายการ Video Slides ทั้งหมด (5 อัน)")]
-        [SerializeField] private VideoSlideData[] videoSlides;
+        private enum SlideState { Typing, Complete }
 
-        [Header("=== Video Player Components ===")]
-        [Tooltip("Video Player Component")]
-        [SerializeField] private VideoPlayer videoPlayer;
+        [Header("=== Slides ===")]
+        [Tooltip("รายการสไลด์ทั้งหมด เรียงตามลำดับการเล่น")]
+        [SerializeField] private CutsceneSlideData[] slides;
 
-        [Tooltip("RawImage สำหรับแสดงวิดีโอ")]
+        [Header("=== UI: Image (ภาพนิ่ง) ===")]
+        [Tooltip("Image UI ที่ใช้แสดงรูปสไลด์")]
+        [SerializeField] private Image slideImage;
+
+        [Tooltip("CanvasGroup สำหรับ Fade (ครอบทั้ง Image และ Video)")]
+        [SerializeField] private CanvasGroup slideCanvasGroup;
+
+        [Header("=== UI: Video (สำรอง) ===")]
+        [Tooltip("RawImage ที่ใช้แสดงวิดีโอ (วางซ้อนตำแหน่งเดียวกับ Image)")]
         [SerializeField] private RawImage videoDisplay;
 
-        [Tooltip("Canvas Group สำหรับ Fade Video")]
-        [SerializeField] private CanvasGroup videoCanvasGroup;
+        [Tooltip("VideoPlayer component")]
+        [SerializeField] private VideoPlayer videoPlayer;
 
-        [Header("=== Audio Components ===")]
-        [Tooltip("Audio Source สำหรับเล่น BGM")]
-        [SerializeField] private AudioSource bgmSource;
+        [Header("=== UI: Subtitle ===")]
+        [SerializeField] private TextMeshProUGUI subtitleText;
+        [SerializeField] private CanvasGroup subtitleGroup;
 
-        [Header("=== CC Subtitle UI ===")]
-        [Tooltip("Panel สำหรับ CC Subtitle")]
-        [SerializeField] private GameObject ccSubtitlePanel;
+        [Header("=== Subtitle Highlight BG (พื้นหลังดำโปร่งแสง) ===")]
+        [Tooltip("เปิดพื้นหลังไฮไลต์หลังข้อความ (โตตามการพิมพ์)")]
+        [SerializeField] private bool useHighlightBG = true;
 
-        [Tooltip("Text สำหรับแสดง CC Subtitle")]
-        [SerializeField] private TextMeshProUGUI ccSubtitleText;
+        [Tooltip("Image พื้นหลังที่จะ resize ตามข้อความ (วางหลัง SubtitleText)")]
+        [SerializeField] private RectTransform highlightBG;
 
-        [Tooltip("Canvas Group สำหรับ Fade CC Subtitle")]
-        [SerializeField] private CanvasGroup ccSubtitleGroup;
+        [Tooltip("ระยะขอบพื้นหลังเกินข้อความ (x = ซ้าย-ขวา, y = บน-ล่าง) pixel")]
+        [SerializeField] private Vector2 highlightPadding = new Vector2(24f, 12f);
 
-        [Tooltip("Icon [CC] สำหรับแสดงว่าเป็น Closed Caption")]
-        [SerializeField] private GameObject ccIcon;
+        [Header("=== Audio ===")]
+        [Tooltip("AudioSource สำหรับเล่นเสียงประจำสไลด์")]
+        [SerializeField] private AudioSource sfxSource;
 
-        [Header("=== Button Prompt ===")]
-        [Tooltip("รูปปุ่ม Circle (Button Prompt)")]
-        [SerializeField] private GameObject buttonPrompt;
+        [Header("=== Input (Hold to skip) ===")]
+        [Tooltip("เวลากด ✕ ค้าง (วินาที) ถึงจะนับว่าข้ามสไลด์")]
+        [SerializeField] private float crossHoldThreshold = 0.4f;
 
-        // ลบบรรทัดนี้ออก:
-        // [SerializeField] private CanvasGroup buttonPromptGroup;
-
-        [Header("=== Settings ===")]
-        [Tooltip("ระยะเวลา Fade ทั่วไป (วินาที)")]
-        [SerializeField] private float fadeDuration = 0.5f;
-
-        [Tooltip("ชื่อ Scene ถัดไป (Map1)")]
+        [Header("=== Scene ===")]
+        [Tooltip("ชื่อ Scene ถัดไป เมื่อ Cutscene จบ")]
         [SerializeField] private string nextSceneName = "Map1";
 
-        [Header("=== Haptic Feedback Settings ===")]
-        [Tooltip("เปิดใช้งาน Haptic Feedback")]
-        [SerializeField] private bool enableHapticFeedback = true;
+        [Tooltip("จอ Loading (GameObject) ที่จะโชว์ตอนรอ scene ถัดไปโหลด")]
+        [SerializeField] private GameObject loadingScreen;
 
-        [Range(0f, 1f)]
-        [Tooltip("ความแรง Haptic เมื่อกดปุ่ม (0-1)")]
-        [SerializeField] private float hapticIntensity = 0.3f;
+        [Tooltip("เวลาโชว์จอ Loading ขั้นต่ำ (วินาที) แม้โหลดเสร็จก่อนก็โชว์ครบเวลานี้")]
+        [SerializeField] private float minLoadingTime = 1.5f;
 
-        [Tooltip("ระยะเวลา Haptic (วินาที)")]
-        [SerializeField] private float hapticDuration = 0.1f;
-
-        // ===== PRIVATE VARIABLES =====
-
-        private int currentSlideIndex = 0;
+        // ───────────── runtime ─────────────
+        private int index = 0;
+        private SlideState state;
         private bool isTransitioning = false;
-        private bool videoReady = false;
-        private string currentSubtitleText = "";
+        private bool isFinished = false;   // กันไม่ให้ Update ทำงานหลัง cutscene จบ
 
-        // DualSense Controller Input
-        private bool CircleButtonPressed => Input.GetButtonDown("PSCircle");
+        private Coroutine typingCo;
+        private float crossHoldTimer = 0f;
+        private bool crossSkipFired = false;
+        private float autoAdvanceTimer = 0f;
 
-        // ===== UNITY LIFECYCLE =====
+        private RenderTexture videoRT;   // สร้างครั้งเดียวเมื่อมีสไลด์วิดีโอ
+        private AsyncOperation preloadOp; // โหลด scene ถัดไปเบื้องหลัง
 
+        // ✕ = buttonSouth, ⭘ = buttonEast (ตรงกับ PS5 บน PC ผ่าน New Input System)
+        private Gamepad Pad => Gamepad.current;
+
+        // ═══════════════════════════════════════════════
         void Start()
         {
-            Debug.Log("🎬 CutsceneManager: Starting...");
-
-            // Validate Components
-            if (!ValidateComponents())
+            if (slides == null || slides.Length == 0)
             {
-                Debug.LogError("❌ CutsceneManager: Component validation failed!");
+                Debug.LogError("❌ CutsceneManager: ไม่มี slides!");
                 return;
             }
 
-            // Setup Video Player
-            SetupVideoPlayer();
+            if (slideImage == null || slideCanvasGroup == null || subtitleText == null)
+            {
+                Debug.LogError("❌ CutsceneManager: ยังไม่ได้ assign UI references ครบ!");
+                return;
+            }
 
-            // Setup CC Subtitle
-            SetupCCSubtitle();
+            if (loadingScreen != null) loadingScreen.SetActive(false);
 
-            // เริ่มต้น Slide แรก
-            StartCoroutine(ShowVideoSlide(0));
+            // เริ่มโหลด Map1 เบื้องหลังตั้งแต่ตอนนี้ แต่ยังไม่สลับ scene
+            StartPreloadNextScene();
+
+            StartCoroutine(ShowSlide(0));
+        }
+
+        /// <summary>โหลด scene ถัดไปเบื้องหลัง (ยังไม่เปิดจนกว่า cutscene จบ)</summary>
+        void StartPreloadNextScene()
+        {
+            if (string.IsNullOrEmpty(nextSceneName)) return;
+
+            preloadOp = SceneManager.LoadSceneAsync(nextSceneName);
+            preloadOp.allowSceneActivation = false;   // โหลดเสร็จแต่ยังไม่สลับ
         }
 
         void Update()
         {
-            // ตรวจสอบ Input
-            if (CircleButtonPressed && !isTransitioning && videoReady)
-            {
-                OnCirclePressed();
-            }
+            if (isFinished || isTransitioning || Pad == null) return;
+            if (index < 0 || index >= slides.Length) return;   // กัน index เกินขอบ
 
-            // อัปเดต CC Subtitle ตาม Timeline วิดีโอ
-            if (videoPlayer.isPlaying && currentSlideIndex >= 0 && currentSlideIndex < videoSlides.Length)
-            {
-                UpdateCCSubtitle((float)videoPlayer.time);
-            }
+            HandleCross();          // ✕ ค้าง → ข้ามสไลด์
+            HandleCircle();         // ⭘ แตะ → เร่งข้อความ / ไปสไลด์ถัดไป
+            HandleAutoAdvance();    // ไม่กดอะไร → เลื่อนเอง
         }
 
         void OnDestroy()
         {
-            // Cleanup
-            CleanupVideoPlayer();
+            if (videoRT != null)
+                videoRT.Release();   // คืน VRAM
         }
 
-        // ===== VALIDATION =====
+        // ───────────── Input handlers ─────────────
 
-        bool ValidateComponents()
+        /// <summary>✕ (buttonSouth) กดค้างเพื่อข้ามสไลด์ — fire ครั้งเดียวต่อการกด</summary>
+        void HandleCross()
         {
-            bool isValid = true;
-
-            if (videoSlides == null || videoSlides.Length == 0)
+            if (Pad.buttonSouth.isPressed)
             {
-                Debug.LogError("❌ Video Slides array is empty!");
-                isValid = false;
-            }
-
-            if (videoPlayer == null)
-            {
-                Debug.LogError("❌ Video Player component is missing!");
-                isValid = false;
-            }
-
-            if (videoDisplay == null)
-            {
-                Debug.LogError("❌ Video Display (RawImage) is missing!");
-                isValid = false;
-            }
-
-            if (bgmSource == null)
-            {
-                Debug.LogWarning("⚠️ BGM Audio Source is missing!");
-            }
-
-            if (ccSubtitleText == null)
-            {
-                Debug.LogWarning("⚠️ CC Subtitle Text is missing!");
-            }
-
-            return isValid;
-        }
-
-        // ===== VIDEO PLAYER SETUP =====
-
-        void SetupVideoPlayer()
-        {
-            Debug.Log("🎥 Setting up Video Player...");
-
-            // ตั้งค่า Video Player
-            videoPlayer.playOnAwake = false;
-            videoPlayer.isLooping = true;
-            videoPlayer.audioOutputMode = VideoAudioOutputMode.None;
-            videoPlayer.renderMode = VideoRenderMode.RenderTexture;
-            videoPlayer.skipOnDrop = true;
-
-            // สร้าง Render Texture (ถ้ายังไม่มี)
-            if (videoPlayer.targetTexture == null)
-            {
-                RenderTexture rt = new RenderTexture(1920, 1080, 0, RenderTextureFormat.ARGB32);
-                rt.name = "CutsceneRenderTexture";
-                videoPlayer.targetTexture = rt;
-                videoDisplay.texture = rt;
-
-                Debug.Log("✅ Created Render Texture: 1920x1080");
-            }
-            else
-            {
-                videoDisplay.texture = videoPlayer.targetTexture;
-            }
-
-            // Event Callbacks
-            videoPlayer.prepareCompleted += OnVideoPrepared;
-            videoPlayer.errorReceived += OnVideoError;
-            // ไม่ต้องใช้ loopPointReached เพราะ video loop อยู่แล้ว
-            // videoPlayer.loopPointReached += OnVideoFinished;
-
-            Debug.Log("✅ Video Player setup complete");
-        }
-
-        void CleanupVideoPlayer()
-        {
-            if (videoPlayer != null)
-            {
-                videoPlayer.prepareCompleted -= OnVideoPrepared;
-                videoPlayer.errorReceived -= OnVideoError;
-                // videoPlayer.loopPointReached -= OnVideoFinished;
-
-                if (videoPlayer.targetTexture != null)
+                crossHoldTimer += Time.unscaledDeltaTime;
+                if (crossHoldTimer >= crossHoldThreshold && !crossSkipFired)
                 {
-                    videoPlayer.targetTexture.Release();
+                    crossSkipFired = true;
+                    Debug.Log("✕ Hold → ข้ามสไลด์");
+                    NextSlide();
                 }
-
-                videoPlayer.clip = null;
-            }
-
-            if (bgmSource != null)
-            {
-                bgmSource.clip = null;
-            }
-
-            Resources.UnloadUnusedAssets();
-        }
-
-        // ===== CC SUBTITLE SETUP =====
-
-        void SetupCCSubtitle()
-        {
-            if (ccSubtitlePanel != null)
-            {
-                ccSubtitlePanel.SetActive(true);
-            }
-
-            if (ccIcon != null)
-            {
-                ccIcon.SetActive(true);
-            }
-
-            if (ccSubtitleText != null)
-            {
-                ccSubtitleText.text = "";
-            }
-
-            Debug.Log("✅ CC Subtitle setup complete");
-        }
-
-        // ===== MAIN LOGIC =====
-
-        void OnCirclePressed()
-        {
-            Debug.Log($"⭕ Circle pressed - Current slide: {currentSlideIndex + 1}/{videoSlides.Length}");
-
-            // Haptic Feedback
-            TriggerHapticFeedback();
-
-            // ไปอันถัดไป
-            currentSlideIndex++;
-
-            Debug.Log($"→ Moving to index: {currentSlideIndex}");
-
-            if (currentSlideIndex < videoSlides.Length)
-            {
-                // เล่น Slide ถัดไป
-                Debug.Log($"📺 Loading slide {currentSlideIndex + 1}/{videoSlides.Length}");
-                StartCoroutine(ShowVideoSlide(currentSlideIndex));
             }
             else
             {
-                // จบแล้ว → โหลด Map1
-                Debug.Log($"🎬 All {videoSlides.Length} slides completed!");
-                Debug.Log($"🚀 Preparing to load: {nextSceneName}");
-                StartCoroutine(LoadNextScene());
+                crossHoldTimer = 0f;
+                crossSkipFired = false;
             }
         }
 
-        // ===== SLIDE MANAGEMENT =====
+        /// <summary>⭘ (buttonEast) แตะ — จับขอบขาขึ้น 1 ครั้ง = 1 action</summary>
+        void HandleCircle()
+        {
+            if (!Pad.buttonEast.wasPressedThisFrame) return;
 
-        IEnumerator ShowVideoSlide(int index)
+            if (state == SlideState.Typing)
+                CompleteSubtitle();   // แตะครั้งแรก: โชว์เต็ม
+            else
+                NextSlide();          // แตะอีกครั้ง: ไปสไลด์ถัดไป
+        }
+
+        /// <summary>ไม่กดอะไร: นับเวลาแล้วเลื่อนเอง (เฉพาะตอน Complete)</summary>
+        void HandleAutoAdvance()
+        {
+            if (state != SlideState.Complete) return;
+            if (index < 0 || index >= slides.Length) return;   // กัน index เกิน array
+
+            autoAdvanceTimer += Time.unscaledDeltaTime;
+            if (autoAdvanceTimer >= slides[index].autoAdvanceDelay)
+            {
+                Debug.Log("⏱ Auto advance");
+                NextSlide();
+            }
+        }
+
+        // ───────────── Core flow ─────────────
+
+        IEnumerator ShowSlide(int i)
         {
             isTransitioning = true;
-            videoReady = false;
+            index = i;
+            CutsceneSlideData slide = slides[i];
 
-            Debug.Log($"🎬 Showing slide {index + 1}/{videoSlides.Length}");
+            // reset state
+            state = SlideState.Typing;
+            autoAdvanceTimer = 0f;
+            crossHoldTimer = 0f;
+            crossSkipFired = false;
 
-            // ซ่อนปุ่ม Prompt
-            if (buttonPrompt != null)
-                buttonPrompt.SetActive(false);
-
-            // Fade Out ถ้าไม่ใช่อันแรก
-            if (index > 0)
+            // ── พื้นหลัง: branch ตามชนิดสไลด์ ──
+            if (slide.type == SlideType.Video && slide.videoClip != null)
             {
-                yield return StartCoroutine(FadeOut());
+                slideImage.gameObject.SetActive(false);
+                if (videoDisplay != null) videoDisplay.gameObject.SetActive(true);
+
+                SetupVideoRT();
+                videoPlayer.Stop();
+                videoPlayer.clip = slide.videoClip;
+                videoPlayer.isLooping = slide.loopVideo;
+                videoPlayer.audioOutputMode = VideoAudioOutputMode.None;
+                videoPlayer.Prepare();
+                while (!videoPlayer.isPrepared) yield return null;   // รอวิดีโอโหลด
+                videoPlayer.Play();
+            }
+            else
+            {
+                if (videoPlayer != null) videoPlayer.Stop();
+                if (videoDisplay != null) videoDisplay.gameObject.SetActive(false);
+                slideImage.gameObject.SetActive(true);
+                slideImage.sprite = slide.image;
             }
 
-            // โหลดข้อมูล Slide
-            VideoSlideData slide = videoSlides[index];
+            subtitleText.text = "";
+            if (highlightBG != null) highlightBG.gameObject.SetActive(false);
 
-            // Prepare Video
-            videoPlayer.clip = slide.videoClip;
-            videoPlayer.Prepare();
-
-            Debug.Log("⏳ Preparing video...");
-
-            // รอให้วิดีโอโหลดเสร็จ
-            float timeout = 10f;
-            float elapsed = 0f;
-
-            while (!videoReady && elapsed < timeout)
+            // ── เสียงประจำสไลด์ ──
+            if (sfxSource != null && slide.sfx != null)
             {
-                elapsed += Time.deltaTime;
-                yield return null;
+                sfxSource.Stop();
+                sfxSource.clip = slide.sfx;
+                sfxSource.volume = slide.sfxVolume;
+                sfxSource.loop = slide.loopSfx;
+                sfxSource.Play();
             }
 
-            if (!videoReady)
+            // ── การสั่นตอนสไลด์ขึ้น ──
+            if (slide.playHapticOnShow && HapticManager.Instance != null)
             {
-                Debug.LogError($"❌ Video {index + 1} failed to load (timeout)");
-                yield break;
+                HapticManager.Instance.Vibrate(
+                    slide.hapticLeft, slide.hapticRight, slide.hapticDuration);
             }
 
-            // Reset CC Subtitle
-            currentSubtitleText = "";
-            if (ccSubtitleText != null)
-                ccSubtitleText.text = "";
-
-            // เล่น BGM
-            PlayBGM(slide);
-
-            // Fade In
-            yield return StartCoroutine(FadeIn(slide.fadeInDuration));
-
-            // เริ่มเล่นวิดีโอ
-            videoPlayer.Play();
-            Debug.Log($"▶️ Playing video {index + 1}");
-
-            // แสดงปุ่ม Prompt
-            if (buttonPrompt != null)
-                buttonPrompt.SetActive(true);
+            // ── fade in ──
+            yield return StartCoroutine(FadeCanvas(slideCanvasGroup, 1f, slide.fadeInDuration));
+            if (subtitleGroup != null) subtitleGroup.alpha = 1f;
 
             isTransitioning = false;
+
+            // ── เริ่มพิมพ์ subtitle ──
+            typingCo = StartCoroutine(TypeSubtitle(slide));
         }
 
-        // ===== VIDEO CALLBACKS =====
-
-        void OnVideoPrepared(VideoPlayer vp)
+        /// <summary>typewriter ด้วย TMP maxVisibleCharacters + resize พื้นหลังตามข้อความ</summary>
+        IEnumerator TypeSubtitle(CutsceneSlideData slide)
         {
-            Debug.Log($"✅ Video {currentSlideIndex + 1} prepared successfully");
-            videoReady = true;
-        }
+            subtitleText.text = slide.subtitleText;
+            subtitleText.maxVisibleCharacters = 0;
+            subtitleText.ForceMeshUpdate();
+            int total = subtitleText.textInfo.characterCount;
 
-        void OnVideoError(VideoPlayer vp, string message)
-        {
-            Debug.LogError($"❌ Video Error: {message}");
-            videoReady = true;
-        }
-
-        // ไม่ต้องใช้ฟังก์ชันนี้แล้ว (เพราะ video loop)
-        /*
-        void OnVideoFinished(VideoPlayer vp)
-        {
-            Debug.Log($"🎬 Video {currentSlideIndex + 1} finished playing");
-        }
-        */
-
-        // ===== BGM MANAGEMENT =====
-
-        void PlayBGM(VideoSlideData slide)
-        {
-            if (bgmSource == null)
+            for (int c = 0; c <= total; c++)
             {
-                Debug.LogError("❌ BGM Source is NULL!");
+                subtitleText.maxVisibleCharacters = c;
+                subtitleText.ForceMeshUpdate();
+                UpdateHighlightBG();
+                yield return new WaitForSecondsRealtime(slide.typeSpeed);
+            }
+
+            OnSubtitleComplete();
+        }
+
+        /// <summary>resize Image พื้นหลังให้พอดีกับข้อความที่มองเห็น (โตตามการพิมพ์)</summary>
+        void UpdateHighlightBG()
+        {
+            if (!useHighlightBG || highlightBG == null) return;
+
+            subtitleText.ForceMeshUpdate();
+            TMP_TextInfo info = subtitleText.textInfo;
+            int visible = subtitleText.maxVisibleCharacters;
+
+            // ยังไม่มีตัวอักษรโผล่ → ซ่อนพื้นหลัง
+            if (visible <= 0 || info.characterCount == 0)
+            {
+                highlightBG.gameObject.SetActive(false);
                 return;
             }
 
-            if (slide.bgmClip == null)
+            highlightBG.gameObject.SetActive(true);
+
+            // หา bounds ของเฉพาะตัวอักษรที่มองเห็นและไม่ใช่ช่องว่าง
+            float minX = float.MaxValue, maxX = float.MinValue;
+            float minY = float.MaxValue, maxY = float.MinValue;
+            bool found = false;
+            int count = Mathf.Min(visible, info.characterCount);
+
+            for (int i = 0; i < count; i++)
             {
-                Debug.LogError($"❌ BGM Clip is NULL in Slide {currentSlideIndex + 1}!");
+                if (!info.characterInfo[i].isVisible) continue;
+                found = true;
+                minX = Mathf.Min(minX, info.characterInfo[i].bottomLeft.x);
+                maxX = Mathf.Max(maxX, info.characterInfo[i].topRight.x);
+                minY = Mathf.Min(minY, info.characterInfo[i].descender);
+                maxY = Mathf.Max(maxY, info.characterInfo[i].ascender);
+            }
+
+            if (!found)
+            {
+                highlightBG.gameObject.SetActive(false);
                 return;
             }
 
-            Debug.Log($"🎵 Playing BGM: {slide.bgmClip.name}");
+            float w = (maxX - minX) + highlightPadding.x * 2f;
+            float h = (maxY - minY) + highlightPadding.y * 2f;
+            float cx = (minX + maxX) * 0.5f;
+            float cy = (minY + maxY) * 0.5f;
 
-            // หยุด BGM เก่าทันที
-            if (bgmSource.isPlaying)
-            {
-                bgmSource.Stop();
-            }
-
-            // ตั้งค่า BGM ใหม่
-            bgmSource.clip = slide.bgmClip;
-            bgmSource.volume = 0f;
-            bgmSource.loop = slide.loopBGM;
-            bgmSource.Play();
-
-            // Fade In BGM
-            StartCoroutine(FadeBGM(slide.bgmVolume, 0.5f));
+            // วางพื้นหลังให้อิงพิกัด local ของ SubtitleText (highlightBG ต้องเป็นลูกของ SubtitleRoot ระดับเดียวกับ text)
+            highlightBG.sizeDelta = new Vector2(w, h);
+            highlightBG.localPosition = subtitleText.rectTransform.localPosition +
+                                        new Vector3(cx, cy, 0f);
         }
 
-        IEnumerator FadeBGM(float targetVolume, float duration)
+        /// <summary>⭘ แตะตอนพิมพ์: โชว์เต็มทันที</summary>
+        void CompleteSubtitle()
         {
-            if (bgmSource == null) yield break;
-
-            float startVolume = bgmSource.volume;
-            float elapsed = 0f;
-
-            while (elapsed < duration)
-            {
-                elapsed += Time.deltaTime;
-                bgmSource.volume = Mathf.Lerp(startVolume, targetVolume, elapsed / duration);
-                yield return null;
-            }
-
-            bgmSource.volume = targetVolume;
+            if (typingCo != null) StopCoroutine(typingCo);
+            subtitleText.maxVisibleCharacters = int.MaxValue;
+            subtitleText.ForceMeshUpdate();
+            UpdateHighlightBG();
+            OnSubtitleComplete();
+            Debug.Log("⭘ เร่งข้อความ → เต็ม");
         }
 
-        // ===== CC SUBTITLE MANAGEMENT =====
-
-        void UpdateCCSubtitle(float currentTime)
+        void OnSubtitleComplete()
         {
-            // ป้องกัน Index Out of Range
-            if (currentSlideIndex < 0 || currentSlideIndex >= videoSlides.Length)
-            {
-                Debug.LogWarning($"⚠️ Invalid slide index: {currentSlideIndex}");
-                return;
-            }
-
-            VideoSlideData slide = videoSlides[currentSlideIndex];
-
-            // ตรวจสอบว่ามี CC Subtitle หรือไม่
-            if (slide.ccSubtitle == null || slide.ccSubtitle.lines == null || slide.ccSubtitle.lines.Length == 0)
-                return;
-
-            string newSubtitle = "";
-
-            foreach (SubtitleLine line in slide.ccSubtitle.lines)
-            {
-                if (currentTime >= line.startTime && currentTime <= line.endTime)
-                {
-                    newSubtitle = line.text;
-                    break;
-                }
-            }
-
-            // อัปเดตเฉพาะเมื่อเปลี่ยนแปลง
-            if (newSubtitle != currentSubtitleText)
-            {
-                currentSubtitleText = newSubtitle;
-
-                if (ccSubtitleText != null)
-                {
-                    ccSubtitleText.text = currentSubtitleText;
-
-                    if (!string.IsNullOrEmpty(currentSubtitleText))
-                    {
-                        Debug.Log($"💬 CC: {currentSubtitleText}");
-                    }
-                }
-            }
+            state = SlideState.Complete;
+            autoAdvanceTimer = 0f;   // เริ่มนับ auto-advance ตรงนี้
         }
 
-        // ===== FADE EFFECTS =====
-
-        IEnumerator FadeIn(float duration)
+        void NextSlide()
         {
-            Debug.Log("⬆️ Fading in...");
-
-            // Fade Video
-            if (videoCanvasGroup != null)
-                yield return StartCoroutine(FadeCanvasGroup(videoCanvasGroup, 1f, duration));
-
-            // Fade CC Subtitle
-            if (ccSubtitleGroup != null)
-                yield return StartCoroutine(FadeCanvasGroup(ccSubtitleGroup, 1f, duration * 0.8f));
+            index++;
+            if (index < slides.Length)
+                StartCoroutine(ShowSlide(index));
+            else
+                StartCoroutine(EndCutscene());
         }
 
-        IEnumerator FadeOut()
-        {
-            Debug.Log("⬇️ Fading out...");
-
-            // Fade CC Subtitle ก่อน
-            if (ccSubtitleGroup != null)
-                yield return StartCoroutine(FadeCanvasGroup(ccSubtitleGroup, 0f, fadeDuration * 0.5f));
-
-            // Fade Video
-            if (videoCanvasGroup != null)
-                yield return StartCoroutine(FadeCanvasGroup(videoCanvasGroup, 0f, fadeDuration));
-
-            // หยุดวิดีโอ
-            videoPlayer.Stop();
-        }
-
-        IEnumerator FadeCanvasGroup(CanvasGroup group, float targetAlpha, float duration)
-        {
-            if (group == null) yield break;
-
-            float startAlpha = group.alpha;
-            float elapsed = 0f;
-
-            while (elapsed < duration)
-            {
-                elapsed += Time.deltaTime;
-                group.alpha = Mathf.Lerp(startAlpha, targetAlpha, elapsed / duration);
-                yield return null;
-            }
-
-            group.alpha = targetAlpha;
-        }
-
-        // ===== SCENE TRANSITION =====
-
-        IEnumerator LoadNextScene()
+        IEnumerator EndCutscene()
         {
             isTransitioning = true;
+            isFinished = true;   // หยุด Update ทันที กัน index เกินขอบ
 
-            Debug.Log("========================================");
-            Debug.Log("   ⚡ FAST LOADING NEXT SCENE");
-            Debug.Log("========================================");
+            if (HapticManager.Instance != null) HapticManager.Instance.StopVibration();
+            if (sfxSource != null) sfxSource.Stop();
+            if (videoPlayer != null) videoPlayer.Stop();
 
-            // ===== หยุดและซ่อนทุกอย่างทันที =====
+            // fade จอดำลง (ตั้ง 0f ถ้าไม่อยากได้ fade)
+            yield return StartCoroutine(FadeCanvas(slideCanvasGroup, 0f, 0.5f));
 
-            if (videoPlayer != null && videoPlayer.isPlaying)
+            Debug.Log($"🎬 Cutscene จบ → เข้า {nextSceneName}");
+
+            // โชว์จอ Loading ระหว่างรอ Map1 โหลด
+            if (loadingScreen != null) loadingScreen.SetActive(true);
+
+            float loadingStart = Time.unscaledTime;
+
+            // รอจน Map1 โหลดครบ (async ค้างที่ 0.9 จนกว่าจะ activate)
+            if (preloadOp != null)
             {
-                videoPlayer.Stop();
-                Debug.Log("⏹️ Video stopped");
+                while (preloadOp.progress < 0.9f)
+                    yield return null;
             }
 
-            if (bgmSource != null && bgmSource.isPlaying)
-            {
-                bgmSource.Stop();
-                Debug.Log("🔇 BGM stopped");
-            }
-
-            // ซ่อน Button Prompt ทันที
-            if (buttonPrompt != null)
-            {
-                buttonPrompt.SetActive(false);
-                Debug.Log("🚫 Button prompt hidden");
-            }
-
-            // ===== ตรวจสอบ Scene =====
-
-            if (!Application.CanStreamedLevelBeLoaded(nextSceneName))
-            {
-                Debug.LogError($"❌ Scene '{nextSceneName}' not found!");
-                Debug.LogError("→ Fix: File → Build Settings → Add Scene");
-                yield break;
-            }
-
-            // ===== เริ่มโหลด Scene แบบ Async =====
-
-            AsyncOperation asyncLoad = SceneManager.LoadSceneAsync(nextSceneName);
-            asyncLoad.allowSceneActivation = false;
-
-            Debug.Log($"⏳ Loading '{nextSceneName}' in background...");
-
-            // ===== Fade Out เร็ว =====
-
-            float fastFadeDuration = 0.2f;
-
-            // Fade ทั้งหมดพร้อมกัน
-            if (videoCanvasGroup != null)
-                StartCoroutine(FadeCanvasGroup(videoCanvasGroup, 0f, fastFadeDuration));
-
-            if (ccSubtitleGroup != null)
-                StartCoroutine(FadeCanvasGroup(ccSubtitleGroup, 0f, fastFadeDuration));
-
-            Debug.Log($"⬇️ Fading out ({fastFadeDuration}s)...");
-
-            // รอ Fade เสร็จ
-            yield return new WaitForSeconds(fastFadeDuration);
-
-            // ===== รอโหลด Scene =====
-
-            // รอให้โหลดเกือบเสร็จ (90%)
-            while (asyncLoad.progress < 0.9f)
-            {
+            // โชว์จอ Loading ให้ครบเวลาขั้นต่ำ แม้โหลดเสร็จก่อน
+            while (Time.unscaledTime - loadingStart < minLoadingTime)
                 yield return null;
-            }
 
-            Debug.Log("✅ Scene ready (90%)");
-
-            // ===== เปลี่ยน Scene ทันที =====
-
-            Debug.Log("🚀 Activating scene NOW!");
-            asyncLoad.allowSceneActivation = true;
-
-            Debug.Log("========================================");
+            // เข้า Map1
+            if (preloadOp != null)
+                preloadOp.allowSceneActivation = true;
+            else
+                SceneManager.LoadScene(nextSceneName);
         }
 
-        // ===== HAPTIC FEEDBACK =====
+        // ───────────── Helpers ─────────────
 
-        void TriggerHapticFeedback()
+        IEnumerator FadeCanvas(CanvasGroup cg, float target, float dur)
         {
-            if (!enableHapticFeedback)
-                return;
-
-            Debug.Log($"📳 Haptic Feedback: Intensity={hapticIntensity}, Duration={hapticDuration}");
-
-            // TODO: Integration with UniSense Plugin
-            /*
-            // ตัวอย่างการใช้งาน UniSense
-            if (DualSenseController.IsConnected)
+            if (cg == null) yield break;
+            float start = cg.alpha, t = 0f;
+            while (t < dur)
             {
-                DualSenseController.TriggerHaptic(
-                    leftMotor: hapticIntensity,
-                    rightMotor: hapticIntensity,
-                    duration: hapticDuration
-                );
+                t += Time.unscaledDeltaTime;
+                cg.alpha = Mathf.Lerp(start, target, t / dur);
+                yield return null;
             }
-            */
+            cg.alpha = target;
+        }
 
-            // ทดสอบด้วย Unity's Default Haptic (Mobile)
-#if UNITY_ANDROID || UNITY_IOS
-            Handheld.Vibrate();
-#endif
+        /// <summary>เตรียม RenderTexture สำหรับวิดีโอ (สร้างครั้งเดียว)</summary>
+        void SetupVideoRT()
+        {
+            if (videoRT != null || videoPlayer == null) return;
+
+            videoRT = new RenderTexture(1920, 1080, 0, RenderTextureFormat.ARGB32);
+            videoRT.name = "CutsceneRT";
+
+            videoPlayer.renderMode = VideoRenderMode.RenderTexture;
+            videoPlayer.targetTexture = videoRT;
+            videoPlayer.playOnAwake = false;
+            videoPlayer.skipOnDrop = true;
+
+            if (videoDisplay != null)
+                videoDisplay.texture = videoRT;
         }
     }
 }

@@ -21,14 +21,23 @@ EditorBuildSettings:
     path: Assets/Version 1/Scenes/Main.unity
     guid: 3dd1685c43c641842be898e507e7983d
   - enabled: 1
-    path: Assets/Version 1/Scenes/Intro_Cutscene.unity
-    guid: 898c60a0abad3ae48bf37406daa84ec1
+    path: Assets/Version 1/Scenes/Map1/Cutscene/Map1_Intro.unity
+    guid: 5483df99ef614f9409331d3abba2fed1
   - enabled: 1
     path: Assets/Version 1/Scenes/Map1.unity
     guid: 606b8adc77a75134d9d1ad3f91a3df42
   - enabled: 1
+    path: Assets/Version 1/Scenes/Map1/Cutscene/Map1_Outro.unity
+    guid: 7b43451025411704697185bd6209f473
+  - enabled: 1
+    path: Assets/Version 1/Scenes/Map2/Map2_Intro.unity
+    guid: becdc1693e0da8c49a6c5571bf05f4ea
+  - enabled: 1
     path: Assets/Version 1/Scenes/Map2.unity
     guid: a7a9ea069634aeb47a871c564a4ce0ec
+  - enabled: 1
+    path: Assets/Version 1/Scenes/Map2/Map2_Outro.unity
+    guid: b74f2ae59ef42c745ae628bd9335091a
   - enabled: 1
     path: Assets/Version 1/Scenes/Map3.unity
     guid: 99946e699a9f6184b99ec55c886fb056
