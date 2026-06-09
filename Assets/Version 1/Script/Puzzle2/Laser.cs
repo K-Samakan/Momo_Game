@@ -66,18 +66,6 @@ public class Laser : MonoBehaviour
     void IntruderDetected()
     {
         Debug.Log("Intruder Found! Opening door...");
-
-        // ทำให้ประตูหายไป
-        if (doorToHide != null)
-        {
-            doorToHide.SetActive(false);
-            Debug.Log($"Door {doorToHide.name} has been opened (hidden)");
-        }
-        else
-        {
-            Debug.LogWarning("Door GameObject is not assigned to Laser script!");
-        }
-
         if (MirrorInteractionManager.Instance != null)
         {
             MirrorInteractionManager.Instance.OnPuzzleComplete();

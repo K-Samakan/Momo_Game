@@ -521,4 +521,22 @@ public class MirrorUIManager : MonoBehaviour
         Debug.Log("ทดสอบระบบ Health UI");
         OnHealthChanged(currentHealth - 1);
     }
+
+    // เปิด/ปิด UI ของ Puzzle2 ทั้งหมด (เรียกจาก MirrorInteractionManager)
+    public void SetPuzzleUIActive(bool on)
+    {
+        if (healthUIPanel != null)
+        {
+            healthUIPanel.SetActive(on);
+
+            Debug.Log(
+                $"Health UI = {healthUIPanel.activeSelf}"
+            );
+        }
+
+        if (!on)
+            HideMirrorInteractionUI();
+
+        Debug.Log($"🖥️ Puzzle2 UI -> {(on ? "ON" : "OFF")}");
+    }
 }

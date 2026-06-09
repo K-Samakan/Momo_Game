@@ -27,7 +27,22 @@ public class MirrorInteractionManager : MonoBehaviour
     public int playerMaxHealth = 5;
     private int playerCurrentHealth;
 
-    
+    [Header("Puzzle Entry / Warp")]
+    public PlayerInput playerInput;          // ลาก PlayerInput ของตัวละครมาใส่
+    public Transform puzzleSpawnPoint;       // จุดวาร์ปเข้าห้อง puzzle
+    public Transform player;                 // ตัวละคร (เว้นว่างได้ จะหา Tag "Player" ให้)
+    public Puzzle2WarpTrigger warpTrigger;   // แท่นกด (เพื่อสั่งล็อกตอนสำเร็จ)
+
+    [Header("Doors")]
+    public GameObject entranceDoor;          // ประตูทางเข้า
+    public GameObject exitDoor;              // ประตูทางออก
+
+    [Header("Main HUD")]
+    public GameObject mainHUD;
+
+    private bool isSolved = false;
+
+
 
     private void Awake()
     {
@@ -46,30 +61,24 @@ public class MirrorInteractionManager : MonoBehaviour
     private void Start()
     {
         playerCurrentHealth = playerMaxHealth;
-        Debug.Log($"❤️ Player Health initialized: {playerCurrentHealth}/{playerMaxHealth}");
 
-        // แจ้ง UI Manager เรื่อง Health
         if (MirrorUIManager.Instance != null)
-        {
             MirrorUIManager.Instance.OnPlayerHealthChanged(playerCurrentHealth, playerMaxHealth);
-        }
+
+        // ✅ เริ่มต้น: ยังไม่เข้า puzzle -> ปิด UI + MiniMap
+        SetPuzzleVisualsActive(false);
     }
 
     private void InitializeInput()
     {
-        if (inputActions == null)
-        {
-            Debug.LogError("Input Actions Asset not assigned!");
-            return;
-        }
+        if (playerInput == null) playerInput = FindObjectOfType<PlayerInput>();
+        if (playerInput == null) { Debug.LogError("PlayerInput not found!"); return; }
 
-        puzzleActionMap = inputActions.FindActionMap("Puzzle2");
+        puzzleActionMap = playerInput.actions.FindActionMap("Puzzle2");
+        playerActionMap = playerInput.actions.FindActionMap("Player");
+
         l2Action = puzzleActionMap.FindAction("L2");
         r2Action = puzzleActionMap.FindAction("R2");
-
-        playerActionMap = inputActions.FindActionMap("Player");
-        if (playerActionMap == null)
-            Debug.LogWarning("Player Action Map not found!");
 
         if (l2Action == null) Debug.LogError("L2 Action not found!");
         if (r2Action == null) Debug.LogError("R2 Action not found!");
@@ -77,37 +86,90 @@ public class MirrorInteractionManager : MonoBehaviour
 
     private void OnEnable()
     {
-        if (puzzleActionMap == null) return;
+        if (l2Action == null || r2Action == null) return;
 
-        puzzleActionMap.Enable();
-
+        // แค่ subscribe — ยังไม่เปิด map (จะเปิดตอน EnterPuzzle เท่านั้น)
         l2Action.started += OnL2Started;
         l2Action.canceled += OnL2Canceled;
-
         r2Action.started += OnR2Started;
         r2Action.canceled += OnR2Canceled;
 
-        Debug.Log("🎮 Mirror Interaction Manager input enabled");
+        Debug.Log("🎮 Mirror input subscribed (puzzle NOT active yet)");
     }
+    /*
+        private void OnDisable()
+        {
+            if (l2Action != null)
+            {
+                l2Action.started -= OnL2Started;
+                l2Action.canceled -= OnL2Canceled;
+            }
 
-    private void OnDisable()
+            if (r2Action != null)
+            {
+                r2Action.started -= OnR2Started;
+                r2Action.canceled -= OnR2Canceled;
+            }
+
+            if (puzzleActionMap != null)
+                puzzleActionMap.Disable();
+        }*/
+
+    // คุม "ของที่ใช้เฉพาะในห้อง puzzle" = UI + MiniMap ที่เดียวจบ
+    /*private void SetPuzzleVisualsActive(bool on)
     {
-        if (l2Action != null)
-        {
-            l2Action.started -= OnL2Started;
-            l2Action.canceled -= OnL2Canceled;
-        }
+        if (cameraMiniMap != null) cameraMiniMap.SetActive(on);
+        if (MirrorUIManager.Instance != null)
+            MirrorUIManager.Instance.SetPuzzleUIActive(on);
+    }*/
 
-        if (r2Action != null)
-        {
-            r2Action.started -= OnR2Started;
-            r2Action.canceled -= OnR2Canceled;
-        }
+    private void SetPuzzleVisualsActive(bool on)
+    {
+        // MiniMap
+        if (cameraMiniMap != null)
+            cameraMiniMap.SetActive(on);
 
-        if (puzzleActionMap != null)
-            puzzleActionMap.Disable();
+        // Puzzle UI
+        if (MirrorUIManager.Instance != null)
+            MirrorUIManager.Instance.SetPuzzleUIActive(on);
+
+        // Main HUD
+        if (mainHUD != null)
+            mainHUD.SetActive(!on);
+
+        Debug.Log($"HUD = {!on}");
     }
 
+    public void EnterPuzzle()
+    {
+        if (isSolved) return;   // แก้แล้วเข้าซ้ำไม่ได้
+
+        if (player == null)
+        {
+            var p = GameObject.FindGameObjectWithTag("Player");
+            if (p != null) player = p.transform;
+        }
+
+        // วาร์ปเข้าห้อง puzzle
+        if (player != null && puzzleSpawnPoint != null)
+        {
+            CharacterController cc = player.GetComponent<CharacterController>();
+            if (cc != null) cc.enabled = false;
+            player.position = puzzleSpawnPoint.position;
+            player.rotation = puzzleSpawnPoint.rotation;
+            if (cc != null) cc.enabled = true;
+        }
+
+        // สลับเป็น Puzzle2 (เปิด map ที่เดียวตรงนี้)
+        playerInput.SwitchCurrentActionMap("Puzzle2");
+
+        Debug.Log("=== ENTER PUZZLE ===");
+        // เปิด UI + MiniMap
+        SetPuzzleVisualsActive(true);
+        Debug.Log("Puzzle UI Opened");
+
+        Debug.Log("🪞 เข้าโหมด Puzzle2 แล้ว");
+    }
     public void RegisterMirror(InteractionMirror mirror)
     {
         if (!allMirrors.Contains(mirror))
@@ -313,28 +375,32 @@ public class MirrorInteractionManager : MonoBehaviour
 
     public void OnPuzzleComplete()
     {
-        Debug.Log($"🎉 PUZZLE COMPLETED! 🎉");
+        if (isSolved) return;
+        isSolved = true;
+        Debug.Log("🎉 PUZZLE2 COMPLETED! 🎉");
 
         if (HapticManager.Instance != null)
-        {
             HapticManager.Instance.PlayPuzzleCompleteFeedback();
-        }
 
-        SwitchActionMapToPlayer(); // เปลี่ยน input map เป็น player
+        // 1) สลับกลับ Player
+        playerInput.SwitchCurrentActionMap("Player");
 
-        //DisableAllMirrors();  // ปิดระบบกระจก
+        // 2) เปิดประตูทั้งเข้าและออก
+        if (entranceDoor != null) entranceDoor.SetActive(false);
+        if (exitDoor != null) exitDoor.SetActive(false);
+        Debug.Log("🚪 เปิดประตูเข้า-ออกแล้ว");
 
-        // ปิด UI ของ Mirror Puzzle
-        if (MirrorUIManager.Instance != null)
-        {
-            MirrorUIManager.Instance.HideMirrorInteractionUI(); // <<<<<<----- ปิด UI ของ Mirror
-            MirrorUIManager.Instance.healthUIPanel.SetActive(false);// MirrorUIManager.Instance.healthUIPanel.SetActive(false);
-        }
+        // 3) ล็อกแท่นกด
+        if (warpTrigger != null) warpTrigger.LockPedestal();
 
-        if (cameraMiniMap != null)
-        {
-            cameraMiniMap.SetActive(false);
-            Debug.Log("MiniMap Camera ถูกปิดเรียบร้อย");
-        }
+        // 4) ปิด UI + MiniMap
+        SetPuzzleVisualsActive(false);
+
+        // 5) ปิดกระจกทั้งหมด
+        DisableAllMirrors();
+
+        // 6) ปิดตัวจัดการ puzzle
+        this.enabled = false;
+        Debug.Log("🛑 ปิด MirrorInteractionManager แล้ว");
     }
 }
