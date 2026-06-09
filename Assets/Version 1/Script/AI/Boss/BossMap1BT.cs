@@ -3,6 +3,7 @@ using UnityEngine.AI;
 using MOMO.AI.BehaviorTree;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEngine.SceneManagement;
 
 [RequireComponent(typeof(NavMeshAgent))]
 public class BossMap1BT : MonoBehaviour
@@ -91,6 +92,7 @@ public class BossMap1BT : MonoBehaviour
     private static readonly int HashStagger = Animator.StringToHash("Stagger");
     private static readonly int HashDead = Animator.StringToHash("Dead");
     private static readonly int HashSpeed = Animator.StringToHash("Speed");
+    //private static readonly int HashDieFall = Animator.StringToHash("DieFall");
 
     private BTNode _root;
 
@@ -445,46 +447,35 @@ public class BossMap1BT : MonoBehaviour
     {
         Debug.Log("🎬 เริ่ม DeathSequence");
 
-        // ซ่อน UI
+        // 1) ซ่อน UI
         if (bossUI != null)
-        {
             bossUI.HideBossUI();
-        }
 
-        // ✅ Spawn VFX แยกจาก Boss
+        // 2) เล่น animation ตาย
+        animator.Play("Dead", 0, 0f);
+        Debug.Log("💀 เล่น Dead animation");
+
+        // 3) รอ animation เล่นจบ (ปรับได้ใน Inspector: Death Anim Duration)
+        yield return new WaitForSeconds(deathAnimDuration);
+
+        // 4) Spawn VFX ตาย
         if (deathVFX != null)
         {
-            Debug.Log($"✨ Spawn VFX: {deathVFX.name} ที่ตำแหน่ง {transform.position}");
-
             GameObject vfx = Instantiate(deathVFX, transform.position, Quaternion.identity, null);
-
-            ParticleSystem[] particleSystems = vfx.GetComponentsInChildren<ParticleSystem>();
-            float maxDuration = 2f;
-
-            foreach (var ps in particleSystems)
-            {
-                if (ps != null)
-                {
-                    var main = ps.main;
-                    float duration = main.duration + main.startLifetime.constantMax;
-                    if (duration > maxDuration)
-                        maxDuration = duration;
-                }
-            }
-
-            Debug.Log($"⏱️ VFX ใช้เวลา: {maxDuration} วินาที");
-            Destroy(vfx, maxDuration + 0.5f);
-        }
-        else
-        {
-            Debug.LogWarning("⚠️ Death VFX เป็น null");
+            Destroy(vfx, deathVFXDuration + 0.5f);
         }
 
-        // ✅ ปิด Boss ทันที
-        Debug.Log("👋 ปิด Boss GameObject");
-        gameObject.SetActive(false);
+        // 5) ซ่อนตัวบอส (ปิด renderer แทน SetActive เพื่อให้ coroutine ยังทำงานต่อได้)
+        foreach (var r in _renderers)
+            if (r != null) r.enabled = false;
 
-        yield break;  // สิ้นสุด Coroutine
+        Debug.Log("👋 บอสหายไป รอ VFX จบ");
+
+        // 6) รอ VFX เล่นสักครู่แล้วโหลด cutscene
+        yield return new WaitForSeconds(fadeDuration);
+
+        Debug.Log("🎬 โหลด Map1_Outro");
+        SceneManager.LoadScene("Map1_Outro");
     }
 
     public void OnPlayerEnterBossRoom()
@@ -525,12 +516,36 @@ public class BossMap1BT : MonoBehaviour
     // ✅ แก้ OnDead() ให้เรียก DeathSequence ทันที
     public void OnDead()
     {
-        if (_isDead) return;  // ป้องกันเรียกซ้ำ
-
-        Debug.Log("☠️ OnDead() ถูกเรียก - เริ่ม DeathSequence ทันที");
+        if (_isDead) return;
         _isDead = true;
+        _deathTriggered = true;   // กัน DoDead ทำซ้ำ
 
-        // ✅ เรียก DeathSequence ทันที (ไม่รอ BT)
+        Debug.Log("☠️ OnDead() — ยกเลิกทุก state ตายทันที");
+
+        // 1) หยุดทุก coroutine ที่กำลังทำงาน (Slam/Spin/Stagger/Dizzy)
+        StopAllCoroutines();
+
+        // 2) รีเซ็ตทุก flag
+        animator.Play("Dead", 0, 0f);
+        Debug.Log("💀 เล่น Dead animation");
+
+        // 3) รีเซ็ต animator (กัน speed=0 จาก slam freeze กลางอากาศ)
+        animator.speed = 1f;
+        animator.SetFloat(HashSpeed, 0f);
+        animator.SetBool("IsSpinning", false);
+        animator.ResetTrigger(HashSlamLeft);    // ✅ เพิ่ม
+        animator.ResetTrigger(HashSlamRight);   // ✅ เพิ่ม
+        animator.ResetTrigger(HashSlamJump);    // ✅ เพิ่ม
+        animator.ResetTrigger(HashStagger);     // ✅ เพิ่ม
+
+        // 4) หยุด agent
+        if (_agent.enabled && _agent.isOnNavMesh)
+        {
+            _agent.isStopped = true;
+            _agent.ResetPath();
+        }
+
+        // 5) เริ่มตายจริง
         StartCoroutine(DeathSequence());
     }
 

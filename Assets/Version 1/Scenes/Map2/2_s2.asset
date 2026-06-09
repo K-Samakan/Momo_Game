@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: 2_s2
   m_EditorClassIdentifier: 
   type: 0
-  image: {fileID: 21300000, guid: 8662f4cbd6c069348ad1c705c4edd559, type: 3}
+  image: {fileID: 21300000, guid: 7394afe4c3694f24d9e27de9d797610a, type: 3}
   videoClip: {fileID: 0}
   loopVideo: 0
   sfx: {fileID: 0}

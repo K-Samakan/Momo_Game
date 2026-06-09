@@ -7,6 +7,10 @@ public class BossRoomTrigger : MonoBehaviour
     public BossMap1UI bossUI;
     public GameObject sideQuestUI;
 
+    [Header("VSE")]
+    public SoundEmitter bossSoundEmitter;
+    public float bossRoomVSERadius = 50f;
+
     private bool _triggered = false;
 
     private void OnTriggerEnter(Collider other)
@@ -18,6 +22,10 @@ public class BossRoomTrigger : MonoBehaviour
 
         if (sideQuestUI != null)
             sideQuestUI.SetActive(false);
+
+        // ✅ ขยายรัศมี VSE ของบอสให้กว้างทั้งห้อง
+        if (bossSoundEmitter != null)
+            bossSoundEmitter.maxHearingRadius = bossRoomVSERadius;
 
         bossUI.ShowBossUI();
         bossController.OnPlayerEnterBossRoom();

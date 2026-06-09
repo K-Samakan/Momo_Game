@@ -110258,8 +110258,22 @@ AnimationClip:
     floatParameter: 0
     intParameter: 2
     messageOptions: 0
+  - time: 1.6
+    functionName: OnHitboxOpenRight
+    data: 
+    objectReferenceParameter: {fileID: 0}
+    floatParameter: 0
+    intParameter: 2
+    messageOptions: 0
   - time: 2.0333333
     functionName: OnHitboxCloseLeft
+    data: 
+    objectReferenceParameter: {fileID: 0}
+    floatParameter: 0
+    intParameter: 0
+    messageOptions: 0
+  - time: 2.0333333
+    functionName: OnHitboxCloseRight
     data: 
     objectReferenceParameter: {fileID: 0}
     floatParameter: 0
