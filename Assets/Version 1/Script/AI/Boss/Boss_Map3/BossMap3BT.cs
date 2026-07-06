@@ -1,0 +1,598 @@
+using UnityEngine;
+using UnityEngine.AI;
+using MOMO.AI.BehaviorTree;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine.SceneManagement;
+
+/// <summary>
+/// บอสด่าน 3 — หุ่นยนต์ Snowman
+/// 
+/// ท่าที่ 1: SnowballThrow — ปาหิมะ 3 ลูก (ATK=2, slow, ทำลายได้)
+/// ท่าที่ 2: SpinAttack — หมุนตัว 5 รอบ (ATK=1/รอบ) → หยุดนิ่ง 10 วิ
+/// จุดอ่อน: ธนูไฟ 3 ครั้ง → หยุดนิ่ง 20 วิ (เตรียมไว้)
+/// </summary>
+[RequireComponent(typeof(NavMeshAgent))]
+public class BossMap3BT : MonoBehaviour
+{
+    [Header("References")]
+    public Animator animator;
+    public BossMap3Health health;
+    public BossMap3UI bossUI;
+
+    [Header("Attack Hitbox")]
+    public BossAttackHitbox attackHitboxL;
+    public BossAttackHitbox attackHitboxR;
+
+    [Header("Hit VFX")]
+    public GameObject hitVFX;
+
+    [Header("Death VFX")]
+    public GameObject deathVFX;
+    public float deathVFXDuration = 2f;
+
+    [Header("Settings")]
+    public float introDelay = 3f;
+    public float staggerDuration = 5f;
+    public float staggerCooldown = 12f;
+    public float attackRange = 5f;
+    public float detectionRange = 20f;
+    public float moveSpeed = 4f;
+    public float pathUpdateInterval = 0.3f;
+
+    [Range(0f, 1f)]
+    [Tooltip("โอกาสเลือกท่า SnowballThrow (ที่เหลือ = SpinAttack)")]
+    public float snowballChance = 0.6f;
+
+    // ═══════════════════════════════════════════════════
+    // ท่าที่ 1: SnowballThrow — ปาหิมะ
+    // ═══════════════════════════════════════════════════
+    [Header("SnowballThrow Pattern")]
+    [Tooltip("Prefab ก้อนหิมะ (ต้องมี SnowballProjectile + Collider + Rigidbody)")]
+    public GameObject snowballPrefab;
+
+    [Tooltip("จุด Spawn หิมะ (มือบอส)")]
+    public Transform snowballSpawnPoint;
+
+    [Tooltip("ดีเลย์ระหว่างหิมะแต่ละลูก")]
+    public float snowballInterval = 1.0f;
+
+    [Tooltip("Damage ต่อหิมะ")]
+    public int snowballDamage = 2;
+
+    [Tooltip("ความเร็วหิมะ")]
+    public float snowballSpeed = 12f;
+
+    [Tooltip("ระยะเวลา slow เมื่อโดนหิมะ (วินาที)")]
+    public float snowballSlowDuration = 3f;
+
+    [Tooltip("ตัวคูณความเร็วตอนโดน slow (0.5 = ช้าลงครึ่งหนึ่ง)")]
+    public float snowballSlowMultiplier = 0.5f;
+
+    [Tooltip("บอสหยุดนิ่งหลังปาหิมะครบ")]
+    public float snowballStuckDuration = 1.5f;
+
+    // ═══════════════════════════════════════════════════
+    // ท่าที่ 2: SpinAttack — หมุนตัวโจมตี
+    // ═══════════════════════════════════════════════════
+    [Header("SpinAttack Pattern")]
+    [Tooltip("จำนวนรอบที่หมุน")]
+    public int spinMaxRotations = 5;
+
+    [Tooltip("ความเร็วหมุน (องศา/วินาที)")]
+    public float spinSpeed = 720f;
+
+    [Tooltip("ความเร็วเคลื่อนที่ขณะหมุน")]
+    public float spinMoveSpeed = 5f;
+
+    [Tooltip("Damage ต่อรอบ")]
+    public int spinDamage = 1;
+
+    [Tooltip("รัศมี hitbox ขณะหมุน")]
+    public float spinHitRadius = 3f;
+
+    [Tooltip("ระยะเวลาหยุดนิ่งหลังหมุนครบ (ปรับได้)")]
+    public float spinStunDuration = 10f;
+
+    [Tooltip("Knockback แรงดันขณะหมุน")]
+    public float spinKnockbackForce = 8f;
+
+    [Header("Spin VFX")]
+    [Tooltip("Trail Renderer สำหรับ VFX หมุน (ใส่ 1-2 ตัว child ของ Boss)")]
+    public TrailRenderer[] spinTrails;
+
+    [Tooltip("สี VFX หมุน")]
+    public Color spinVFXColor = new Color(0.4f, 0.9f, 1f, 0.8f);
+
+    // ═══════════════════════════════════════════════════
+    // จุดอ่อน: ธนูไฟ — เตรียมไว้
+    // ═══════════════════════════════════════════════════
+    [Header("Fire Arrow Weakness (เตรียมไว้)")]
+    [Tooltip("จำนวนธนูไฟที่ต้องยิงเพื่อ stun")]
+    public int fireArrowsRequired = 3;
+
+    [Tooltip("ระยะเวลา stun เมื่อโดนธนูไฟครบ")]
+    public float fireArrowStunDuration = 20f;
+
+    // ═══════════════════════════════════════════════════
+    // Hit Flash & Death
+    // ═══════════════════════════════════════════════════
+    [Header("Hit Flash")]
+    public Color hitFlashColor = Color.red;
+    public float hitFlashDuration = 0.2f;
+
+    [Header("Death Fade")]
+    public float deathAnimDuration = 3f;
+    public float fadeDuration = 1.5f;
+
+    [Header("Debug (Runtime)")]
+    [SerializeField] private string currentState = "None";
+    [SerializeField] private bool logStateChanges = false;
+
+    public string CurrentState => currentState;
+    public float DistanceToPlayer => _player ? Vector3.Distance(transform.position, _player.position) : -1f;
+    public float AgentSpeed => (_agent != null && _agent.enabled && _agent.isOnNavMesh) ? _agent.velocity.magnitude : 0f;
+
+    void SetState(string s) { if (currentState == s) return; currentState = s; if (logStateChanges) Debug.Log($"[BossMap3] → {s}"); }
+
+    // ── Private Flags ──
+    private bool _isIntro = true, _introStarted = false, _isDead = false;
+    private bool _isStagger = false, _isSnowballing = false, _isSpinning = false;
+    private bool _isFireStunned = false;
+    private bool _isHit = false, _isPatternRunning = false, _deathTriggered = false;
+    private float _hitRecoveryTimer;
+    private int _comboCount = 0;
+    private float _lastStaggerTime = -999f;
+
+    // Fire arrow tracking
+    private int _fireArrowHitCount = 0;
+
+    public NavMeshAgent _agent;
+    private Transform _player;
+    private float _lastPathUpdateTime;
+
+    // Animator Hashes
+    private static readonly int HashThrow = Animator.StringToHash("Throw");
+    private static readonly int HashStagger = Animator.StringToHash("Stagger");
+    private static readonly int HashDead = Animator.StringToHash("Dead");
+    private static readonly int HashSpeed = Animator.StringToHash("Speed");
+
+    private BTNode _root;
+    private Renderer[] _renderers;
+    private Color[] _originalColors;
+    private bool _isFlashing = false;
+
+    // ═══════════════════════════════════════════════════
+    // Unity Lifecycle
+    // ═══════════════════════════════════════════════════
+
+    void Awake()
+    {
+        _agent = GetComponent<NavMeshAgent>();
+        _renderers = GetComponentsInChildren<Renderer>();
+        _originalColors = new Color[_renderers.Length];
+        for (int i = 0; i < _renderers.Length; i++)
+            if (_renderers[i].material != null)
+                _originalColors[i] = _renderers[i].material.color;
+    }
+
+    void Start()
+    {
+        var go = GameObject.FindGameObjectWithTag("Player");
+        if (go != null) _player = go.transform;
+        StartCoroutine(InitNavMesh());
+        _root = BuildTree();
+        if (!_introStarted) StartCoroutine(IntroSequence());
+
+        // ปิด Trail Renderer ไว้ก่อน
+        SetSpinTrails(false);
+    }
+
+    IEnumerator InitNavMesh()
+    {
+        yield return null; yield return null;
+        if (NavMesh.SamplePosition(transform.position, out var hit, 5f, NavMesh.AllAreas))
+            transform.position = hit.position;
+        else { Debug.LogWarning("[BossMap3] ไม่พบ NavMesh!"); yield break; }
+        _agent.enabled = true;
+        _agent.speed = moveSpeed;
+        _agent.stoppingDistance = attackRange * 0.8f;
+        _agent.acceleration = 12f;
+        _agent.angularSpeed = 360f;
+        yield return null;
+    }
+
+    void Update() => _root.Tick();
+
+    // ═══════════════════════════════════════════════════
+    // Behavior Tree
+    // ═══════════════════════════════════════════════════
+
+    BTNode BuildTree() => new BTSelector(new List<BTNode>
+    {
+        new BTSequence(new List<BTNode> { new BTLeaf("dead", IsDead), new BTLeaf("doDead", DoDead) }),
+        new BTSequence(new List<BTNode> { new BTLeaf("intro", IsIntro), new BTLeaf("doIntro", DoIntroIdle) }),
+        new BTSequence(new List<BTNode> { new BTLeaf("hit", IsHit), new BTLeaf("doHit", DoHitStun) }),
+        new BTSequence(new List<BTNode> { new BTLeaf("stagger", IsStagger), new BTLeaf("doStagger", DoStagger) }),
+        new BTSequence(new List<BTNode> { new BTLeaf("fireStun", IsFireStunned), new BTLeaf("doFireStun", DoFireStun) }),
+        new BTSequence(new List<BTNode> { new BTLeaf("spin", IsSpinning), new BTLeaf("doSpin", DoSpinState) }),
+        new BTSequence(new List<BTNode> { new BTLeaf("snow", IsSnowballing), new BTLeaf("doSnow", DoSnowballState) }),
+        new BTSequence(new List<BTNode> {
+            new BTLeaf("see", CanSeePlayer),
+            new BTSelector(new List<BTNode> {
+                new BTSequence(new List<BTNode> { new BTLeaf("range", InAttackRange), new BTLeaf("face", FaceTarget), new BTLeaf("choose", ChoosePattern) }),
+                new BTLeaf("chase", DoChase)
+            })
+        }),
+        new BTLeaf("idle", DoIdle)
+    });
+
+    // ── Conditions ──
+    BTStatus IsDead() => _isDead ? BTStatus.Success : BTStatus.Failure;
+    BTStatus IsIntro() => _isIntro ? BTStatus.Success : BTStatus.Failure;
+    BTStatus IsHit() => _isHit ? BTStatus.Success : BTStatus.Failure;
+    BTStatus IsStagger() => _isStagger ? BTStatus.Success : BTStatus.Failure;
+    BTStatus IsFireStunned() => _isFireStunned ? BTStatus.Success : BTStatus.Failure;
+    BTStatus IsSpinning() => _isSpinning ? BTStatus.Success : BTStatus.Failure;
+    BTStatus IsSnowballing() => _isSnowballing ? BTStatus.Success : BTStatus.Failure;
+    BTStatus CanSeePlayer() => _player != null && Vector3.Distance(transform.position, _player.position) <= detectionRange ? BTStatus.Success : BTStatus.Failure;
+    BTStatus InAttackRange() => _player != null && Vector3.Distance(transform.position, _player.position) <= attackRange ? BTStatus.Success : BTStatus.Failure;
+
+    // ── Actions ──
+    BTStatus DoDead() { if (_deathTriggered) return BTStatus.Running; _deathTriggered = true; SetState("Dead"); StopAllCoroutines(); _agent.ResetPath(); animator.SetFloat(HashSpeed, 0f); bossUI.HideBossUI(); StartCoroutine(DeathSequence()); return BTStatus.Running; }
+    BTStatus DoIntroIdle() { SetState("Intro"); animator.SetFloat(HashSpeed, 0f); return BTStatus.Running; }
+    BTStatus DoHitStun() { SetState("Hit"); _hitRecoveryTimer -= Time.deltaTime; if (_hitRecoveryTimer <= 0f) _isHit = false; return BTStatus.Running; }
+    BTStatus DoStagger() { SetState("Stagger"); animator.SetFloat(HashSpeed, 0f); return BTStatus.Running; }
+    BTStatus DoFireStun() { SetState("FireStun"); animator.SetFloat(HashSpeed, 0f); if (_agent.enabled && _agent.isOnNavMesh) { _agent.isStopped = true; } return BTStatus.Running; }
+    BTStatus DoSpinState() { SetState("Spin"); return BTStatus.Running; }
+    BTStatus DoSnowballState() { SetState("Snowball"); animator.SetFloat(HashSpeed, 0f); return BTStatus.Running; }
+
+    BTStatus FaceTarget()
+    {
+        if (_player == null) return BTStatus.Failure;
+        Vector3 dir = (_player.position - transform.position).normalized; dir.y = 0;
+        if (dir != Vector3.zero) transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), Time.deltaTime * 15f);
+        return BTStatus.Success;
+    }
+
+    BTStatus ChoosePattern()
+    {
+        SetState("Attack");
+        if (_isPatternRunning) return BTStatus.Running;
+        if (Random.value < snowballChance) StartCoroutine(SnowballSequence());
+        else StartCoroutine(SpinAttackSequence());
+        return BTStatus.Success;
+    }
+
+    BTStatus DoChase()
+    {
+        SetState("Chase");
+        if (_agent.enabled && _agent.isOnNavMesh) { _agent.isStopped = false; _agent.speed = moveSpeed; ChasePlayer(); }
+        animator.SetFloat(HashSpeed, 1f);
+        return BTStatus.Running;
+    }
+
+    BTStatus DoIdle() { SetState("Idle"); if (_agent.enabled && _agent.isOnNavMesh) _agent.ResetPath(); animator.SetFloat(HashSpeed, 0f); return BTStatus.Running; }
+
+    // ═══════════════════════════════════════════════════
+    // ท่าที่ 1: SnowballThrow — ปาหิมะ 3 ลูก
+    // ═══════════════════════════════════════════════════
+
+    IEnumerator SnowballSequence()
+    {
+        _isPatternRunning = true;
+        _isSnowballing = true;
+        animator.SetFloat(HashSpeed, 0f);
+        if (_agent.enabled && _agent.isOnNavMesh) { _agent.isStopped = true; _agent.ResetPath(); }
+
+        for (int i = 0; i < 3; i++)
+        {
+            FaceTarget();
+            animator.SetTrigger(HashThrow);
+            yield return new WaitForSeconds(0.5f);
+
+            SpawnSnowball();
+            Debug.Log($"[BossMap3] ❄️ ปาหิมะลูกที่ {i + 1}/3");
+
+            yield return new WaitForSeconds(snowballInterval);
+        }
+
+        // หยุดนิ่งหลังปาครบ
+        Debug.Log("[BossMap3] ❄️ ปาหิมะครบ → หยุดนิ่ง");
+        yield return new WaitForSeconds(snowballStuckDuration);
+
+        _isSnowballing = false;
+        if (_agent.enabled && _agent.isOnNavMesh) _agent.isStopped = false;
+        _isPatternRunning = false;
+    }
+
+    void SpawnSnowball()
+    {
+        if (_player == null || snowballPrefab == null) return;
+
+        Vector3 spawnPos = snowballSpawnPoint != null
+            ? snowballSpawnPoint.position
+            : transform.position + transform.forward * 1.5f + Vector3.up * 2f;
+
+        Vector3 dir = (_player.position + Vector3.up - spawnPos).normalized;
+
+        var snowball = Instantiate(snowballPrefab, spawnPos, Quaternion.LookRotation(dir));
+
+        // ตั้งค่า SnowballProjectile
+        var proj = snowball.GetComponent<SnowballProjectile>();
+        if (proj != null)
+        {
+            proj.Init(snowballDamage, dir, snowballSpeed, snowballSlowDuration, snowballSlowMultiplier);
+        }
+        else
+        {
+            // fallback: ใช้ Rigidbody เฉยๆ
+            var rb = snowball.GetComponent<Rigidbody>();
+            if (rb != null) rb.linearVelocity = dir * snowballSpeed;
+        }
+
+        Destroy(snowball, 8f);
+    }
+
+    // ═══════════════════════════════════════════════════
+    // ท่าที่ 2: SpinAttack — หมุนตัว 5 รอบ + VFX
+    // ═══════════════════════════════════════════════════
+
+    IEnumerator SpinAttackSequence()
+    {
+        _isPatternRunning = true;
+        _isSpinning = true;
+
+        // ปิด Animator ชั่วคราว → ใช้โค้ดหมุนแทน
+        animator.enabled = false;
+
+        // เปิด VFX
+        SetSpinTrails(true);
+
+        // เปิด NavMesh เคลื่อนที่ตามผู้เล่น
+        if (_agent.enabled && _agent.isOnNavMesh)
+        {
+            _agent.isStopped = false;
+            _agent.speed = spinMoveSpeed;
+            _agent.updateRotation = false; // ปิดหมุนตาม NavMesh ให้โค้ดหมุนเอง
+        }
+
+        float totalDegreesRotated = 0f;
+        int rotationsCompleted = 0;
+        float lastDamageAngle = 0f;
+        HashSet<int> hitPlayersThisRotation = new HashSet<int>();
+
+        Debug.Log("[BossMap3] 🌀 เริ่มหมุน!");
+
+        while (rotationsCompleted < spinMaxRotations)
+        {
+            // หมุนตัว
+            float rotateThisFrame = spinSpeed * Time.deltaTime;
+            transform.Rotate(0f, rotateThisFrame, 0f, Space.World);
+            totalDegreesRotated += rotateThisFrame;
+
+            // เคลื่อนที่ตามผู้เล่น
+            if (_agent.enabled && _agent.isOnNavMesh && _player != null)
+                _agent.SetDestination(_player.position);
+
+            // เช็คว่าหมุนครบ 1 รอบ (360°)
+            if (totalDegreesRotated >= (rotationsCompleted + 1) * 360f)
+            {
+                rotationsCompleted++;
+                hitPlayersThisRotation.Clear();
+
+                Debug.Log($"[BossMap3] 🌀 หมุนครบ {rotationsCompleted}/{spinMaxRotations} รอบ");
+            }
+
+            // เช็ค Damage ทุก frame (กัน hit ซ้ำด้วย HashSet)
+            if (_player != null)
+            {
+                float dist = Vector3.Distance(transform.position, _player.position);
+                if (dist <= spinHitRadius)
+                {
+                    int currentRotation = rotationsCompleted;
+                    if (!hitPlayersThisRotation.Contains(currentRotation))
+                    {
+                        hitPlayersThisRotation.Add(currentRotation);
+                        SpinHitPlayer();
+                    }
+                }
+            }
+
+            yield return null;
+        }
+
+        // ── หมุนครบ → หยุดนิ่ง ──
+        Debug.Log($"[BossMap3] 🌀 หมุนครบ {spinMaxRotations} รอบ → หยุดนิ่ง {spinStunDuration} วิ!");
+
+        SetSpinTrails(false);
+
+        // เปิด Animator กลับ
+        animator.enabled = true;
+        if (_agent.enabled && _agent.isOnNavMesh)
+        {
+            _agent.isStopped = true;
+            _agent.ResetPath();
+            _agent.updateRotation = true;
+        }
+
+        _isSpinning = false;
+        _isStagger = true;
+        animator.SetTrigger(HashStagger);
+
+        yield return new WaitForSeconds(spinStunDuration);
+
+        _isStagger = false;
+        if (_agent.enabled && _agent.isOnNavMesh) _agent.isStopped = false;
+        _isPatternRunning = false;
+    }
+
+    void SpinHitPlayer()
+    {
+        if (_player == null) return;
+
+        var ph = _player.GetComponent<MOMO.Player.PlayerHealth>();
+        if (ph != null)
+        {
+            ph.TakeDamage(spinDamage);
+            Debug.Log($"[BossMap3] 🌀 Spin โดนผู้เล่น! DMG={spinDamage}");
+        }
+
+        // Knockback
+        var cc = _player.GetComponent<CharacterController>();
+        if (cc != null) StartCoroutine(DoKnockback(cc, _player));
+
+        HapticManager.Instance?.Vibrate(0.2f, 0.5f, 0.1f);
+    }
+
+    // ═══════════════════════════════════════════════════
+    // ธนูไฟ Weakness — เตรียมไว้ให้ระบบธนูไฟเรียก
+    // ═══════════════════════════════════════════════════
+
+    /// <summary>
+    /// เรียกจากระบบธนูไฟเมื่อยิงโดนบอส
+    /// เมื่อครบ fireArrowsRequired ครั้ง → บอส stun
+    /// </summary>
+    public void OnFireArrowHit()
+    {
+        if (_isDead || _isFireStunned) return;
+
+        _fireArrowHitCount++;
+        Debug.Log($"[BossMap3] 🔥 ธนูไฟโดน! ({_fireArrowHitCount}/{fireArrowsRequired})");
+
+        if (_fireArrowHitCount >= fireArrowsRequired)
+        {
+            _fireArrowHitCount = 0;
+            StartCoroutine(FireArrowStunSequence());
+        }
+    }
+
+    IEnumerator FireArrowStunSequence()
+    {
+        _isFireStunned = true;
+        _isSpinning = false;
+        _isSnowballing = false;
+        _isPatternRunning = false;
+
+        // เปิด Animator กลับ (กรณีกำลังหมุนอยู่)
+        animator.enabled = true;
+        SetSpinTrails(false);
+
+        animator.SetFloat(HashSpeed, 0f);
+        animator.SetTrigger(HashStagger);
+
+        if (_agent.enabled && _agent.isOnNavMesh)
+        {
+            _agent.isStopped = true;
+            _agent.ResetPath();
+            _agent.updateRotation = true;
+        }
+
+        Debug.Log($"[BossMap3] 🔥❄️ น้ำแข็งละลาย! บอส stun {fireArrowStunDuration} วิ!");
+        yield return new WaitForSeconds(fireArrowStunDuration);
+
+        _isFireStunned = false;
+        if (_agent.enabled && _agent.isOnNavMesh) _agent.isStopped = false;
+        Debug.Log("[BossMap3] 🔥 ฟื้นจาก Fire Stun!");
+    }
+
+    // ═══════════════════════════════════════════════════
+    // Other Sequences
+    // ═══════════════════════════════════════════════════
+
+    IEnumerator IntroSequence() { if (_introStarted) yield break; _introStarted = true; _isIntro = true; yield return new WaitForSeconds(introDelay); _isIntro = false; }
+    IEnumerator StaggerSequence() { _isStagger = true; animator.SetFloat(HashSpeed, 0f); animator.SetTrigger(HashStagger); yield return new WaitForSeconds(staggerDuration); _isStagger = false; }
+
+    IEnumerator DeathSequence()
+    {
+        if (bossUI != null) bossUI.HideBossUI();
+        SetSpinTrails(false);
+        animator.enabled = true;
+        animator.Play("Dead", 0, 0f);
+        animator.speed = 1f;
+        yield return new WaitForSeconds(deathAnimDuration);
+        if (deathVFX != null) { var vfx = Instantiate(deathVFX, transform.position, Quaternion.identity); Destroy(vfx, deathVFXDuration + 0.5f); }
+        foreach (var r in _renderers) if (r != null) r.enabled = false;
+        yield return new WaitForSeconds(fadeDuration);
+        SceneManager.LoadScene("Map3_Outro");
+    }
+
+    // ═══════════════════════════════════════════════════
+    // Public Events
+    // ═══════════════════════════════════════════════════
+
+    public void OnPlayerEnterBossRoom() { StartCoroutine(IntroSequence()); }
+
+    public void OnHitByPlayer()
+    {
+        if (_isDead) return;
+        _isHit = true; _hitRecoveryTimer = 0.3f;
+        if (hitVFX != null) { var vfx = Instantiate(hitVFX, transform.position + Vector3.up, Quaternion.identity); Destroy(vfx, 2f); }
+        StartCoroutine(HitFlash());
+        _comboCount++;
+        if (_comboCount >= 5) { _comboCount = 0; if (Time.time >= _lastStaggerTime + staggerCooldown) { _lastStaggerTime = Time.time; StartCoroutine(StaggerSequence()); } }
+    }
+
+    public void OnDead()
+    {
+        if (_isDead) return; _isDead = true; _deathTriggered = true;
+        StopAllCoroutines();
+        SetSpinTrails(false);
+        animator.enabled = true;
+        animator.Play("Dead", 0, 0f); animator.speed = 1f; animator.SetFloat(HashSpeed, 0f);
+        animator.ResetTrigger(HashThrow); animator.ResetTrigger(HashStagger);
+        if (_agent.enabled && _agent.isOnNavMesh) { _agent.isStopped = true; _agent.ResetPath(); _agent.updateRotation = true; }
+        StartCoroutine(DeathSequence());
+    }
+
+    public void OnHitboxOpenLeft(int damage) => attackHitboxL?.EnableHitbox(damage);
+    public void OnHitboxCloseLeft() => attackHitboxL?.DisableHitbox();
+    public void OnHitboxOpenRight(int damage) => attackHitboxR?.EnableHitbox(damage);
+    public void OnHitboxCloseRight() => attackHitboxR?.DisableHitbox();
+
+    // ═══════════════════════════════════════════════════
+    // Helpers
+    // ═══════════════════════════════════════════════════
+
+    IEnumerator DoKnockback(CharacterController cc, Transform player)
+    {
+        Vector3 dir = (player.position - transform.position).normalized;
+        dir.y = 0.3f;
+        Vector3 force = dir * spinKnockbackForce;
+        float duration = 0.3f;
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            if (cc == null || !cc.enabled) yield break;
+            cc.Move(force * (1f - elapsed / duration) * Time.deltaTime);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+    }
+
+    void SetSpinTrails(bool on)
+    {
+        if (spinTrails == null) return;
+        foreach (var trail in spinTrails)
+        {
+            if (trail == null) continue;
+            trail.emitting = on;
+            if (!on) trail.Clear();
+        }
+    }
+
+    void ChasePlayer()
+    {
+        if (_player == null || !_agent.enabled || !_agent.isOnNavMesh) return;
+        if (Time.time >= _lastPathUpdateTime + pathUpdateInterval) { _agent.SetDestination(_player.position); _lastPathUpdateTime = Time.time; }
+    }
+
+    IEnumerator HitFlash()
+    {
+        if (_isFlashing) yield break; _isFlashing = true;
+        foreach (var r in _renderers) if (r.material != null) r.material.color = hitFlashColor;
+        yield return new WaitForSeconds(hitFlashDuration);
+        for (int i = 0; i < _renderers.Length; i++) if (_renderers[i].material != null) _renderers[i].material.color = _originalColors[i];
+        _isFlashing = false;
+    }
+}
