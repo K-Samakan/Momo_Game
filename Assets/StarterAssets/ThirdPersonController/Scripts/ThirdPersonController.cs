@@ -102,9 +102,9 @@ namespace StarterAssets
         private bool _isLaunched = false;
         private float _launchedVelocity = 0f;
 
-        public void OnPushMode(InputValue value)   => PushModeInput(value.isPressed);
+        public void OnPushMode(InputValue value) => PushModeInput(value.isPressed);
         public void OnPushAction(InputValue value) => PushActionInput(value.isPressed);
-        public void PushModeInput(bool v)  => pushMode  = v;
+        public void PushModeInput(bool v) => pushMode = v;
         public void PushActionInput(bool v) => pushAction = v;
 
         // cinemachine
@@ -132,6 +132,7 @@ namespace StarterAssets
 
         // ── Smart Attack (แทน PlayerAttackDetection เดิม) ──
         private SmartAttackSystem _smartAttack;
+        private JetpackController _jetpackController;
 
 #if ENABLE_INPUT_SYSTEM
         private PlayerInput _playerInput;
@@ -166,14 +167,16 @@ namespace StarterAssets
         {
             _cinemachineTargetYaw = CinemachineCameraTarget.transform.rotation.eulerAngles.y;
 
-            _hasAnimator  = TryGetComponent(out _animator);
-            _controller   = GetComponent<CharacterController>();
-            _input        = GetComponent<StarterAssetsInputs>();
+            _hasAnimator = TryGetComponent(out _animator);
+            _controller = GetComponent<CharacterController>();
+            _input = GetComponent<StarterAssetsInputs>();
 
             // ── ใช้ SmartAttackSystem แทน PlayerAttackDetection ──
             _smartAttack = GetComponent<SmartAttackSystem>();
             if (_smartAttack == null)
                 Debug.LogWarning("[TPC] SmartAttackSystem not found on this GameObject!");
+
+            _jetpackController = GetComponent<JetpackController>();
 
 #if ENABLE_INPUT_SYSTEM 
             _playerInput = GetComponent<PlayerInput>();
@@ -202,10 +205,10 @@ namespace StarterAssets
 
         private void AssignAnimationIDs()
         {
-            _animIDSpeed       = Animator.StringToHash("Speed");
-            _animIDGrounded    = Animator.StringToHash("Grounded");
-            _animIDJump        = Animator.StringToHash("Jump");
-            _animIDFreeFall    = Animator.StringToHash("FreeFall");
+            _animIDSpeed = Animator.StringToHash("Speed");
+            _animIDGrounded = Animator.StringToHash("Grounded");
+            _animIDJump = Animator.StringToHash("Jump");
+            _animIDFreeFall = Animator.StringToHash("FreeFall");
             _animIDMotionSpeed = Animator.StringToHash("MotionSpeed");
             // หมายเหตุ: IsAttacking ถูกจัดการโดย SmartAttackSystem ผ่าน Trigger แล้ว
             // ไม่ต้อง hash ที่นี่อีก
@@ -230,12 +233,12 @@ namespace StarterAssets
             if (_input.look.sqrMagnitude >= _threshold && !LockCameraPosition)
             {
                 float deltaTimeMultiplier = IsCurrentDeviceMouse ? 1.0f : Time.deltaTime;
-                _cinemachineTargetYaw   += _input.look.x * deltaTimeMultiplier;
+                _cinemachineTargetYaw += _input.look.x * deltaTimeMultiplier;
                 _cinemachineTargetPitch += _input.look.y * deltaTimeMultiplier;
             }
 
-            _cinemachineTargetYaw   = ClampAngle(_cinemachineTargetYaw,   float.MinValue, float.MaxValue);
-            _cinemachineTargetPitch = ClampAngle(_cinemachineTargetPitch,  BottomClamp,   TopClamp);
+            _cinemachineTargetYaw = ClampAngle(_cinemachineTargetYaw, float.MinValue, float.MaxValue);
+            _cinemachineTargetPitch = ClampAngle(_cinemachineTargetPitch, BottomClamp, TopClamp);
 
             CinemachineCameraTarget.transform.rotation = Quaternion.Euler(
                 _cinemachineTargetPitch + CameraAngleOverride,
@@ -255,7 +258,7 @@ namespace StarterAssets
             }
 
             float speedMultiplier = _isAttacking ? attackMoveSpeedMultiplier : 1f;
-            float targetSpeed     = (_input.sprint ? SprintSpeed : MoveSpeed) * speedMultiplier;
+            float targetSpeed = (_input.sprint ? SprintSpeed : MoveSpeed) * speedMultiplier;
             if (_isAttacking) targetSpeed = MoveSpeed * speedMultiplier;
             if (_input.move == Vector2.zero) targetSpeed = 0.0f;
 
@@ -297,10 +300,15 @@ namespace StarterAssets
 
             Vector3 targetDirection = Quaternion.Euler(0f, _targetRotation, 0f) * Vector3.forward;
 
+            Vector3 jetpackBoost = Vector3.zero;
+            if (_jetpackController != null)
+                jetpackBoost = _jetpackController.GetAndConsumeJetpackVelocity();
+
             if (_controller.enabled)
                 _controller.Move(
                     targetDirection.normalized * (_speed * Time.deltaTime) +
-                    new Vector3(0f, _verticalVelocity, 0f) * Time.deltaTime);
+                    new Vector3(0f, _verticalVelocity, 0f) * Time.deltaTime +
+                    jetpackBoost * Time.deltaTime);
 
             if (_hasAnimator)
             {
@@ -373,8 +381,8 @@ namespace StarterAssets
                     && Time.time >= _lastAttackTime + attackCooldown
                     && Grounded)
                 {
-                    _isAttacking     = true;
-                    _lastAttackTime  = Time.time;
+                    _isAttacking = true;
+                    _lastAttackTime = Time.time;
 
                     // SmartAttackSystem จัดการ:
                     //   1) หาเป้า
@@ -415,10 +423,10 @@ namespace StarterAssets
             _jumpTimeoutDelta = 0f;
             _fallTimeoutDelta = FallTimeout;
 
-            float velocity    = Mathf.Sqrt(jumpPower * -2f * Gravity);
+            float velocity = Mathf.Sqrt(jumpPower * -2f * Gravity);
             _verticalVelocity = velocity;
             _launchedVelocity = velocity;
-            _isLaunched       = true;
+            _isLaunched = true;
 
             if (_hasAnimator)
             {
@@ -438,8 +446,8 @@ namespace StarterAssets
 
         // =============== UTILITY ===============
 
-        public Vector2 GetMoveInput()            => _input.move;
-        public bool    GetJumpInput()            => _input.jump;
+        public Vector2 GetMoveInput() => _input.move;
+        public bool GetJumpInput() => _input.jump;
 
         public Vector3 GetMoveInputDirection()
         {
@@ -465,14 +473,14 @@ namespace StarterAssets
         private static float ClampAngle(float lfAngle, float lfMin, float lfMax)
         {
             if (lfAngle < -360f) lfAngle += 360f;
-            if (lfAngle > 360f)  lfAngle -= 360f;
+            if (lfAngle > 360f) lfAngle -= 360f;
             return Mathf.Clamp(lfAngle, lfMin, lfMax);
         }
 
         private void OnDrawGizmosSelected()
         {
             Color transparentGreen = new Color(0f, 1f, 0f, 0.35f);
-            Color transparentRed   = new Color(1f, 0f, 0f, 0.35f);
+            Color transparentRed = new Color(1f, 0f, 0f, 0.35f);
             Gizmos.color = Grounded ? transparentGreen : transparentRed;
             Gizmos.DrawSphere(
                 new Vector3(transform.position.x,

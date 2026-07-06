@@ -7,7 +7,7 @@ using UnityEngine.InputSystem.Haptics;
 
 namespace MOMO.Player
 {
-    public class PlayerHealth : MonoBehaviour
+    public class PlayerHealth : MonoBehaviour, IDamageable
     {
         [Header("Health Settings")]
         public int maxHealth = 5;
@@ -36,6 +36,15 @@ namespace MOMO.Player
         public bool autoRegen = true;
         public float regenDelay = 5f;
         public float regenInterval = 2f;
+
+        // ═══════════════════════════════════════════════════
+        // ✅ เพิ่มใหม่: Knockback สำหรับ IDamageable (เช่นโดนหมัดบอส)
+        // ═══════════════════════════════════════════════════
+        [Header("Knockback (จาก IDamageable เช่น FistProjectile)")]
+        public float knockbackDuration = 0.2f;
+        public float knockbackDamping = 6f;
+
+        private Coroutine _knockbackRoutine;
 
         // Events
         public event Action<int, int> OnHPChanged;
@@ -122,6 +131,43 @@ namespace MOMO.Player
             OnDamaged?.Invoke();
 
             if (currentHealth <= 0) Die();
+        }
+
+        // ═══════════════════════════════════════════════════
+        // ✅ IDamageable — เรียกจากศัตรู/หมัดบอส (FistProjectile) ที่มีทั้งดาเมจ + knockback
+        // ═══════════════════════════════════════════════════
+        public void TakeDamage(int damage, Vector3 knockbackDirection, float knockbackForce)
+        {
+            TakeDamage(damage); // ใช้ logic เดิมทั้งหมด (เลือด, VFX, เสียง, haptic, GetHit anim)
+
+            if (_isDead || knockbackForce <= 0f) return;
+
+            if (_knockbackRoutine != null) StopCoroutine(_knockbackRoutine);
+            _knockbackRoutine = StartCoroutine(KnockbackRoutine(knockbackDirection, knockbackForce));
+        }
+
+        private IEnumerator KnockbackRoutine(Vector3 direction, float force)
+        {
+            var cc = GetComponent<CharacterController>();
+            var tpc = GetComponent<StarterAssets.ThirdPersonController>();
+            if (cc == null) yield break;
+
+            // ปิด ThirdPersonController ชั่วคราว กัน input ของผู้เล่นหักล้างแรง knockback
+            bool tpcWasEnabled = tpc != null && tpc.enabled;
+            if (tpc != null) tpc.enabled = false;
+
+            Vector3 vel = direction.normalized * force;
+            float t = 0f;
+
+            while (t < knockbackDuration)
+            {
+                cc.Move(vel * Time.deltaTime);
+                vel = Vector3.Lerp(vel, Vector3.zero, Time.deltaTime * knockbackDamping);
+                t += Time.deltaTime;
+                yield return null;
+            }
+
+            if (tpc != null && tpcWasEnabled && !_isDead) tpc.enabled = true;
         }
 
         void Die()

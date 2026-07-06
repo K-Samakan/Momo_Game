@@ -40,9 +40,10 @@ public class MirrorInteractionManager : MonoBehaviour
     [Header("Main HUD")]
     public GameObject mainHUD;
 
+    [Header("Jetpack Reward")]
+    public JetpackPickup jetpackPickup;
+
     private bool isSolved = false;
-
-
 
     private void Awake()
     {
@@ -384,6 +385,11 @@ public class MirrorInteractionManager : MonoBehaviour
 
         // 1) สลับกลับ Player
         playerInput.SwitchCurrentActionMap("Player");
+
+        if (jetpackPickup != null)
+        {
+            jetpackPickup.ShowJetpackAfterPuzzle();
+        }
 
         // 2) เปิดประตูทั้งเข้าและออก
         if (entranceDoor != null) entranceDoor.SetActive(false);

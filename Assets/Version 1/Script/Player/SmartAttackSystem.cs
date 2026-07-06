@@ -210,7 +210,7 @@ public class SmartAttackSystem : MonoBehaviour
         {
             if (!col.CompareTag(enemyTag)) continue;
 
-            // ✅ Boss check
+            // ✅ Boss Map1 check
             BossMap1Health bossHealth = col.GetComponent<BossMap1Health>();
             if (bossHealth != null && bossHealth.IsAlive())
             {
@@ -219,6 +219,20 @@ public class SmartAttackSystem : MonoBehaviour
                 if (bossAngle < closestAngle)
                 {
                     closestAngle = bossAngle;
+                    best = col.gameObject;
+                }
+                continue;
+            }
+
+            // ✅ Boss Map2 check
+            BossMap2Health bossHP2 = col.GetComponent<BossMap2Health>();
+            if (bossHP2 != null && bossHP2.IsAlive())
+            {
+                Vector3 boss2Dir = (col.transform.position - transform.position).normalized;
+                float boss2Angle = Vector3.Angle(transform.forward, boss2Dir);
+                if (boss2Angle < closestAngle)
+                {
+                    closestAngle = boss2Angle;
                     best = col.gameObject;
                 }
                 continue;
@@ -410,16 +424,27 @@ public class SmartAttackSystem : MonoBehaviour
                 mh.TakeDamage(damage, transform.position);
                 Debug.Log($"[SmartAttack] Hit (MH): {col.name} | DMG: {damage}");
                 HapticManager.Instance?.Vibrate(0.1f, 0.4f, 0.1f);
-                continue;  // ← เพิ่ม continue
+                continue;
             }
 
-            // ✅ เพิ่มตรงนี้ — Boss
+            // ✅ Boss Map1
             BossMap1Health bossHealth = col.GetComponent<BossMap1Health>();
             if (bossHealth != null && bossHealth.IsAlive())
             {
                 bossHealth.TakeDamage(damage);
-                Debug.Log($"[SmartAttack] Hit Boss: {col.name} | DMG: {damage}");
+                Debug.Log($"[SmartAttack] Hit Boss Map1: {col.name} | DMG: {damage}");
                 HapticManager.Instance?.Vibrate(0.1f, 0.4f, 0.1f);
+                continue;
+            }
+
+            // ✅ Boss Map2
+            BossMap2Health bossHP2 = col.GetComponent<BossMap2Health>();
+            if (bossHP2 != null && bossHP2.IsAlive())
+            {
+                bossHP2.TakeDamage(damage);
+                Debug.Log($"[SmartAttack] Hit Boss Map2: {col.name} | DMG: {damage}");
+                HapticManager.Instance?.Vibrate(0.1f, 0.4f, 0.1f);
+                continue;
             }
         }
     }
