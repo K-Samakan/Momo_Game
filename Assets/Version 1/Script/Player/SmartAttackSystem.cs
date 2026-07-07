@@ -238,6 +238,20 @@ public class SmartAttackSystem : MonoBehaviour
                 continue;
             }
 
+            // ✅ Boss Map3 check
+            BossMap3Health bossHP3 = col.GetComponent<BossMap3Health>();
+            if (bossHP3 != null && bossHP3.IsAlive())
+            {
+                Vector3 boss3Dir = (col.transform.position - transform.position).normalized;
+                float boss3Angle = Vector3.Angle(transform.forward, boss3Dir);
+                if (boss3Angle < closestAngle)
+                {
+                    closestAngle = boss3Angle;
+                    best = col.gameObject;
+                }
+                continue;
+            }
+
             MonsterHealth mh = col.GetComponent<MonsterHealth>();
             if (mh == null || !mh.IsAlive()) continue;
 
@@ -443,6 +457,16 @@ public class SmartAttackSystem : MonoBehaviour
             {
                 bossHP2.TakeDamage(damage);
                 Debug.Log($"[SmartAttack] Hit Boss Map2: {col.name} | DMG: {damage}");
+                HapticManager.Instance?.Vibrate(0.1f, 0.4f, 0.1f);
+                continue;
+            }
+
+            // ✅ Boss Map3
+            BossMap3Health bossHP3 = col.GetComponent<BossMap3Health>();
+            if (bossHP3 != null && bossHP3.IsAlive())
+            {
+                bossHP3.TakeDamage(damage);
+                Debug.Log($"[SmartAttack] Hit Boss Map3: {col.name} | DMG: {damage}");
                 HapticManager.Instance?.Vibrate(0.1f, 0.4f, 0.1f);
                 continue;
             }

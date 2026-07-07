@@ -129,9 +129,25 @@ public class BossMap3BT : MonoBehaviour
     [SerializeField] private string currentState = "None";
     [SerializeField] private bool logStateChanges = false;
 
+    [Header("🩺 On-Screen Debug (ไม่พึ่ง Console)")]
+    [Tooltip("แสดงกล่อง Debug บนหน้าจอ Game view ตอน Play — เห็นชัดแม้ Console จะถูก filter ซ่อนไว้")]
+    public bool showOnScreenDebug = true;
+
     public string CurrentState => currentState;
     public float DistanceToPlayer => _player ? Vector3.Distance(transform.position, _player.position) : -1f;
     public float AgentSpeed => (_agent != null && _agent.enabled && _agent.isOnNavMesh) ? _agent.velocity.magnitude : 0f;
+
+    // ✅ ตัวเช็คตรงๆ ว่า Agent พร้อมเดินจริงหรือไม่ — ไม่ผ่าน Console เลย
+    public bool IsAgentReady => _agent != null && _agent.enabled && _agent.isOnNavMesh;
+    public bool HasPath => _agent != null && _agent.enabled && _agent.isOnNavMesh && _agent.hasPath;
+    public bool InitNavMeshCompleted { get; private set; } = false;
+
+    // ✅ Diagnostic ที่พิสูจน์ได้จริงว่าฟังก์ชันถูกเรียกกี่ครั้ง — กัน enum-default หลอก
+    private int _chasePlayerCallCount = 0;
+    private int _setDestinationCallCount = 0;
+    private string _chaseSkipReason = "ยังไม่เคยเรียก ChasePlayer()";
+    private bool _playerPositionOnNavMesh = false;
+    private bool _loggedPathIssueOnce = false;
 
     void SetState(string s) { if (currentState == s) return; currentState = s; if (logStateChanges) Debug.Log($"[BossMap3] → {s}"); }
 
@@ -151,8 +167,10 @@ public class BossMap3BT : MonoBehaviour
     private Transform _player;
     private float _lastPathUpdateTime;
 
-    // Animator Hashes
-    private static readonly int HashThrow = Animator.StringToHash("Throw");
+    // Animator Hashes — ใช้ Slam เดิมจาก Boss2 สำหรับปาหิมะ
+    private static readonly int HashSlamRight = Animator.StringToHash("SlamRight");
+    private static readonly int HashSlamLeft = Animator.StringToHash("SlamLeft");
+    private static readonly int HashSlamJump = Animator.StringToHash("SlamJump");
     private static readonly int HashStagger = Animator.StringToHash("Stagger");
     private static readonly int HashDead = Animator.StringToHash("Dead");
     private static readonly int HashSpeed = Animator.StringToHash("Speed");
@@ -191,15 +209,88 @@ public class BossMap3BT : MonoBehaviour
     IEnumerator InitNavMesh()
     {
         yield return null; yield return null;
-        if (NavMesh.SamplePosition(transform.position, out var hit, 5f, NavMesh.AllAreas))
-            transform.position = hit.position;
-        else { Debug.LogWarning("[BossMap3] ไม่พบ NavMesh!"); yield break; }
+
+        // ✅ เพิ่มรัศมีค้นหาจาก 5f → 20f กัน spawn point อยู่ไกลจาก NavMesh
+        if (!NavMesh.SamplePosition(transform.position, out var hit, 20f, NavMesh.AllAreas))
+        {
+            Debug.LogError($"[BossMap3] ❌ ไม่พบ NavMesh ในรัศมี 20m จากตำแหน่ง {transform.position}! " +
+                            "เช็คว่า Bake NavMesh ครอบคลุมจุดวางบอสหรือยัง");
+            InitNavMeshCompleted = true; // จบแล้ว (แม้ fail) — เพื่อให้ On-Screen Debug แสดงผลได้ถูก
+            yield break;
+        }
+
         _agent.enabled = true;
+
+        // ✅ ใช้ Warp() แทนการตั้ง transform.position ตรงๆ
+        // Warp จะ sync ตำแหน่ง Agent เข้ากับ NavMesh ถูกต้องกว่า
+        bool warpSuccess = _agent.Warp(hit.position);
+
+        if (!warpSuccess || !_agent.isOnNavMesh)
+        {
+            Debug.LogError($"[BossMap3] ❌ Agent.Warp() ล้มเหลว! isOnNavMesh={_agent.isOnNavMesh} " +
+                            $"— ตรวจสอบ Agent Type ตรงกับ NavMesh Surface ที่ Bake ไว้หรือไม่");
+            InitNavMeshCompleted = true;
+            yield break;
+        }
+
         _agent.speed = moveSpeed;
         _agent.stoppingDistance = attackRange * 0.8f;
         _agent.acceleration = 12f;
         _agent.angularSpeed = 360f;
+
+        InitNavMeshCompleted = true;
+        Debug.Log($"[BossMap3] ✅ NavMesh Ready! Position: {_agent.transform.position}, isOnNavMesh: {_agent.isOnNavMesh}");
         yield return null;
+    }
+
+    // ═══════════════════════════════════════════════════
+    // ✅ On-Screen Debug — เห็นแน่นอนไม่ว่า Console จะถูก filter ไว้หรือไม่
+    // ═══════════════════════════════════════════════════
+    void OnGUI()
+    {
+        if (!showOnScreenDebug) return;
+
+        float w = 380, h = 300;
+        float x = Screen.width - w - 10;
+        float y = 10;
+
+        GUI.Box(new Rect(x, y, w, h), "");
+
+        var titleStyle = new GUIStyle(GUI.skin.label) { fontSize = 15, fontStyle = FontStyle.Bold, normal = { textColor = Color.yellow } };
+        var okStyle = new GUIStyle(GUI.skin.label) { fontSize = 13, normal = { textColor = Color.green } };
+        var badStyle = new GUIStyle(GUI.skin.label) { fontSize = 13, normal = { textColor = Color.red } };
+        var neutralStyle = new GUIStyle(GUI.skin.label) { fontSize = 13, normal = { textColor = Color.white } };
+
+        float lx = x + 10, ly = y + 8, lh = 19;
+
+        GUI.Label(new Rect(lx, ly, w, lh), "🩺 BossMap3 NavMesh Debug (v2 — ไม่โดน enum หลอก)", titleStyle); ly += lh + 4;
+        GUI.Label(new Rect(lx, ly, w, lh), $"InitNavMesh Completed: {InitNavMeshCompleted}", InitNavMeshCompleted ? okStyle : badStyle); ly += lh;
+        GUI.Label(new Rect(lx, ly, w, lh), $"IsAgentReady: {IsAgentReady}", IsAgentReady ? okStyle : badStyle); ly += lh;
+        GUI.Label(new Rect(lx, ly, w, lh), "", neutralStyle); ly += 2;
+
+        // ✅ ตัวพิสูจน์จริง: ChasePlayer() ถูกเรียกกี่ครั้ง
+        GUI.Label(new Rect(lx, ly, w, lh), $"ChasePlayer() ถูกเรียก: {_chasePlayerCallCount} ครั้ง",
+            _chasePlayerCallCount > 0 ? okStyle : badStyle); ly += lh;
+
+        // ✅ ตัวพิสูจน์จริง: SetDestination() ถูกเรียกกี่ครั้ง
+        GUI.Label(new Rect(lx, ly, w, lh), $"SetDestination() ถูกเรียก: {_setDestinationCallCount} ครั้ง",
+            _setDestinationCallCount > 0 ? okStyle : badStyle); ly += lh;
+
+        GUI.Label(new Rect(lx, ly, w, lh), $"เหตุผลล่าสุด: {_chaseSkipReason}",
+            _chaseSkipReason == "OK" ? okStyle : badStyle); ly += lh;
+
+        // ✅ ผลลัพธ์จริงของ SetDestination — ไม่ใช่ enum default
+        GUI.Label(new Rect(lx, ly, w, lh), $"SetDestination() คืนค่า: {_lastDestinationResult}",
+            _lastDestinationResult ? okStyle : badStyle); ly += lh;
+
+        // ✅ ตำแหน่ง Player เองอยู่บน NavMesh ไหม (แยกจากตำแหน่งบอส)
+        GUI.Label(new Rect(lx, ly, w, lh), $"ตำแหน่ง Player อยู่บน NavMesh: {_playerPositionOnNavMesh}",
+            _playerPositionOnNavMesh ? okStyle : badStyle); ly += lh;
+
+        GUI.Label(new Rect(lx, ly, w, lh), $"HasPath: {HasPath}", neutralStyle); ly += lh;
+        GUI.Label(new Rect(lx, ly, w, lh), $"agent.pathPending: {(_agent != null && _agent.pathPending)}", neutralStyle); ly += lh;
+        GUI.Label(new Rect(lx, ly, w, lh), $"Velocity: {(_agent != null ? _agent.velocity.magnitude : 0f):F2}", neutralStyle); ly += lh;
+        GUI.Label(new Rect(lx, ly, w, lh), $"State: {currentState}", neutralStyle);
     }
 
     void Update() => _root.Tick();
@@ -267,8 +358,23 @@ public class BossMap3BT : MonoBehaviour
     BTStatus DoChase()
     {
         SetState("Chase");
-        if (_agent.enabled && _agent.isOnNavMesh) { _agent.isStopped = false; _agent.speed = moveSpeed; ChasePlayer(); }
-        animator.SetFloat(HashSpeed, 1f);
+
+        bool canMove = _agent.enabled && _agent.isOnNavMesh;
+
+        if (canMove)
+        {
+            _agent.isStopped = false;
+            _agent.speed = moveSpeed;
+            ChasePlayer();
+        }
+
+        // ✅ เล่น animation เดินก็ต่อเมื่อ Agent ขยับได้จริงเท่านั้น
+        // กันปัญหาโมเดลเล่นท่าเดินอยู่กับที่ (moonwalk) ตอน Agent หลุด NavMesh
+        animator.SetFloat(HashSpeed, canMove ? 1f : 0f);
+
+        if (!canMove)
+            Debug.LogWarning("[BossMap3] ⚠️ Agent ไม่สามารถเดินได้ (enabled/isOnNavMesh=false) — ไม่เล่น walk animation");
+
         return BTStatus.Running;
     }
 
@@ -285,19 +391,30 @@ public class BossMap3BT : MonoBehaviour
         animator.SetFloat(HashSpeed, 0f);
         if (_agent.enabled && _agent.isOnNavMesh) { _agent.isStopped = true; _agent.ResetPath(); }
 
-        for (int i = 0; i < 3; i++)
-        {
-            FaceTarget();
-            animator.SetTrigger(HashThrow);
-            yield return new WaitForSeconds(0.5f);
+        // ✅ ใช้ SlamRight chain เดียวกับ Boss2
+        // Animator จะ chain: SlamRight → SlamLeft → SlamJump → Idle
+        FaceTarget();
+        animator.SetTrigger(HashSlamRight);
 
-            SpawnSnowball();
-            Debug.Log($"[BossMap3] ❄️ ปาหิมะลูกที่ {i + 1}/3");
+        // หิมะลูกที่ 1 (ระหว่าง SlamRight)
+        yield return new WaitForSeconds(0.5f);
+        SpawnSnowball();
+        Debug.Log("[BossMap3] ❄️ ปาหิมะลูกที่ 1/3");
 
-            yield return new WaitForSeconds(snowballInterval);
-        }
+        // หิมะลูกที่ 2 (ระหว่าง SlamLeft)
+        yield return new WaitForSeconds(snowballInterval + 0.5f);
+        FaceTarget();
+        SpawnSnowball();
+        Debug.Log("[BossMap3] ❄️ ปาหิมะลูกที่ 2/3");
 
-        // หยุดนิ่งหลังปาครบ
+        // หิมะลูกที่ 3 (ระหว่าง SlamJump)
+        yield return new WaitForSeconds(snowballInterval + 0.5f);
+        FaceTarget();
+        SpawnSnowball();
+        Debug.Log("[BossMap3] ❄️ ปาหิมะลูกที่ 3/3");
+
+        // รอ animation จบ + หยุดนิ่ง
+        yield return new WaitForSeconds(1.0f);
         Debug.Log("[BossMap3] ❄️ ปาหิมะครบ → หยุดนิ่ง");
         yield return new WaitForSeconds(snowballStuckDuration);
 
@@ -359,7 +476,6 @@ public class BossMap3BT : MonoBehaviour
 
         float totalDegreesRotated = 0f;
         int rotationsCompleted = 0;
-        float lastDamageAngle = 0f;
         HashSet<int> hitPlayersThisRotation = new HashSet<int>();
 
         Debug.Log("[BossMap3] 🌀 เริ่มหมุน!");
@@ -540,7 +656,7 @@ public class BossMap3BT : MonoBehaviour
         SetSpinTrails(false);
         animator.enabled = true;
         animator.Play("Dead", 0, 0f); animator.speed = 1f; animator.SetFloat(HashSpeed, 0f);
-        animator.ResetTrigger(HashThrow); animator.ResetTrigger(HashStagger);
+        animator.ResetTrigger(HashSlamRight); animator.ResetTrigger(HashSlamLeft); animator.ResetTrigger(HashSlamJump); animator.ResetTrigger(HashStagger);
         if (_agent.enabled && _agent.isOnNavMesh) { _agent.isStopped = true; _agent.ResetPath(); _agent.updateRotation = true; }
         StartCoroutine(DeathSequence());
     }
@@ -583,9 +699,43 @@ public class BossMap3BT : MonoBehaviour
 
     void ChasePlayer()
     {
-        if (_player == null || !_agent.enabled || !_agent.isOnNavMesh) return;
-        if (Time.time >= _lastPathUpdateTime + pathUpdateInterval) { _agent.SetDestination(_player.position); _lastPathUpdateTime = Time.time; }
+        _chasePlayerCallCount++; // ✅ พิสูจน์ว่าฟังก์ชันนี้ถูกเรียกจริงหรือไม่
+
+        if (_player == null) { _chaseSkipReason = "_player == null"; return; }
+        if (!_agent.enabled) { _chaseSkipReason = "_agent.enabled == false"; return; }
+        if (!_agent.isOnNavMesh) { _chaseSkipReason = "_agent.isOnNavMesh == false"; return; }
+
+        if (Time.time >= _lastPathUpdateTime + pathUpdateInterval)
+        {
+            _setDestinationCallCount++; // ✅ พิสูจน์ว่าเรียก SetDestination จริง
+
+            // ✅ เช็คก่อนว่าตำแหน่งผู้เล่นเองอยู่บน NavMesh ไหม (แยกจากตำแหน่งบอส)
+            bool playerOnMesh = NavMesh.SamplePosition(_player.position, out var playerHit, 2f, NavMesh.AllAreas);
+            _playerPositionOnNavMesh = playerOnMesh;
+
+            bool destSet = _agent.SetDestination(_player.position);
+            _lastPathUpdateTime = Time.time;
+            _lastDestinationResult = destSet;   // ✅ ค่านี้คือความจริง ไม่ใช่ enum ที่โดน default หลอก
+            _lastPathStatus = _agent.pathStatus;
+            _chaseSkipReason = destSet ? "OK" : "SetDestination() returned FALSE";
+
+            if (!_loggedPathIssueOnce && (!destSet || !playerOnMesh))
+            {
+                _loggedPathIssueOnce = true;
+                Debug.LogError(
+                    $"[BossMap3] ❌ ปัญหาที่แท้จริง!\n" +
+                    $"SetDestination() returned: {destSet}\n" +
+                    $"Player position on NavMesh (2m radius): {playerOnMesh}\n" +
+                    $"BossPos={transform.position}, PlayerPos={_player.position}\n" +
+                    (playerOnMesh ? "" : "→ ตำแหน่ง Player ไม่อยู่บน NavMesh! เช็คว่า Player transform pivot สูงจากพื้นเกินไปหรือไม่\n") +
+                    "→ เช็คด้วย NavMeshIslandChecker: Window > AI > NavMesh Island Checker");
+            }
+        }
     }
+
+    // ── ตัวแปร Diagnostic แบบพิสูจน์ได้จริง (ไม่โดน enum-default หลอก) ──
+    private bool _lastDestinationResult = false;
+    private UnityEngine.AI.NavMeshPathStatus _lastPathStatus = UnityEngine.AI.NavMeshPathStatus.PathInvalid;
 
     IEnumerator HitFlash()
     {
