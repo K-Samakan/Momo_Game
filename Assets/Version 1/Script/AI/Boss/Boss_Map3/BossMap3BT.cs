@@ -69,6 +69,9 @@ public class BossMap3BT : MonoBehaviour
     [Tooltip("ตัวคูณความเร็วตอนโดน slow (0.5 = ช้าลงครึ่งหนึ่ง)")]
     public float snowballSlowMultiplier = 0.5f;
 
+    [Tooltip("แรง Knockback เมื่อโดนหิมะ")]
+    public float snowballKnockbackForce = 6f;
+
     [Tooltip("บอสหยุดนิ่งหลังปาหิมะครบ")]
     public float snowballStuckDuration = 1.5f;
 
@@ -171,6 +174,7 @@ public class BossMap3BT : MonoBehaviour
     private static readonly int HashSlamRight = Animator.StringToHash("SlamRight");
     private static readonly int HashSlamLeft = Animator.StringToHash("SlamLeft");
     private static readonly int HashSlamJump = Animator.StringToHash("SlamJump");
+    private static readonly int HashSpin = Animator.StringToHash("Spin");      // ✅ ใหม่: T-pose ตอนหมุน
     private static readonly int HashStagger = Animator.StringToHash("Stagger");
     private static readonly int HashDead = Animator.StringToHash("Dead");
     private static readonly int HashSpeed = Animator.StringToHash("Speed");
@@ -196,8 +200,13 @@ public class BossMap3BT : MonoBehaviour
 
     void Start()
     {
-        var go = GameObject.FindGameObjectWithTag("Player");
-        if (go != null) _player = go.transform;
+        // ✅ ใช้ Singleton แทน FindGameObjectWithTag ที่อาจเจอ "ผี" Player ค้างจาก DontDestroyOnLoad
+        _player = PlayerReference.GetPlayerTransform();
+
+        if (_player == null)
+            Debug.LogError("[BossMap3] ❌ ไม่พบ Player เลย! เช็คว่าติด PlayerReference.cs บน Player Prefab หรือยัง");
+        else
+            Debug.Log($"[BossMap3] ✅ เชื่อมต่อ Player สำเร็จที่ position {_player.position}");
         StartCoroutine(InitNavMesh());
         _root = BuildTree();
         if (!_introStarted) StartCoroutine(IntroSequence());
@@ -435,18 +444,17 @@ public class BossMap3BT : MonoBehaviour
 
         var snowball = Instantiate(snowballPrefab, spawnPos, Quaternion.LookRotation(dir));
 
-        // ตั้งค่า SnowballProjectile
+        // ✅ Auto-Attach: ถ้า Prefab ลืมใส่ SnowballProjectile ไว้ → เพิ่มให้อัตโนมัติ
+        // กันปัญหา "หิมะลอยนิ่ง" แบบถาวร ไม่ต้องพึ่งการตั้งค่า Prefab ให้ถูกต้องเป๊ะ
         var proj = snowball.GetComponent<SnowballProjectile>();
-        if (proj != null)
+        if (proj == null)
         {
-            proj.Init(snowballDamage, dir, snowballSpeed, snowballSlowDuration, snowballSlowMultiplier);
+            proj = snowball.AddComponent<SnowballProjectile>();
+            Debug.LogWarning("[BossMap3] ⚠️ Snowball Prefab ไม่มี SnowballProjectile.cs ติดมา " +
+                              "→ เพิ่มให้อัตโนมัติแล้ว (แนะนำ: ไปเพิ่ม Component นี้ที่ตัว Prefab ให้ถาวรด้วย)");
         }
-        else
-        {
-            // fallback: ใช้ Rigidbody เฉยๆ
-            var rb = snowball.GetComponent<Rigidbody>();
-            if (rb != null) rb.linearVelocity = dir * snowballSpeed;
-        }
+
+        proj.Init(snowballDamage, dir, snowballSpeed, snowballSlowDuration, snowballSlowMultiplier, snowballKnockbackForce);
 
         Destroy(snowball, 8f);
     }
@@ -460,8 +468,10 @@ public class BossMap3BT : MonoBehaviour
         _isPatternRunning = true;
         _isSpinning = true;
 
-        // ปิด Animator ชั่วคราว → ใช้โค้ดหมุนแทน
-        animator.enabled = false;
+        // ✅ เล่น T-pose ผ่าน Animator State แทนการปิด Animator ทั้งตัว
+        // ต้องมี State "Spin_TPose" ใน Animator Controller (Motion = T-pose clip, Loop Time = true)
+        // + Transition: Any State → Spin_TPose (Condition: Spin trigger, Has Exit Time ❌)
+        animator.SetTrigger(HashSpin);
 
         // เปิด VFX
         SetSpinTrails(true);
@@ -478,7 +488,7 @@ public class BossMap3BT : MonoBehaviour
         int rotationsCompleted = 0;
         HashSet<int> hitPlayersThisRotation = new HashSet<int>();
 
-        Debug.Log("[BossMap3] 🌀 เริ่มหมุน!");
+        Debug.Log("[BossMap3] 🌀 เริ่มหมุน! (T-pose)");
 
         while (rotationsCompleted < spinMaxRotations)
         {
@@ -496,7 +506,6 @@ public class BossMap3BT : MonoBehaviour
             {
                 rotationsCompleted++;
                 hitPlayersThisRotation.Clear();
-
                 Debug.Log($"[BossMap3] 🌀 หมุนครบ {rotationsCompleted}/{spinMaxRotations} รอบ");
             }
 
@@ -523,8 +532,6 @@ public class BossMap3BT : MonoBehaviour
 
         SetSpinTrails(false);
 
-        // เปิด Animator กลับ
-        animator.enabled = true;
         if (_agent.enabled && _agent.isOnNavMesh)
         {
             _agent.isStopped = true;
@@ -534,6 +541,8 @@ public class BossMap3BT : MonoBehaviour
 
         _isSpinning = false;
         _isStagger = true;
+
+        // ✅ Any State → Stagger transition ทำงานได้ทันที แม้กำลังอยู่ใน Spin_TPose state
         animator.SetTrigger(HashStagger);
 
         yield return new WaitForSeconds(spinStunDuration);
@@ -550,13 +559,14 @@ public class BossMap3BT : MonoBehaviour
         var ph = _player.GetComponent<MOMO.Player.PlayerHealth>();
         if (ph != null)
         {
-            ph.TakeDamage(spinDamage);
-            Debug.Log($"[BossMap3] 🌀 Spin โดนผู้เล่น! DMG={spinDamage}");
-        }
+            // ✅ ใช้ Overload ที่มีอยู่แล้วใน PlayerHealth.cs — เหมือนกับ Snowball
+            // ครบทั้ง damage + knockback + ปิด ThirdPersonController ระหว่าง knockback อัตโนมัติ
+            Vector3 knockDir = (_player.position - transform.position).normalized;
+            knockDir.y = 0.3f;
+            ph.TakeDamage(spinDamage, knockDir, spinKnockbackForce);
 
-        // Knockback
-        var cc = _player.GetComponent<CharacterController>();
-        if (cc != null) StartCoroutine(DoKnockback(cc, _player));
+            Debug.Log($"[BossMap3] 🌀 Spin โดนผู้เล่น! DMG={spinDamage}, Knockback={spinKnockbackForce}");
+        }
 
         HapticManager.Instance?.Vibrate(0.2f, 0.5f, 0.1f);
     }
@@ -656,7 +666,8 @@ public class BossMap3BT : MonoBehaviour
         SetSpinTrails(false);
         animator.enabled = true;
         animator.Play("Dead", 0, 0f); animator.speed = 1f; animator.SetFloat(HashSpeed, 0f);
-        animator.ResetTrigger(HashSlamRight); animator.ResetTrigger(HashSlamLeft); animator.ResetTrigger(HashSlamJump); animator.ResetTrigger(HashStagger);
+        animator.ResetTrigger(HashSlamRight); animator.ResetTrigger(HashSlamLeft); animator.ResetTrigger(HashSlamJump);
+        animator.ResetTrigger(HashSpin); animator.ResetTrigger(HashStagger);
         if (_agent.enabled && _agent.isOnNavMesh) { _agent.isStopped = true; _agent.ResetPath(); _agent.updateRotation = true; }
         StartCoroutine(DeathSequence());
     }
@@ -669,22 +680,7 @@ public class BossMap3BT : MonoBehaviour
     // ═══════════════════════════════════════════════════
     // Helpers
     // ═══════════════════════════════════════════════════
-
-    IEnumerator DoKnockback(CharacterController cc, Transform player)
-    {
-        Vector3 dir = (player.position - transform.position).normalized;
-        dir.y = 0.3f;
-        Vector3 force = dir * spinKnockbackForce;
-        float duration = 0.3f;
-        float elapsed = 0f;
-        while (elapsed < duration)
-        {
-            if (cc == null || !cc.enabled) yield break;
-            cc.Move(force * (1f - elapsed / duration) * Time.deltaTime);
-            elapsed += Time.deltaTime;
-            yield return null;
-        }
-    }
+    // (Knockback logic ย้ายไปที่ KnockbackUtility.cs แล้ว — ใช้ร่วมกันได้ทุก Boss)
 
     void SetSpinTrails(bool on)
     {
