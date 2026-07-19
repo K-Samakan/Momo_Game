@@ -59692,7 +59692,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &485989637
 RectTransform:
   m_ObjectHideFlags: 0
@@ -99065,7 +99065,7 @@ GameObject:
   - component: {fileID: 778528693}
   m_Layer: 8
   m_Name: NestedParentArmature_Unpack (1)
-  m_TagString: Player
+  m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -99079,7 +99079,7 @@ Transform:
   m_GameObject: {fileID: 778528692}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0.69717354, z: -0, w: 0.71690243}
-  m_LocalPosition: {x: 76.44, y: 44.59, z: 28.81}
+  m_LocalPosition: {x: 76.44, y: 46.4, z: 30.2}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -160609,7 +160609,7 @@ GameObject:
   - component: {fileID: 1339313640}
   m_Layer: 8
   m_Name: Geometry
-  m_TagString: Untagged
+  m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -175730,6 +175730,7 @@ GameObject:
   - component: {fileID: 1475858023}
   - component: {fileID: 1475858018}
   - component: {fileID: 1475858024}
+  - component: {fileID: 1475858025}
   m_Layer: 0
   m_Name: BossRoot
   m_TagString: Enemy
@@ -175820,7 +175821,7 @@ MonoBehaviour:
   moveSpeed: 4
   pathUpdateInterval: 0.3
   snowballChance: 0.6
-  snowballPrefab: {fileID: 4809592318591354565, guid: 55167b182a0bf0044987de8a9f6c991e,
+  snowballPrefab: {fileID: 7645767233844442094, guid: 85dc56bb02587b74c9012c98d824ae64,
     type: 3}
   snowballSpawnPoint: {fileID: 0}
   snowballInterval: 1
@@ -175828,6 +175829,7 @@ MonoBehaviour:
   snowballSpeed: 12
   snowballSlowDuration: 3
   snowballSlowMultiplier: 0.5
+  snowballKnockbackForce: 10
   snowballStuckDuration: 1.5
   spinMaxRotations: 5
   spinSpeed: 720
@@ -175838,6 +175840,8 @@ MonoBehaviour:
   spinKnockbackForce: 8
   spinTrails: []
   spinVFXColor: {r: 0.4, g: 0.9, b: 1, a: 0.8}
+  tornadoColor: {r: 0, g: 0.82382876, b: 0.9811321, a: 0.8}
+  tornadoRadius: 3
   fireArrowsRequired: 3
   fireArrowStunDuration: 20
   hitFlashColor: {r: 1, g: 0, b: 0, a: 1}
@@ -175848,6 +175852,22 @@ MonoBehaviour:
   logStateChanges: 0
   showOnScreenDebug: 1
   _agent: {fileID: 0}
+--- !u!114 &1475858025
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1475858017}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0153e1174003c8a4db09d3950693e3bf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  boss: {fileID: 1475858024}
+  health: {fileID: 919132148289703661}
+  showOnScreenUI: 0
+  enableInBuild: 0
 --- !u!1 &1477853691
 GameObject:
   m_ObjectHideFlags: 0
@@ -205410,14 +205430,14 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1731103206}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 66102e98f0a3fff4d80ebe696bb70caf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  player: {fileID: 0}
-  cameraTransform: {fileID: 0}
-  mainCamera: {fileID: 0}
+  player: {fileID: 969276890}
+  cameraTransform: {fileID: 1998324510}
+  mainCamera: {fileID: 1973209570}
   visualPrefab: {fileID: 3277656285091790393, guid: 2ad6b6ae1f2f1ac4bb53aca4f044b5f2,
     type: 3}
   radialLayout: {fileID: 914366435}
@@ -225495,7 +225515,7 @@ Transform:
   m_GameObject: {fileID: 1973209565}
   serializedVersion: 2
   m_LocalRotation: {x: -0.0006806379, y: 0.99995697, z: 0.000006301324, w: -0.009258904}
-  m_LocalPosition: {x: -1.227769, y: -27.295002, z: 7.3330507}
+  m_LocalPosition: {x: -1.2277687, y: -27.295002, z: 7.3330536}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -253124,7 +253144,7 @@ Transform:
   m_GameObject: {fileID: 7157309608263911245}
   serializedVersion: 2
   m_LocalRotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
-  m_LocalPosition: {x: -0, y: 0.233, z: 0}
+  m_LocalPosition: {x: -0, y: 0.56, z: 0}
   m_LocalScale: {x: 100, y: 100, z: 100}
   m_ConstrainProportionsScale: 0
   m_Children: []

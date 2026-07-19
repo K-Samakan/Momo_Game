@@ -1,14 +1,14 @@
 using UnityEngine;
 
 /// <summary>
-/// SnowballProjectile v3 — ก้อนหิมะที่บอสปาใส่ผู้เล่น
+/// SnowballProjectile v4 — ก้อนหิมะที่บอสปาใส่ผู้เล่น (เวอร์ชันเรียบง่าย)
 /// 
-/// แก้ไขจาก v2:
-///   ✅ เพิ่ม Rigidbody (Kinematic) อัตโนมัติ — แก้บั๊ก "ทะลุตัวผู้เล่น"
+/// ฟีเจอร์:
+///   ✅ มี Rigidbody (Kinematic) อัตโนมัติ — แก้บั๊ก "ทะลุตัวผู้เล่น"
 ///      (Unity ไม่ยิง OnTriggerEnter ถ้าทั้งคู่ไม่มี Rigidbody เลย)
-///   ✅ ใช้ PlayerHealth.TakeDamage(int, Vector3, float) โดยตรง
-///      แทน KnockbackUtility เพราะ Method นี้ปิด ThirdPersonController
-///      ระหว่าง knockback ให้อัตโนมัติ (กันผู้เล่นเดินสวนแรงกระเด็น)
+///   ✅ ใช้ PlayerHealth.TakeDamage(int, Vector3, float) ตัวที่มีอยู่แล้วในเกม
+///      ไม่ต้องแก้ไฟล์ PlayerHealth.cs เลย — ใช้ default duration/damping ของระบบเดิม
+///   ✅ Slow effect + ทำลายได้ด้วยการโจมตีของผู้เล่น
 /// 
 /// Setup Prefab (ไม่บังคับ — โค้ด BossMap3BT จะ Auto-Attach ให้ถ้าลืมใส่):
 ///   1) Model ก้อนหิมะ
@@ -63,7 +63,6 @@ public class SnowballProjectile : MonoBehaviour
             col.radius = 0.4f;
         }
 
-        // ✅ ตัวนี้คือตัวที่ขาดไปในเวอร์ชันก่อนหน้า — สาเหตุที่แท้จริงของ "ทะลุตัวผู้เล่น"
         if (GetComponent<Rigidbody>() == null)
         {
             var rb = gameObject.AddComponent<Rigidbody>();
@@ -88,8 +87,7 @@ public class SnowballProjectile : MonoBehaviour
             var ph = other.GetComponent<MOMO.Player.PlayerHealth>();
             if (ph != null)
             {
-                // ✅ ใช้ Overload ที่มีอยู่แล้วใน PlayerHealth.cs โดยตรง
-                // ครบทั้ง damage + knockback + ปิด ThirdPersonController ระหว่าง knockback ให้อัตโนมัติ
+                // ✅ ใช้ Overload เดิมที่มีอยู่แล้วใน PlayerHealth.cs — ไม่ต้องแก้ไฟล์นั้นเลย
                 Vector3 knockDir = (other.transform.position - transform.position).normalized;
                 knockDir.y = 0.3f; // ยกขึ้นเล็กน้อยกันเตะติดพื้น
                 ph.TakeDamage(damage, knockDir, knockbackForce);

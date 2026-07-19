@@ -72,8 +72,8 @@ public class BossMap3BT : MonoBehaviour
     [Tooltip("แรง Knockback เมื่อโดนหิมะ")]
     public float snowballKnockbackForce = 6f;
 
-    [Tooltip("บอสหยุดนิ่งหลังปาหิมะครบ")]
-    public float snowballStuckDuration = 1.5f;
+    [Tooltip("ระยะเวลาหยุดนิ่งหลังปาหิมะครบ (นี่คือเวลารวมทั้งหมด — เดิมมี delay ซ่อนเพิ่มอีก 1 วิ ตอนนี้ลบออกแล้ว)")]
+    public float snowballStuckDuration = 1.0f;
 
     // ═══════════════════════════════════════════════════
     // ท่าที่ 2: SpinAttack — หมุนตัวโจมตี
@@ -106,6 +106,13 @@ public class BossMap3BT : MonoBehaviour
 
     [Tooltip("สี VFX หมุน")]
     public Color spinVFXColor = new Color(0.4f, 0.9f, 1f, 0.8f);
+
+    [Header("Spin Tornado VFX (Procedural — ไม่ต้องใช้ Asset ภายนอก)")]
+    [Tooltip("สีพายุหมุน (ค่า default เป็นสีเขียวเหลือง คล้ายในภาพตัวอย่าง)")]
+    public Color tornadoColor = new Color(0.6f, 1f, 0.15f, 0.8f);
+
+    [Tooltip("รัศมีพายุหมุน (แนะนำให้เท่ากับ spinHitRadius)")]
+    public float tornadoRadius = 3f;
 
     // ═══════════════════════════════════════════════════
     // จุดอ่อน: ธนูไฟ — เตรียมไว้
@@ -152,6 +159,10 @@ public class BossMap3BT : MonoBehaviour
     private bool _playerPositionOnNavMesh = false;
     private bool _loggedPathIssueOnce = false;
 
+    // ✅ ใหม่: ระบบยกเลิกการโจมตีเมื่อโดน Stagger กลางคัน
+    private bool _attackCancelled = false;
+    private SpinTornadoVFX _activeTornado;
+
     void SetState(string s) { if (currentState == s) return; currentState = s; if (logStateChanges) Debug.Log($"[BossMap3] → {s}"); }
 
     // ── Private Flags ──
@@ -175,6 +186,7 @@ public class BossMap3BT : MonoBehaviour
     private static readonly int HashSlamLeft = Animator.StringToHash("SlamLeft");
     private static readonly int HashSlamJump = Animator.StringToHash("SlamJump");
     private static readonly int HashSpin = Animator.StringToHash("Spin");      // ✅ ใหม่: T-pose ตอนหมุน
+    private static readonly int HashReturnIdle = Animator.StringToHash("ReturnToIdle"); // ✅ ใหม่: สั่งกลับ Idle ตรงๆ ไม่พึ่ง Exit Time
     private static readonly int HashStagger = Animator.StringToHash("Stagger");
     private static readonly int HashDead = Animator.StringToHash("Dead");
     private static readonly int HashSpeed = Animator.StringToHash("Speed");
@@ -395,6 +407,7 @@ public class BossMap3BT : MonoBehaviour
 
     IEnumerator SnowballSequence()
     {
+        _attackCancelled = false; // ✅ reset ทุกครั้งที่เริ่มท่าใหม่
         _isPatternRunning = true;
         _isSnowballing = true;
         animator.SetFloat(HashSpeed, 0f);
@@ -407,29 +420,43 @@ public class BossMap3BT : MonoBehaviour
 
         // หิมะลูกที่ 1 (ระหว่าง SlamRight)
         yield return new WaitForSeconds(0.5f);
+        if (_attackCancelled) { EndSnowballSequence(); yield break; }
         SpawnSnowball();
         Debug.Log("[BossMap3] ❄️ ปาหิมะลูกที่ 1/3");
 
         // หิมะลูกที่ 2 (ระหว่าง SlamLeft)
         yield return new WaitForSeconds(snowballInterval + 0.5f);
+        if (_attackCancelled) { EndSnowballSequence(); yield break; }
         FaceTarget();
         SpawnSnowball();
         Debug.Log("[BossMap3] ❄️ ปาหิมะลูกที่ 2/3");
 
         // หิมะลูกที่ 3 (ระหว่าง SlamJump)
         yield return new WaitForSeconds(snowballInterval + 0.5f);
+        if (_attackCancelled) { EndSnowballSequence(); yield break; }
         FaceTarget();
         SpawnSnowball();
         Debug.Log("[BossMap3] ❄️ ปาหิมะลูกที่ 3/3");
 
-        // รอ animation จบ + หยุดนิ่ง
-        yield return new WaitForSeconds(1.0f);
-        Debug.Log("[BossMap3] ❄️ ปาหิมะครบ → หยุดนิ่ง");
+        // ✅ แก้ไข: รวมเวลาหน่วงเป็นค่าเดียว (เดิมมี WaitForSeconds(1.0f) แอบซ่อนอยู่
+        // บวกกับ snowballStuckDuration แยกกัน รวมเป็น 2.5 วิ ทำให้รู้สึกค้างนาน)
+        // ตอนนี้ปรับได้จุดเดียวผ่าน "Snowball Stuck Duration" ใน Inspector
+        Debug.Log($"[BossMap3] ❄️ ปาหิมะครบ → หยุดนิ่ง {snowballStuckDuration} วิ");
         yield return new WaitForSeconds(snowballStuckDuration);
+        if (_attackCancelled) { EndSnowballSequence(); yield break; }
 
+        EndSnowballSequence();
+    }
+
+    /// <summary>Cleanup ปลายทาง — เรียกทั้งตอนจบปกติและตอนถูกยกเลิกกลางคัน</summary>
+    void EndSnowballSequence()
+    {
         _isSnowballing = false;
         if (_agent.enabled && _agent.isOnNavMesh) _agent.isStopped = false;
         _isPatternRunning = false;
+
+        // ✅ สั่ง Animator กลับ Idle ตรงๆ ทันที — ไม่ต้องรอ Exit Time ของ Clip
+        animator.SetTrigger(HashReturnIdle);
     }
 
     void SpawnSnowball()
@@ -454,7 +481,8 @@ public class BossMap3BT : MonoBehaviour
                               "→ เพิ่มให้อัตโนมัติแล้ว (แนะนำ: ไปเพิ่ม Component นี้ที่ตัว Prefab ให้ถาวรด้วย)");
         }
 
-        proj.Init(snowballDamage, dir, snowballSpeed, snowballSlowDuration, snowballSlowMultiplier, snowballKnockbackForce);
+        proj.Init(snowballDamage, dir, snowballSpeed, snowballSlowDuration, snowballSlowMultiplier,
+            snowballKnockbackForce);
 
         Destroy(snowball, 8f);
     }
@@ -465,6 +493,7 @@ public class BossMap3BT : MonoBehaviour
 
     IEnumerator SpinAttackSequence()
     {
+        _attackCancelled = false; // ✅ reset ทุกครั้งที่เริ่มท่าใหม่
         _isPatternRunning = true;
         _isSpinning = true;
 
@@ -475,6 +504,9 @@ public class BossMap3BT : MonoBehaviour
 
         // เปิด VFX
         SetSpinTrails(true);
+
+        // ✅ เปิด Tornado VFX (Procedural — หมุนวนรอบตัว เหมือนภาพตัวอย่าง)
+        _activeTornado = SpinTornadoVFX.Spawn(transform, tornadoRadius, tornadoColor);
 
         // เปิด NavMesh เคลื่อนที่ตามผู้เล่น
         if (_agent.enabled && _agent.isOnNavMesh)
@@ -492,6 +524,13 @@ public class BossMap3BT : MonoBehaviour
 
         while (rotationsCompleted < spinMaxRotations)
         {
+            // ✅ เช็ค Cancellation ทุก frame — ถ้าโดนตีจนสตั้นกลางคัน ให้หยุดทันที
+            if (_attackCancelled)
+            {
+                EndSpinSequence(interrupted: true);
+                yield break;
+            }
+
             // หมุนตัว
             float rotateThisFrame = spinSpeed * Time.deltaTime;
             transform.Rotate(0f, rotateThisFrame, 0f, Space.World);
@@ -527,10 +566,35 @@ public class BossMap3BT : MonoBehaviour
             yield return null;
         }
 
-        // ── หมุนครบ → หยุดนิ่ง ──
+        // ── หมุนครบตามปกติ ──
         Debug.Log($"[BossMap3] 🌀 หมุนครบ {spinMaxRotations} รอบ → หยุดนิ่ง {spinStunDuration} วิ!");
+        EndSpinSequence(interrupted: false);
 
+        _isStagger = true;
+        animator.SetTrigger(HashStagger);
+
+        yield return new WaitForSeconds(spinStunDuration);
+        if (_attackCancelled) yield break; // เผื่อโดนตีสตั้นซ้อนระหว่างสตั้นเดิม (edge case)
+
+        _isStagger = false;
+        if (_agent.enabled && _agent.isOnNavMesh) _agent.isStopped = false;
+        _isPatternRunning = false;
+    }
+
+    /// <summary>
+    /// Cleanup ปลายทางของ Spin — เรียกทั้งตอนจบปกติและตอนถูกยกเลิกกลางคัน (interrupted)
+    /// เมื่อ interrupted=true จะไม่เล่น Stagger เอง เพราะ StaggerSequence จากภายนอกจะเข้ามาคุมต่อ
+    /// </summary>
+    void EndSpinSequence(bool interrupted)
+    {
         SetSpinTrails(false);
+
+        // ✅ ปิด Tornado VFX เสมอ ไม่ว่าจะจบแบบไหน
+        if (_activeTornado != null)
+        {
+            _activeTornado.StopAndDestroy();
+            _activeTornado = null;
+        }
 
         if (_agent.enabled && _agent.isOnNavMesh)
         {
@@ -540,16 +604,12 @@ public class BossMap3BT : MonoBehaviour
         }
 
         _isSpinning = false;
-        _isStagger = true;
 
-        // ✅ Any State → Stagger transition ทำงานได้ทันที แม้กำลังอยู่ใน Spin_TPose state
-        animator.SetTrigger(HashStagger);
-
-        yield return new WaitForSeconds(spinStunDuration);
-
-        _isStagger = false;
-        if (_agent.enabled && _agent.isOnNavMesh) _agent.isStopped = false;
-        _isPatternRunning = false;
+        if (interrupted)
+        {
+            // ไม่ต้อง set _isStagger/_isPatternRunning เอง เพราะ CancelCurrentAttackPattern()
+            // ที่เรียกจาก OnHitByPlayer() จัดการไปแล้ว และ StaggerSequence() ภายนอกจะทำงานต่อ
+        }
     }
 
     void SpinHitPlayer()
@@ -559,10 +619,10 @@ public class BossMap3BT : MonoBehaviour
         var ph = _player.GetComponent<MOMO.Player.PlayerHealth>();
         if (ph != null)
         {
-            // ✅ ใช้ Overload ที่มีอยู่แล้วใน PlayerHealth.cs — เหมือนกับ Snowball
-            // ครบทั้ง damage + knockback + ปิด ThirdPersonController ระหว่าง knockback อัตโนมัติ
             Vector3 knockDir = (_player.position - transform.position).normalized;
             knockDir.y = 0.3f;
+
+            // ✅ ใช้ Overload เดิมที่มีอยู่แล้วใน PlayerHealth.cs — ไม่ต้องแก้ PlayerHealth.cs เลย
             ph.TakeDamage(spinDamage, knockDir, spinKnockbackForce);
 
             Debug.Log($"[BossMap3] 🌀 Spin โดนผู้เล่น! DMG={spinDamage}, Knockback={spinKnockbackForce}");
@@ -619,6 +679,10 @@ public class BossMap3BT : MonoBehaviour
 
         _isFireStunned = false;
         if (_agent.enabled && _agent.isOnNavMesh) _agent.isStopped = false;
+
+        // ✅ สั่ง Animator กลับ Idle ตรงๆ ทันที — ไม่ต้องรอ Exit Time ของ Clip
+        animator.SetTrigger(HashReturnIdle);
+
         Debug.Log("[BossMap3] 🔥 ฟื้นจาก Fire Stun!");
     }
 
@@ -627,7 +691,17 @@ public class BossMap3BT : MonoBehaviour
     // ═══════════════════════════════════════════════════
 
     IEnumerator IntroSequence() { if (_introStarted) yield break; _introStarted = true; _isIntro = true; yield return new WaitForSeconds(introDelay); _isIntro = false; }
-    IEnumerator StaggerSequence() { _isStagger = true; animator.SetFloat(HashSpeed, 0f); animator.SetTrigger(HashStagger); yield return new WaitForSeconds(staggerDuration); _isStagger = false; }
+    IEnumerator StaggerSequence()
+    {
+        _isStagger = true;
+        animator.SetFloat(HashSpeed, 0f);
+        animator.SetTrigger(HashStagger);
+        yield return new WaitForSeconds(staggerDuration);
+        _isStagger = false;
+
+        // ✅ สั่ง Animator กลับ Idle ตรงๆ ทันที — ไม่ต้องรอ Exit Time ของ Clip
+        animator.SetTrigger(HashReturnIdle);
+    }
 
     IEnumerator DeathSequence()
     {
@@ -656,7 +730,55 @@ public class BossMap3BT : MonoBehaviour
         if (hitVFX != null) { var vfx = Instantiate(hitVFX, transform.position + Vector3.up, Quaternion.identity); Destroy(vfx, 2f); }
         StartCoroutine(HitFlash());
         _comboCount++;
-        if (_comboCount >= 5) { _comboCount = 0; if (Time.time >= _lastStaggerTime + staggerCooldown) { _lastStaggerTime = Time.time; StartCoroutine(StaggerSequence()); } }
+
+        if (_comboCount >= 5 && !_isStagger) // ✅ กันไม่ให้ Stagger ซ้อน Stagger เดิม
+        {
+            _comboCount = 0;
+            if (Time.time >= _lastStaggerTime + staggerCooldown)
+            {
+                _lastStaggerTime = Time.time;
+
+                // ✅ ยกเลิกท่าที่กำลังโจมตีอยู่ทันที ก่อนเข้า Stagger
+                // แก้ปัญหา: ตีครบ combo กลางท่าปาหิมะ/หมุนตัว แล้ว snowball ลูกที่เหลือยังพุ่งออกมา
+                CancelCurrentAttackPattern();
+
+                StartCoroutine(StaggerSequence());
+            }
+        }
+    }
+
+    /// <summary>
+    /// ✅ ยกเลิกท่าโจมตีที่กำลังทำงานอยู่ทันที (SnowballSequence / SpinAttackSequence)
+    /// เรียกก่อนเริ่ม Stagger เสมอ กันปัญหา snowball/spin ยังทำงานต่อทั้งที่ boss เข้า stagger แล้ว
+    /// </summary>
+    void CancelCurrentAttackPattern()
+    {
+        _attackCancelled = true; // Coroutine ที่กำลังรันจะเช็คค่านี้แล้วออกเองที่ checkpoint ถัดไป
+
+        // เคลียร์ VFX ที่อาจค้างจาก Spin
+        SetSpinTrails(false);
+        if (_activeTornado != null)
+        {
+            _activeTornado.StopAndDestroy();
+            _activeTornado = null;
+        }
+
+        // เคลียร์ Trigger ที่อาจค้างจากท่าที่กำลังเล่นอยู่
+        animator.ResetTrigger(HashSlamRight);
+        animator.ResetTrigger(HashSlamLeft);
+        animator.ResetTrigger(HashSlamJump);
+        animator.ResetTrigger(HashSpin);
+
+        // คืนค่า Agent เผื่อค้างจาก Spin (ปิด updateRotation ไว้)
+        if (_agent.enabled && _agent.isOnNavMesh)
+            _agent.updateRotation = true;
+
+        // Reset flags ทั้งหมดทันที — ไม่ต้องรอ Coroutine เดินมาถึง checkpoint
+        _isSnowballing = false;
+        _isSpinning = false;
+        _isPatternRunning = false;
+
+        Debug.Log("[BossMap3] 🛑 ยกเลิกท่าโจมตีที่กำลังทำงาน → เข้า Stagger ทันที");
     }
 
     public void OnDead()
