@@ -39,14 +39,26 @@ EditorBuildSettings:
     path: Assets/Version 1/Scenes/Map2/Map2_Outro.unity
     guid: b74f2ae59ef42c745ae628bd9335091a
   - enabled: 1
+    path: Assets/Version 1/Scenes/Map3/Map3_Intro.unity
+    guid: 8ed678c94961d764595868d1f2a3484a
+  - enabled: 1
     path: Assets/Version 1/Scenes/Map3.unity
     guid: 99946e699a9f6184b99ec55c886fb056
   - enabled: 1
     path: Assets/Version 1/Scenes/Map3/Map3_Outro.unity
     guid: a46ae4d7493c49f4a9f36fa5b73ea40e
   - enabled: 1
+    path: Assets/Version 1/Scenes/Map4/CutScene4/Map4_Intro.unity
+    guid: 96dc56f6a476ede458fc71824b2a7202
+  - enabled: 1
     path: Assets/Version 1/Scenes/Map4.unity
     guid: 3f1a4f71579ce2149a4a453d08f70382
+  - enabled: 1
+    path: Assets/Version 1/Scenes/Map4/CutScene4/Map4_Outro.unity
+    guid: 5473114107fb2fb48bb6a82fb6763b5d
+  - enabled: 1
+    path: Assets/Version 1/Scenes/EndCredit/EndCredit.unity
+    guid: 7c56100f658b5da44966f29efd3298ab
   - enabled: 0
     path: Assets/Version 1/Scenes/PuzzleMap2.unity
     guid: 8923621e809a5964fb0110532bfd9b4f

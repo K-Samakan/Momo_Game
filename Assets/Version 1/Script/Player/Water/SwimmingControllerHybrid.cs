@@ -80,6 +80,10 @@ public class SwimmingControllerHybrid : MonoBehaviour
     private bool isUnderwater = false;
     private float waterSurfaceY = 0f;
 
+    // ✅ Item Oxygen Bonus State (เบ็ดยืด ฯลฯ)
+    private float _bonusMaxOxygen = 0f;
+    private float _bonusDepletionReduction = 0f;
+
     // Drowning Damage State
     private float damageTimer = 0f;
     private int damageCount = 0;
@@ -937,6 +941,50 @@ public class SwimmingControllerHybrid : MonoBehaviour
     public bool IsInWhirlpool()
     {
         return isInWhirlpool;
+    }
+
+    #endregion
+
+    #region === ITEM OXYGEN BONUS (เบ็ดยืด ฯลฯ) ===
+
+    /// <summary>
+    /// เรียกตอนสวมใส่ไอเทมที่เพิ่มความสามารถอยู่ใต้น้ำ (เช่น เบ็ดยืด)
+    /// </summary>
+    public void ApplyOxygenBonus(float extraMaxPercent, float depletionReductionPercent)
+    {
+        // กันกดซ้ำ/equip ซ้ำแล้วบวกโบนัสทับกันเรื่อยๆ
+        if (_bonusMaxOxygen > 0f || _bonusDepletionReduction > 0f)
+            RemoveOxygenBonus();
+
+        _bonusMaxOxygen = maxOxygen * extraMaxPercent;
+        maxOxygen += _bonusMaxOxygen;
+        currentOxygen += _bonusMaxOxygen;
+
+        _bonusDepletionReduction = oxygenDepletionRate * depletionReductionPercent;
+        oxygenDepletionRate = Mathf.Max(0.1f, oxygenDepletionRate - _bonusDepletionReduction);
+
+        if (showDebugLogs)
+        {
+            Debug.Log($"🎣 [SwimmingController] Oxygen Bonus Applied | MaxO2: {maxOxygen:F1} | DepletionRate: {oxygenDepletionRate:F2}");
+        }
+    }
+
+    /// <summary>
+    /// เรียกตอนถอดไอเทมออก (ถ้ามีระบบถอด)
+    /// </summary>
+    public void RemoveOxygenBonus()
+    {
+        maxOxygen -= _bonusMaxOxygen;
+        oxygenDepletionRate += _bonusDepletionReduction;
+        currentOxygen = Mathf.Min(currentOxygen, maxOxygen);
+
+        _bonusMaxOxygen = 0f;
+        _bonusDepletionReduction = 0f;
+
+        if (showDebugLogs)
+        {
+            Debug.Log($"🎣 [SwimmingController] Oxygen Bonus Removed | MaxO2: {maxOxygen:F1} | DepletionRate: {oxygenDepletionRate:F2}");
+        }
     }
 
     #endregion

@@ -97,7 +97,7 @@ public class SaveManager : MonoBehaviour
             _currentSave.playerMaxHP = ph.maxHealth;
         }
         WriteToDisk(_currentSave);
-        Debug.Log($"💾 [SaveManager] Force saved | hasGlove={_currentSave.hasMonkeyGlove} | maxHP={_currentSave.playerMaxHP}");
+        Debug.Log($"💾 [SaveManager] Force saved | hasGlove={_currentSave.hasMonkeyGlove} | hasRod={_currentSave.hasFishingRod} | maxHP={_currentSave.playerMaxHP}");
     }
 
     public void RegisterMonsterKill(string monsterID)
@@ -188,12 +188,17 @@ public class SaveManager : MonoBehaviour
             Debug.Log("║        🔄 RESPAWN STAT SUMMARY           ║");
             Debug.Log($"║  ❤️  HP  : {ph.currentHealth} / {ph.maxHealth}");
             Debug.Log($"║  🥊 Glove: {(_currentSave.hasMonkeyGlove ? "Equipped ✅" : "Not equipped ❌")}");
+            Debug.Log($"║  🎣 Rod  : {(_currentSave.hasFishingRod ? "Equipped ✅" : "Not equipped ❌")}");
             Debug.Log("╚══════════════════════════════════════════╝");
         }
 
         // ✅ Restore Glove ถ้าเคยรับไปแล้ว
         if (_currentSave.hasMonkeyGlove)
             RestoreGlove();
+
+        // ✅ Restore เบ็ดยืด ถ้าเคยรับไปแล้ว
+        if (_currentSave.hasFishingRod)
+            RestoreFishingRod();
 
         RestoreMonsterStates();
         RestoreQuestStates();
@@ -211,6 +216,20 @@ public class SaveManager : MonoBehaviour
         else
         {
             Debug.LogWarning("[SaveManager] ⚠️ ไม่พบ GlovePickup ใน scene (อาจ SetActive=false แล้ว)");
+        }
+    }
+
+    private void RestoreFishingRod()
+    {
+        var rodPickup = FindFirstObjectByType<FishingRodPickup>();
+        if (rodPickup != null)
+        {
+            rodPickup.PickUpFishingRod();
+            Debug.Log("[SaveManager] 🎣 Fishing Rod restored after respawn!");
+        }
+        else
+        {
+            Debug.LogWarning("[SaveManager] ⚠️ ไม่พบ FishingRodPickup ใน scene (อาจ SetActive=false แล้ว)");
         }
     }
 

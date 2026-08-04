@@ -30,6 +30,7 @@ public class SaveData
     // ─── Item Flags ─────────────────────────────────────────
     public bool hasMonkeyGlove = false;
     public bool hasJetpack = false;
+    public bool hasFishingRod = false;
 
     public Vector3 GetRespawnPosition() => new Vector3(posX, posY, posZ);
 
