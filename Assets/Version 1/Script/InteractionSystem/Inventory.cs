@@ -1,11 +1,15 @@
+// ============================================================
+// FILE: Inventory.cs
+// PATH: Assets/Version 1/Script/InteractionSystem/Inventory.cs
+// ============================================================
 using UnityEngine;
 
 public class Inventory : MonoBehaviour
 {
     public static Inventory Instance; // Singleton เพื่อให้เข้าถึงได้จากทุกที่
-    public bool CorrectPuzzle;
 
-
+    public bool CorrectPuzzle;     // Map1
+    public bool CorrectPuzzle3;    // ✅ เพิ่มใหม่ — Map3 (Ice Puzzle) แก้สำเร็จหรือยัง
 
     private void Awake()
     {
@@ -22,6 +26,6 @@ public class Inventory : MonoBehaviour
     {
         //เพิ่มตัวหรือเงื่่อนไขที่ทำให้CorrectPuzzle=true โดยจะเป็นการแก้puzzleได้ CorrectPuzzle = !CorrectPuzzle;
 
-        
+
     }
 }

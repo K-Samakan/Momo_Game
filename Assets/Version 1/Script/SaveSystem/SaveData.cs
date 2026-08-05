@@ -31,6 +31,7 @@ public class SaveData
     public bool hasMonkeyGlove = false;
     public bool hasJetpack = false;
     public bool hasFishingRod = false;
+    public bool hasFireBow = false;   // ✅ เพิ่มใหม่ — ธนูไฟ Map3
 
     public Vector3 GetRespawnPosition() => new Vector3(posX, posY, posZ);
 

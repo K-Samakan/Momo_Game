@@ -77,6 +77,10 @@ public class SmartAttackSystem : MonoBehaviour
     // ✅ Reference to GloveController
     private GloveController _gloveController;
 
+    // ✅ เพิ่มใหม่ — Reference to FireBowController (Map3)
+    //    ใช้กันไม่ให้ปุ่ม □ สั่งต่อยซ้อนกับการยิงธนู ตอนสวมธนูไฟอยู่
+    private FireBowController _fireBowController;
+
     // ────────────────────────────────────────
     // Enum
     // ────────────────────────────────────────
@@ -117,6 +121,13 @@ public class SmartAttackSystem : MonoBehaviour
             Debug.Log("[SmartAttack] ✅ พบ GloveController");
         else
             Debug.Log("[SmartAttack] ℹ️ ไม่พบ GloveController (ปกติถ้ายังไม่ได้สวมถุงมือ)");
+
+        // ✅ เพิ่มใหม่
+        _fireBowController = FindFirstObjectByType<FireBowController>();
+        if (_fireBowController != null)
+            Debug.Log("[SmartAttack] ✅ พบ FireBowController");
+        else
+            Debug.Log("[SmartAttack] ℹ️ ไม่พบ FireBowController (ปกติถ้ายังไม่ได้สวมธนู)");
     }
 
     // ────────────────────────────────────────
@@ -125,6 +136,9 @@ public class SmartAttackSystem : MonoBehaviour
 
     public void TriggerAttack()
     {
+        // ✅ เพิ่มใหม่ — สวมธนูไฟอยู่ → ไม่ต่อย ปล่อยให้ FireBowController.OnQuickShotInput() จัดการยิงธนูแทน
+        if (_fireBowController != null && _fireBowController.IsEquipped) return;
+
         if (_isExecuting) return;
         StartCoroutine(AttackSequence());
     }
@@ -484,16 +498,6 @@ public class SmartAttackSystem : MonoBehaviour
                 HapticManager.Instance?.Vibrate(0.1f, 0.4f, 0.1f);
                 continue;
             }
-
-            // ✅ Boss Map4
-            BossMap4Health bossHP4 = col.GetComponent<BossMap4Health>();
-            if (bossHP4 != null && bossHP4.IsAlive())
-            {
-                bossHP4.TakeDamage(damage);
-                Debug.Log($"[SmartAttack] Hit Boss Map4: {col.name} | DMG: {damage}");
-                HapticManager.Instance?.Vibrate(0.1f, 0.4f, 0.1f);
-                continue;
-            }
         }
     }
 
@@ -518,7 +522,6 @@ public class SmartAttackSystem : MonoBehaviour
         if (punchPoint)
         {
             Gizmos.color = Color.blue;
-            // ✅ แสดง radius ที่ใหญ่ขึ้นถ้าสวมถุงมือ
             bool equipped = _gloveController != null && _gloveController.IsEquipped;
             Gizmos.DrawWireSphere(punchPoint.position,
                 equipped ? glovePunchDetectRadius : punchDetectRadius);
