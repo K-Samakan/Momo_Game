@@ -46,15 +46,17 @@ public class BossMap1BT : MonoBehaviour
     public float deathAnimDuration = 3f;
     public float fadeDuration = 1.5f;
 
-    // ✅ FIX 1: ตัวแปรแสดง State ปัจจุบันใน Inspector
     [Header("🔍 Debug (Runtime)")]
     [SerializeField] private string currentState = "None";
     [SerializeField] private bool logStateChanges = false;
 
-    // property ให้ Custom Editor อ่านค่าแบบ real-time
     public string CurrentState => currentState;
     public float DistanceToPlayer => _player ? Vector3.Distance(transform.position, _player.position) : -1f;
     public float AgentSpeed => (_agent != null && _agent.enabled && _agent.isOnNavMesh) ? _agent.velocity.magnitude : 0f;
+
+    // ✅ ผูกเองจาก Inspector ได้ถ้าต้องการ (ไม่บังคับ — ปกติ GetComponent จะหาเจอเองแล้ว)
+    [Header("Tiger Ally (ไม่บังคับผูก ถ้า TigerAllyEffect อยู่บน GameObject เดียวกัน)")]
+    public TigerAllyEffect tigerAllyEffectRef;
 
     void SetState(string s)
     {
@@ -64,7 +66,7 @@ public class BossMap1BT : MonoBehaviour
     }
 
     private bool _isIntro = true;
-    private bool _introStarted = false;   // ✅ FIX: กัน IntroSequence เรียกซ้ำ
+    private bool _introStarted = false;
     private bool _isDead = false;
     private bool _isStagger = false;
     private bool _isDizzy = false;
@@ -92,7 +94,6 @@ public class BossMap1BT : MonoBehaviour
     private static readonly int HashStagger = Animator.StringToHash("Stagger");
     private static readonly int HashDead = Animator.StringToHash("Dead");
     private static readonly int HashSpeed = Animator.StringToHash("Speed");
-    //private static readonly int HashDieFall = Animator.StringToHash("DieFall");
 
     private BTNode _root;
 
@@ -107,7 +108,6 @@ public class BossMap1BT : MonoBehaviour
     {
         _agent = GetComponent<NavMeshAgent>();
 
-
         _renderers = GetComponentsInChildren<Renderer>();
         _originalColors = new Color[_renderers.Length];
         for (int i = 0; i < _renderers.Length; i++)
@@ -120,16 +120,36 @@ public class BossMap1BT : MonoBehaviour
         var go = GameObject.FindGameObjectWithTag("Player");
         if (go != null) _player = go.transform;
 
-        _tigerAllyEffect = FindFirstObjectByType<TigerAllyEffect>();
+        // ✅ ลำดับการหา TigerAllyEffect:
+        // 1) ผูกจาก Inspector (ถ้ามี) — ชัวร์สุด
+        // 2) GetComponentInChildren เพราะ TigerAllyEffect อยู่บน GameObject "Boss" ซึ่งเป็นลูกของ "BossRoot" (ตัวที่มี BossMap1BT)
+        // 3) Fallback: หาแบบรวม inactive object ทั้ง Scene
+        if (tigerAllyEffectRef != null)
+        {
+            _tigerAllyEffect = tigerAllyEffectRef;
+            Debug.Log("<color=#00FF7F>[BossMap1BT] ✅ ใช้ TigerAllyEffect ที่ผูกจาก Inspector</color>");
+        }
+        else if (GetComponentInChildren<TigerAllyEffect>() != null)
+        {
+            _tigerAllyEffect = GetComponentInChildren<TigerAllyEffect>();
+            Debug.Log("<color=#00FF7F>[BossMap1BT] ✅ เจอ TigerAllyEffect บน Child GameObject (GetComponentInChildren)</color>");
+        }
+        else
+        {
+            _tigerAllyEffect = FindFirstObjectByType<TigerAllyEffect>(FindObjectsInactive.Include);
+
+            if (_tigerAllyEffect != null)
+                Debug.Log("<color=#00FF7F>[BossMap1BT] ✅ Auto-find เจอ TigerAllyEffect (รวม inactive object)</color>");
+            else
+                Debug.LogWarning("[BossMap1BT] ⚠️ หา TigerAllyEffect ในฉากไม่เจอเลย!");
+        }
+
         _monsterHealth = GetComponent<MonsterHealth>();
 
         StartCoroutine(InitNavMesh());
 
         _root = BuildTree();
 
-        // ✅ FIX: เริ่ม intro อัตโนมัติ กันค้างที่ Intro ถ้า BossRoomTrigger ไม่ยิง event
-        // ถ้าต้องการให้ intro เริ่มตอนผู้เล่นเข้าห้องเท่านั้น ให้คอมเมนต์บรรทัดล่างนี้ออก
-        // แล้วไปตรวจ BossRoomTrigger ให้เรียก OnPlayerEnterBossRoom() แทน
         if (!_introStarted)
             StartCoroutine(IntroSequence());
     }
@@ -152,19 +172,13 @@ public class BossMap1BT : MonoBehaviour
         _agent.stoppingDistance = attackRange * 0.8f;
         _agent.acceleration = 12f;
         _agent.angularSpeed = 360f;
-        //_agent.isStopped = true;
 
         yield return null;
-
-        //if (_agent.isOnNavMesh)
-
     }
 
     void Update()
     {
-        //if (_isDead || _agent == null || !_agent.enabled || !_agent.isOnNavMesh || _root == null) return;
         _root.Tick();
-
     }
 
     BTNode BuildTree() => new BTSelector(new List<BTNode>
@@ -252,7 +266,6 @@ public class BossMap1BT : MonoBehaviour
         Debug.Log("💀 Boss กำลังตาย - เริ่ม DeathSequence");
 
         StopAllCoroutines();
-        //_agent.isStopped = true;
         _agent.ResetPath();
         animator.SetFloat(HashSpeed, 0f);
         bossUI.HideBossUI();
@@ -263,7 +276,6 @@ public class BossMap1BT : MonoBehaviour
     BTStatus DoIntroIdle()
     {
         SetState("Intro");
-        //_agent.isStopped = true;
         animator.SetFloat(HashSpeed, 0f);
         return BTStatus.Running;
     }
@@ -271,7 +283,6 @@ public class BossMap1BT : MonoBehaviour
     BTStatus DoHitStun()
     {
         SetState("Hit");
-        //_agent.isStopped = true;
         _hitRecoveryTimer -= Time.deltaTime;
         if (_hitRecoveryTimer <= 0f)
             _isHit = false;
@@ -281,7 +292,6 @@ public class BossMap1BT : MonoBehaviour
     BTStatus DoStagger()
     {
         SetState("Stagger");
-        //_agent.isStopped = true;
         animator.SetFloat(HashSpeed, 0f);
         return BTStatus.Running;
     }
@@ -289,7 +299,6 @@ public class BossMap1BT : MonoBehaviour
     BTStatus DoDizzy()
     {
         SetState("Dizzy");
-        //_agent.isStopped = true;
         animator.SetFloat(HashSpeed, 0f);
         return BTStatus.Running;
     }
@@ -297,7 +306,6 @@ public class BossMap1BT : MonoBehaviour
     BTStatus DoSlam()
     {
         SetState("Slam");
-        //_agent.isStopped = true;
         animator.SetFloat(HashSpeed, 0f);
         return BTStatus.Running;
     }
@@ -305,7 +313,6 @@ public class BossMap1BT : MonoBehaviour
     BTStatus DoSpin()
     {
         SetState("Spin");
-        //_agent.isStopped = false;
         _agent.speed = spinMoveSpeed;
         animator.SetFloat(HashSpeed, 1f);
         ChasePlayer();
@@ -353,10 +360,10 @@ public class BossMap1BT : MonoBehaviour
 
     BTStatus DoChase()
     {
-        SetState("Chase");                         // ✅ FIX 1
-        if (_agent.enabled && _agent.isOnNavMesh)  // ✅ FIX 2: guard ก่อนสั่ง agent
+        SetState("Chase");
+        if (_agent.enabled && _agent.isOnNavMesh)
         {
-            _agent.isStopped = false;              // ✅ FIX 2: ปลดล็อกให้เดินได้
+            _agent.isStopped = false;
             _agent.speed = moveSpeed;
             ChasePlayer();
         }
@@ -367,7 +374,6 @@ public class BossMap1BT : MonoBehaviour
     BTStatus DoIdle()
     {
         SetState("Idle");
-        //_agent.isStopped = true;
         _agent.ResetPath();
         animator.SetFloat(HashSpeed, 0f);
         return BTStatus.Running;
@@ -375,7 +381,7 @@ public class BossMap1BT : MonoBehaviour
 
     IEnumerator IntroSequence()
     {
-        if (_introStarted) yield break;   // ✅ FIX: กันเรียกซ้ำ
+        if (_introStarted) yield break;
         _introStarted = true;
 
         _isIntro = true;
@@ -387,7 +393,6 @@ public class BossMap1BT : MonoBehaviour
     {
         _isPatternRunning = true;
         _isSlamming = true;
-        //_agent.isStopped = true;
         animator.SetFloat(HashSpeed, 0f);
 
         animator.SetTrigger(HashSlamLeft);
@@ -442,36 +447,31 @@ public class BossMap1BT : MonoBehaviour
         _isStagger = false;
     }
 
-    // ✅ แก้ไข DeathSequence
     IEnumerator DeathSequence()
     {
         Debug.Log("🎬 เริ่ม DeathSequence");
 
-        // 1) ซ่อน UI
         if (bossUI != null)
             bossUI.HideBossUI();
 
-        // 2) เล่น animation ตาย
         animator.Play("Dead", 0, 0f);
         Debug.Log("💀 เล่น Dead animation");
 
-        // 3) รอ animation เล่นจบ (ปรับได้ใน Inspector: Death Anim Duration)
         yield return new WaitForSeconds(deathAnimDuration);
 
-        // 4) Spawn VFX ตาย
         if (deathVFX != null)
         {
             GameObject vfx = Instantiate(deathVFX, transform.position, Quaternion.identity, null);
             Destroy(vfx, deathVFXDuration + 0.5f);
         }
 
-        // 5) ซ่อนตัวบอส (ปิด renderer แทน SetActive เพื่อให้ coroutine ยังทำงานต่อได้)
         foreach (var r in _renderers)
             if (r != null) r.enabled = false;
 
         Debug.Log("👋 บอสหายไป รอ VFX จบ");
 
-        // 6) รอ VFX เล่นสักครู่แล้วโหลด cutscene
+        MusicManager.Instance?.PlayOutroMusic();
+
         yield return new WaitForSeconds(fadeDuration);
 
         Debug.Log("🎬 โหลด Map1_Outro");
@@ -499,53 +499,68 @@ public class BossMap1BT : MonoBehaviour
         StartCoroutine(HitFlash());
 
         _comboCount++;
+
+        // 🧪 Debug: เห็นคอมโบทุกครั้งที่ตี
+        Debug.Log($"<color=#87CEEB>[BossCombo] t={Time.time:F1}s | ผู้เล่นตีบอส Combo: {_comboCount}/5</color>");
+
         if (_comboCount >= 5)
         {
             _comboCount = 0;
+
+            // ✅ ใช้ 'health' (BossMap1Health) แทน _monsterHealth เพราะบอสตัวนี้ไม่มี MonsterHealth
+            if (_tigerAllyEffect != null && health != null)
+            {
+                Debug.Log($"<color=#FFD700>[BossCombo] t={Time.time:F1}s | 🐯 ครบ 5 ดาบ! เรียก TigerAlly ทันที</color>");
+                _tigerAllyEffect.OnPlayerAttackBoss(health);
+            }
+            else
+            {
+                Debug.LogWarning($"[BossCombo] ⚠️ เรียกเสือไม่ได้: _tigerAllyEffect={(_tigerAllyEffect == null ? "NULL" : "OK")}, health={(health == null ? "NULL" : "OK")}");
+            }
+
+            // ✅ Stagger: แยกเช็ค cooldown ของตัวเอง ไม่เกี่ยวกับเสือแล้ว
             if (Time.time >= _lastStaggerTime + staggerCooldown)
             {
                 _lastStaggerTime = Time.time;
                 StartCoroutine(StaggerSequence());
 
-                if (_tigerAllyEffect != null && _monsterHealth != null)
-                    _tigerAllyEffect.OnPlayerAttackBoss(_monsterHealth);
+                Debug.Log($"<color=#FFA500>[BossCombo] t={Time.time:F1}s | ⚡ Stagger เข้าเงื่อนไข! บอสจะหยุดนิ่ง</color>");
+            }
+            else
+            {
+                float cooldownRemain = (_lastStaggerTime + staggerCooldown) - Time.time;
+                Debug.Log($"<color=#808080>[BossCombo] t={Time.time:F1}s | Stagger ยังติด Cooldown อีก {cooldownRemain:F1}s (ไม่กระทบเสือ)</color>");
             }
         }
     }
 
-    // ✅ แก้ OnDead() ให้เรียก DeathSequence ทันที
     public void OnDead()
     {
         if (_isDead) return;
         _isDead = true;
-        _deathTriggered = true;   // กัน DoDead ทำซ้ำ
+        _deathTriggered = true;
 
         Debug.Log("☠️ OnDead() — ยกเลิกทุก state ตายทันที");
 
-        // 1) หยุดทุก coroutine ที่กำลังทำงาน (Slam/Spin/Stagger/Dizzy)
         StopAllCoroutines();
 
-        // 2) รีเซ็ตทุก flag
         animator.Play("Dead", 0, 0f);
         Debug.Log("💀 เล่น Dead animation");
 
-        // 3) รีเซ็ต animator (กัน speed=0 จาก slam freeze กลางอากาศ)
         animator.speed = 1f;
         animator.SetFloat(HashSpeed, 0f);
         animator.SetBool("IsSpinning", false);
-        animator.ResetTrigger(HashSlamLeft);    // ✅ เพิ่ม
-        animator.ResetTrigger(HashSlamRight);   // ✅ เพิ่ม
-        animator.ResetTrigger(HashSlamJump);    // ✅ เพิ่ม
-        animator.ResetTrigger(HashStagger);     // ✅ เพิ่ม
+        animator.ResetTrigger(HashSlamLeft);
+        animator.ResetTrigger(HashSlamRight);
+        animator.ResetTrigger(HashSlamJump);
+        animator.ResetTrigger(HashStagger);
 
-        // 4) หยุด agent
         if (_agent.enabled && _agent.isOnNavMesh)
         {
             _agent.isStopped = true;
             _agent.ResetPath();
         }
 
-        // 5) เริ่มตายจริง
         StartCoroutine(DeathSequence());
     }
 
@@ -572,11 +587,11 @@ public class BossMap1BT : MonoBehaviour
     void ChasePlayer()
     {
         if (_player == null) return;
-        if (!_agent.enabled || !_agent.isOnNavMesh) return;   // ✅ guard กัน error ช่วงเริ่มเกม
+        if (!_agent.enabled || !_agent.isOnNavMesh) return;
 
         if (Time.time >= _lastPathUpdateTime + pathUpdateInterval)
         {
-            _agent.SetDestination(_player.position);            // ✅ FIX 2: เปิดกลับมา = หัวใจการไล่ล่า
+            _agent.SetDestination(_player.position);
             _lastPathUpdateTime = Time.time;
         }
     }

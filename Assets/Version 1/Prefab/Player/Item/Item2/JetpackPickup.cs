@@ -25,6 +25,9 @@ public class JetpackPickup : MonoBehaviour
     [Tooltip("ประตูทางเข้า Puzzle2 — จะเปิดหลังสวม Jetpack")]
     public GameObject entranceDoor;
 
+    [Tooltip("ประตูทางออก (exitDoor จาก MirrorInteractionManager) — จะเปิดหลังสวม Jetpack เช่นกัน")]
+    public GameObject exitDoor;
+
     [Header("VFX (Optional)")]
     public GameObject pickupEffect;
 
@@ -173,6 +176,11 @@ public class JetpackPickup : MonoBehaviour
         {
             entranceDoor.SetActive(false);
             Debug.Log("[JetpackPickup] 🚪 ประตูทางเข้าเปิดแล้ว!");
+        }
+        if (exitDoor != null)   // ← เพิ่มบล็อกนี้
+        {
+            exitDoor.SetActive(false);
+            Debug.Log("[JetpackPickup] 🚪 ประตูทางออกเปิดแล้ว!");
         }
 
         // ── 5) Haptic ──

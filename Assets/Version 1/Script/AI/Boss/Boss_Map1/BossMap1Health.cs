@@ -32,6 +32,9 @@ public class BossMap1Health : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// ดาเมจปกติจากผู้เล่น — มี Cooldown กันตีถี่/hitbox ซ้อนกันในดาบเดียว
+    /// </summary>
     public void TakeDamage(int damage)
     {
         if (_currentHP <= 0) return;
@@ -40,6 +43,27 @@ public class BossMap1Health : MonoBehaviour
         if (Time.time - _lastDamageTime < damageCooldown) return;
         _lastDamageTime = Time.time;
 
+        ApplyDamageInternal(damage);
+    }
+
+    /// <summary>
+    /// ✅ ใช้สำหรับดาเมจพิเศษ (เช่น Tiger Assist) ที่ไม่ควรติด Damage Cooldown ปกติ
+    /// เพราะมักถูกเรียกในเฟรมเดียวกับที่ผู้เล่นตี (ผ่าน OnHitByPlayer chain)
+    /// ถ้าใช้ TakeDamage ธรรมดาจะโดน cooldown ของดาบผู้เล่นบล็อกไปเงียบๆ
+    /// </summary>
+    public void TakeDamageBypassCooldown(int damage)
+    {
+        if (_currentHP <= 0) return;
+
+        Debug.Log($"<color=#FFD700>[BossMap1Health] 🐯 รับดาเมจพิเศษ (ไม่ติด cooldown): {damage}</color>");
+        ApplyDamageInternal(damage);
+    }
+
+    /// <summary>
+    /// Logic กลางที่ใช้ร่วมกันทั้ง TakeDamage และ TakeDamageBypassCooldown
+    /// </summary>
+    private void ApplyDamageInternal(int damage)
+    {
         _currentHP = Mathf.Max(0, _currentHP - damage);
         bossUI.UpdateHealthBar(_currentHP);
 

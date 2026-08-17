@@ -27,6 +27,11 @@ public class CageQuestManager : MonoBehaviour
     [Header("Tiger Ally")]
     public TigerAllyEffect tigerAllyEffect;
 
+    [Header("🧪 Debug / Test")]
+    [Tooltip("เปิดถ้าอยากใช้ปุ่มคีย์บอร์ดลัดเทสตอน Runtime (นอกเหนือจาก ContextMenu)")]
+    public bool enableDebugKey = true;
+    public KeyCode debugCompleteKey = KeyCode.F9;
+
     public bool IsQuestComplete { get; private set; } = false;
 
     void Awake()
@@ -38,6 +43,14 @@ public class CageQuestManager : MonoBehaviour
     void Start()
     {
         UpdateUI();
+    }
+
+    void Update()
+    {
+        if (enableDebugKey && Input.GetKeyDown(debugCompleteKey))
+        {
+            TEST_CompleteCageQuestInstantly();
+        }
     }
 
     public void OnCageFreed()
@@ -139,6 +152,30 @@ public class CageQuestManager : MonoBehaviour
         }
 
         canvasGroup.alpha = 0f;
+    }
+
+    /// <summary>
+    /// 🧪 TEST ONLY — จบ Side Quest กรงเสือทันที โดยไม่ต้องทุบกรงจริง
+    /// เรียก flow เดิมทุกขั้นตอน (UI, Haptic, TigerAlly) เหมือนเล่นจริง
+    /// เรียกได้ 2 ทาง: คลิกขวา component นี้ตอน Play Mode > เลือกเมนูนี้
+    ///                  หรือกดปุ่ม debugCompleteKey ตอน Runtime
+    /// </summary>
+    [ContextMenu("🧪 TEST - Complete Cage Quest Instantly")]
+    public void TEST_CompleteCageQuestInstantly()
+    {
+        if (IsQuestComplete)
+        {
+            Debug.Log("[TEST] เควสกรงเสือสำเร็จไปแล้ว ไม่ต้องทำซ้ำ");
+            return;
+        }
+
+        Debug.Log("[TEST] ⚡ บังคับจบ Side Quest กรงเสือ (ข้ามการทุบกรงจริง)");
+
+        // เรียกผ่าน path เดิมจนครบ เพื่อให้ UI/Haptic/TigerAlly ทำงานเหมือนของจริง
+        while (freedCages < totalCages)
+        {
+            OnCageFreed();
+        }
     }
 
     void UpdateUI()

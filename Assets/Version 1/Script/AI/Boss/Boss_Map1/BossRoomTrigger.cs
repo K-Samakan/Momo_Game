@@ -29,5 +29,8 @@ public class BossRoomTrigger : MonoBehaviour
 
         bossUI.ShowBossUI();
         bossController.OnPlayerEnterBossRoom();
+
+        // ✅ เปลี่ยน BGM เป็นเพลงบอสตอนผู้เล่นเข้าห้อง
+        MusicManager.Instance?.PlayBossMusic();
     }
 }

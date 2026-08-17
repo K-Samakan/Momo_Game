@@ -498,6 +498,16 @@ public class SmartAttackSystem : MonoBehaviour
                 HapticManager.Instance?.Vibrate(0.1f, 0.4f, 0.1f);
                 continue;
             }
+
+            // ✅ Boss Map4 — เพิ่มใหม่ (เดิมขาดไป ทำให้ตี Boss Map4 ไม่เข้า)
+            BossMap4Health bossHP4 = col.GetComponent<BossMap4Health>();
+            if (bossHP4 != null && bossHP4.IsAlive())
+            {
+                bossHP4.TakeDamage(damage);
+                Debug.Log($"[SmartAttack] Hit Boss Map4: {col.name} | DMG: {damage}");
+                HapticManager.Instance?.Vibrate(0.1f, 0.4f, 0.1f);
+                continue;
+            }
         }
     }
 

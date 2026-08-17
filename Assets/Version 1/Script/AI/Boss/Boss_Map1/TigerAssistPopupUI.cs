@@ -8,8 +8,8 @@ public class TigerAssistPopupUI : MonoBehaviour
     [Header("References")]
     public RectTransform popupRect;
     public CanvasGroup canvasGroup;
-    public Image tigerPortrait;
-    public TextMeshProUGUI assistText;
+    public Image tigerPortrait;              // ← ใส่รูปรวม (เสือ+แถบ) ตรงนี้
+    public TextMeshProUGUI assistText;       // ← ไม่ต้องผูกก็ได้ ถ้ารูปมีข้อความในตัวแล้ว
 
     [Header("Position")]
     public Vector2 hiddenPosition = new Vector2(400f, 60f);

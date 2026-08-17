@@ -174,6 +174,9 @@ public class BossMap3BT : MonoBehaviour
     private int _comboCount = 0;
     private float _lastStaggerTime = -999f;
 
+    // ✅ [FIX ROOM TRIGGER] ใหม่: gate ไม่ให้บอสทำงาน (intro/see/chase/attack) จนกว่า room trigger จะยิง
+    private bool _roomEntered = false;
+
     // Fire arrow tracking
     private int _fireArrowHitCount = 0;
 
@@ -221,7 +224,11 @@ public class BossMap3BT : MonoBehaviour
             Debug.Log($"[BossMap3] ✅ เชื่อมต่อ Player สำเร็จที่ position {_player.position}");
         StartCoroutine(InitNavMesh());
         _root = BuildTree();
-        if (!_introStarted) StartCoroutine(IntroSequence());
+
+        // ✅ [FIX ROOM TRIGGER] ลบการ auto-start intro ออกจาก Start()
+        // เดิม: if (!_introStarted) StartCoroutine(IntroSequence());
+        // ตอนนี้ intro จะเริ่มก็ต่อเมื่อ OnPlayerEnterBossRoom() ถูกเรียกจาก BossMap3RoomTrigger เท่านั้น
+        // (ดู BuildTree() กิ่ง "waitRoom" ที่กันบอสไม่ให้ขยับ/โจมตีระหว่างรอด้วย)
 
         // ปิด Trail Renderer ไว้ก่อน
         SetSpinTrails(false);
@@ -323,6 +330,11 @@ public class BossMap3BT : MonoBehaviour
     BTNode BuildTree() => new BTSelector(new List<BTNode>
     {
         new BTSequence(new List<BTNode> { new BTLeaf("dead", IsDead), new BTLeaf("doDead", DoDead) }),
+
+        // ✅ [FIX ROOM TRIGGER] ใหม่: ถ้ายังไม่เข้าห้องบอส ให้หยุดนิ่งเฉยๆ ไม่ทำอะไรเลย
+        // (กันบอสเดินไล่/โจมตีก่อนผู้เล่นจะผ่าน BossMap3RoomTrigger)
+        new BTSequence(new List<BTNode> { new BTLeaf("waitRoom", WaitingForRoomEntry), new BTLeaf("doWait", DoNothingWaiting) }),
+
         new BTSequence(new List<BTNode> { new BTLeaf("intro", IsIntro), new BTLeaf("doIntro", DoIntroIdle) }),
         new BTSequence(new List<BTNode> { new BTLeaf("hit", IsHit), new BTLeaf("doHit", DoHitStun) }),
         new BTSequence(new List<BTNode> { new BTLeaf("stagger", IsStagger), new BTLeaf("doStagger", DoStagger) }),
@@ -349,6 +361,20 @@ public class BossMap3BT : MonoBehaviour
     BTStatus IsSnowballing() => _isSnowballing ? BTStatus.Success : BTStatus.Failure;
     BTStatus CanSeePlayer() => _player != null && Vector3.Distance(transform.position, _player.position) <= detectionRange ? BTStatus.Success : BTStatus.Failure;
     BTStatus InAttackRange() => _player != null && Vector3.Distance(transform.position, _player.position) <= attackRange ? BTStatus.Success : BTStatus.Failure;
+
+    // ✅ [FIX ROOM TRIGGER] Condition/Action ใหม่ สำหรับกิ่ง "waitRoom"
+    BTStatus WaitingForRoomEntry() => !_roomEntered ? BTStatus.Success : BTStatus.Failure;
+
+    BTStatus DoNothingWaiting()
+    {
+        SetState("WaitingForRoom");
+        // หยุดนิ่งสนิท ไม่ขยับ ไม่โจมตี รอจนกว่า room trigger จะยิง
+        if (_agent != null && _agent.enabled && _agent.isOnNavMesh)
+            _agent.isStopped = true;
+
+        animator.SetFloat(HashSpeed, 0f);
+        return BTStatus.Running;
+    }
 
     // ── Actions ──
     BTStatus DoDead() { if (_deathTriggered) return BTStatus.Running; _deathTriggered = true; SetState("Dead"); StopAllCoroutines(); _agent.ResetPath(); animator.SetFloat(HashSpeed, 0f); bossUI.HideBossUI(); StartCoroutine(DeathSequence()); return BTStatus.Running; }
@@ -721,7 +747,14 @@ public class BossMap3BT : MonoBehaviour
     // Public Events
     // ═══════════════════════════════════════════════════
 
-    public void OnPlayerEnterBossRoom() { StartCoroutine(IntroSequence()); }
+    // ✅ [FIX ROOM TRIGGER] เปิด gate + ปลด agent ก่อนเริ่ม Intro
+    public void OnPlayerEnterBossRoom()
+    {
+        _roomEntered = true;
+        if (_agent != null && _agent.enabled && _agent.isOnNavMesh)
+            _agent.isStopped = false;
+        StartCoroutine(IntroSequence());
+    }
 
     public void OnHitByPlayer()
     {

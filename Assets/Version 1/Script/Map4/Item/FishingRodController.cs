@@ -130,8 +130,12 @@ public class FishingRodController : MonoBehaviour
     }
 
     // ─────────────────────────────────────────────
-    // 🧪 TEST — เปิดใช้งานทันทีจากปุ่มทดสอบ (Editor Button / Debug Key)
+    // 🧪 TEST — สลับสวม/ถอดด้วยปุ่มเดียว (ไม่ชนกับ F9 ของ BossMap4Tester)
     // ─────────────────────────────────────────────
+    [Header("=== Debug / Test Toggle ===")]
+    [Tooltip("ปุ่มสลับสวม-ถอดเบ็ดยืดสำหรับทดสอบ (ไม่แตะ Puzzle/Save)")]
+    public KeyCode testToggleKey = KeyCode.F6;
+
     [ContextMenu("TEST: Equip Fishing Rod Now")]
     public void TestEquipNow()
     {
@@ -139,13 +143,27 @@ public class FishingRodController : MonoBehaviour
         Debug.Log("[FishingRodController] 🧪 TEST EQUIP เรียกใช้งานแล้ว");
     }
 
+    [ContextMenu("TEST: Unequip Fishing Rod Now")]
+    public void TestUnequipNow()
+    {
+        OnUnequip();
+        Debug.Log("[FishingRodController] 🧪 TEST UNEQUIP เรียกใช้งานแล้ว");
+    }
+
+    [ContextMenu("TEST: Toggle Equip Now")]
+    public void TestToggleNow()
+    {
+        if (_isEquipped) TestUnequipNow();
+        else TestEquipNow();
+    }
+
 #if UNITY_EDITOR
     void Update()
     {
-        // กด F9 เพื่อทดสอบเปิดใช้งานเบ็ดยืดทันทีตอนเล่นใน Editor
-        if (Input.GetKeyDown(KeyCode.F9))
+        // ✅ F6 = Toggle สวม/ถอดเบ็ดยืด (เปลี่ยนจาก F9 เดิม กันชนกับ BossMap4Tester)
+        if (Input.GetKeyDown(testToggleKey))
         {
-            TestEquipNow();
+            TestToggleNow();
         }
     }
 #endif
