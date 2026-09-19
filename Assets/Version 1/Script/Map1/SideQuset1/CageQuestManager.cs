@@ -17,6 +17,11 @@ public class CageQuestManager : MonoBehaviour
     public TextMeshProUGUI questCompleteText;
     public Image panelBackground;
 
+    [Header("Side Quest Popup Complete FX")]
+    public GameObject sideQuestPopupRoot;   // ตัว SideQuestPopup ทั้งก้อน (จะ fade หายไปตอนจบ)
+    public RectTransform highlightPanel;    // Panel สีเขียวหลัง "Save the Tigers" (Pivot X ต้องเป็น 0.5)
+    public float highlightRevealDuration = 0.4f;
+
     [Header("Effect Settings")]
     public Color normalColor = new Color(0.2f, 0.2f, 0.2f, 0.8f);
     public Color successColor = new Color(0f, 0.8f, 0.2f, 0.8f);
@@ -73,6 +78,7 @@ public class CageQuestManager : MonoBehaviour
 
         // เริ่ม UI Effect
         StartCoroutine(QuestCompleteEffect());
+        StartCoroutine(SideQuestPopupCompleteEffect());
 
         Debug.Log("[Quest] ภารกิจสำเร็จ!");
     }
@@ -101,6 +107,62 @@ public class CageQuestManager : MonoBehaviour
 
         // ซ่อน Panel
         if (questCompletePanel) questCompletePanel.SetActive(false);
+    }
+
+    /// <summary>
+    /// เอฟเฟกต์ตอน Side Quest Popup (ป้าย "Save the Tigers" / 0-5 บน HUD) จบภารกิจ:
+    /// 1) ซ่อน subtitle "0/5" ทันที
+    /// 2) ไฮไลท์เขียวเผยออกจากกลาง -> ซ้าย-ขวา (scale.x 0 -> 1, ต้องตั้ง Pivot X = 0.5)
+    /// 3) ค้างให้เห็นไฮไลท์ (ใช้ fadeOutDelay เดิม)
+    /// 4) Fade ทั้ง SideQuestPopup หายไปทั้งก้อน (ใช้ fadeOutDuration เดิม)
+    /// </summary>
+    IEnumerator SideQuestPopupCompleteEffect()
+    {
+        // 1) ซ่อน subtitle "0/5"
+        if (questCounterText)
+            questCounterText.gameObject.SetActive(false);
+
+        // 2) Reveal ไฮไลท์เขียวจากกลาง -> ซ้าย-ขวา
+        if (highlightPanel)
+        {
+            highlightPanel.gameObject.SetActive(true);
+            Vector3 startScale = new Vector3(0f, 1f, 1f);
+            Vector3 endScale = Vector3.one;
+            highlightPanel.localScale = startScale;
+
+            float elapsed = 0f;
+            while (elapsed < highlightRevealDuration)
+            {
+                elapsed += Time.deltaTime;
+                float t = elapsed / highlightRevealDuration;
+                highlightPanel.localScale = Vector3.Lerp(startScale, endScale, t);
+                yield return null;
+            }
+            highlightPanel.localScale = endScale;
+        }
+
+        // 3) ค้างให้เห็นไฮไลท์ (ใช้ค่าเดิม fadeOutDelay)
+        yield return new WaitForSeconds(fadeOutDelay);
+
+        // 4) Fade ทั้ง SideQuestPopup หายไปทั้งก้อน (ใช้ค่าเดิม fadeOutDuration)
+        if (sideQuestPopupRoot)
+        {
+            CanvasGroup popupCanvasGroup = sideQuestPopupRoot.GetComponent<CanvasGroup>();
+            if (popupCanvasGroup == null)
+                popupCanvasGroup = sideQuestPopupRoot.AddComponent<CanvasGroup>();
+
+            popupCanvasGroup.alpha = 1f;
+
+            float elapsed = 0f;
+            while (elapsed < fadeOutDuration)
+            {
+                elapsed += Time.deltaTime;
+                popupCanvasGroup.alpha = Mathf.Lerp(1f, 0f, elapsed / fadeOutDuration);
+                yield return null;
+            }
+            popupCanvasGroup.alpha = 0f;
+            sideQuestPopupRoot.SetActive(false);
+        }
     }
 
     IEnumerator PunchTextEffect(TextMeshProUGUI text)

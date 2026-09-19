@@ -1,32 +1,33 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace Momo.UITutorial.Core
 {
-    /// <summary>
-    /// รวมจุดเดียวสำหรับเปิด/ปิด Input ของผู้เล่นเวลามี Popup
-    /// ปรับส่วนนี้ให้ตรงกับระบบ Input ของโปรเจกต์จริง (Fantacode Third Person Controller)
-    /// </summary>
     public static class PopupInputBlocker
     {
+        // ตั้งชื่อ Action Map ให้ตรงกับที่จะสร้างใน Input Actions Asset (ดู step setup ข้อ 3)
+        private const string POPUP_ACTION_MAP = "PopupUI";
+        private const string PLAYER_ACTION_MAP = "Player";
+
         public static void SetPlayerInputEnabled(bool enabled)
         {
-            // ---- ตัวอย่างสำหรับ Fantacode Third Person Controller ----
-            var playerInput = GameObject.FindGameObjectWithTag("Player");
-            if (playerInput == null) return;
+            var playerObj = PlayerReference.Instance != null
+                ? PlayerReference.Instance.gameObject
+                : GameObject.FindGameObjectWithTag("Player");
 
-            // ปิด/เปิด Component ควบคุมการเคลื่อนที่และโจมตี
-            var motor = playerInput.GetComponent<MonoBehaviour>(); // แทนด้วยคลาสจริง เช่น TC_Motor, ThirdPersonMotor
-            // motor.enabled = enabled;
+            if (playerObj == null) return;
 
-            // ถ้าใช้ New Input System:
-            // var playerInputComp = playerInput.GetComponent<UnityEngine.InputSystem.PlayerInput>();
-            // if (playerInputComp != null)
-            // {
-            //     if (enabled) playerInputComp.ActivateInput();
-            //     else playerInputComp.DeactivateInput();
-            // }
+            // 1) สลับ Action Map (กันปุ่ม Attack/Jump/Dodge หลุดออกมาระหว่าง Popup เปิด)
+            var playerInput = playerObj.GetComponent<PlayerInput>();
+            if (playerInput != null)
+                playerInput.SwitchCurrentActionMap(enabled ? PLAYER_ACTION_MAP : POPUP_ACTION_MAP);
 
-            // ปิด Cursor lock ถ้าจำเป็นระหว่างเปิด Popup (กรณีเล่นด้วยเมาส์)
+            // 2) ตั้ง flag กันระบบ Parkour/Combat ที่เช็คตรงๆ (มีอยู่แล้วใน MOMOCharacterBridge)
+            var bridge = playerObj.GetComponent<MOMOCharacterBridge>();
+            if (bridge != null)
+                bridge.PreventAllSystems = !enabled;
+
+            // 3) Cursor (เผื่อเทสบน PC ด้วยเมาส์)
             Cursor.lockState = enabled ? CursorLockMode.Locked : CursorLockMode.None;
             Cursor.visible = !enabled;
         }

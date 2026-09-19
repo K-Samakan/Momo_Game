@@ -60,31 +60,41 @@ public class Interactor : MonoBehaviour
         bool isCirclePressed = Gamepad.current?.buttonEast.wasPressedThisFrame ?? false;
 
         if (isCirclePressed)
-            // ตรวจสอบว่ามี Inventory.Instance และ CorrectPuzzle เป็น true หรือไม่
-            if (Inventory.Instance != null && Inventory.Instance.CorrectPuzzle)
+        {
+            // ✅ SavePoint → เรียก Interact() ของมันเอง (ไม่ไปยุ่งกับปริศนา)
+            if (_interactable is SavePoint)
             {
-                Debug.Log("Door is Open");
+                _interactable.Interact(this);
             }
             else
             {
-                Debug.Log("Play Puzzle");
-                if (_puzzleCanvas != null)
+                // ── โค้ดปริศนาเดิม ไม่แตะ ──
+                if (Inventory.Instance != null && Inventory.Instance.CorrectPuzzle)
                 {
-                    _puzzleCanvas.SetActive(true);
+                    Debug.Log("Door is Open");
                 }
                 else
                 {
-                    Debug.LogError("_puzzleCanvas is not assigned in the Inspector!");
-                }
-                if (playerInput != null)
-                {
-                    playerInput.SwitchCurrentActionMap("PuzzleUI1");
-                }
-                else
-                {
-                    Debug.LogError("playerInput is not assigned in the Inspector!");
+                    Debug.Log("Play Puzzle");
+                    if (_puzzleCanvas != null)
+                    {
+                        _puzzleCanvas.SetActive(true);
+                    }
+                    else
+                    {
+                        Debug.LogError("_puzzleCanvas is not assigned in the Inspector!");
+                    }
+                    if (playerInput != null)
+                    {
+                        playerInput.SwitchCurrentActionMap("PuzzleUI1");
+                    }
+                    else
+                    {
+                        Debug.LogError("playerInput is not assigned in the Inspector!");
+                    }
                 }
             }
+        }
     }
 
     private void OnDrawGizmos()

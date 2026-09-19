@@ -15,6 +15,9 @@ public class BossMap2RoomTrigger : MonoBehaviour
     public SoundEmitter bossSoundEmitter;
     public float bossRoomVSERadius = 50f;
 
+    [Header("Oasis Shield (Side Quest Reward)")]
+    public OasisShieldEffect oasisShieldEffect;
+
     private bool _triggered = false;
 
     private void OnTriggerEnter(Collider other)
@@ -32,5 +35,7 @@ public class BossMap2RoomTrigger : MonoBehaviour
 
         bossUI.ShowBossUI();
         bossController.OnPlayerEnterBossRoom();
+        if (oasisShieldEffect != null)
+            oasisShieldEffect.SetBossFightActive(true);
     }
 }

@@ -5,11 +5,16 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using MOMO.Player;
+using Momo.UITutorial.Data;
+using Momo.UITutorial.Managers;
 
 public class GlovePickup : MonoBehaviour
 {
     [Header("References")]
     public GloveController gloveController;
+
+    [Header("Item Data (สำหรับ Item Detail Popup)")]
+    public ItemData itemData;
 
     [Header("Pickup Settings")]
     public int hpBonus = 2;
@@ -84,7 +89,7 @@ public class GlovePickup : MonoBehaviour
             if (_interactAction != null)
                 _interactAction.performed += OnInteract;
             else
-                Debug.LogError("[GlovePickup] ❌ ไม่พบ Action 'Attack'!");
+                Debug.LogError("[GlovePickup] ❌ ไม่พบ Action 'Attack'! (สร้าง Action ใหม่ใน Input Actions asset ก่อน ผูกกับปุ่ม ○)");
         }
         else
         {
@@ -205,7 +210,13 @@ public class GlovePickup : MonoBehaviour
         if (pickupEffect != null)
             Instantiate(pickupEffect, transform.position, Quaternion.identity);
 
-        // ── 9) ซ่อนแค่ถุงมือบนแท่น ──
+        // ── 9) แสดง Item Detail Popup ──
+        if (itemData != null)
+            TutorialManager.Instance?.ShowItemDetail(itemData);
+        else
+            Debug.LogWarning("[GlovePickup] ⚠️ ไม่พบ ItemData! ลืมลาก reference ใน Inspector หรือเปล่า?");
+
+        // ── 10) ซ่อนแค่ถุงมือบนแท่น ──
         if (promptUI != null) promptUI.SetActive(false);
         if (pedestalItem != null) pedestalItem.SetActive(false);
         this.enabled = false;

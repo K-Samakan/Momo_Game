@@ -1,20 +1,19 @@
-// ============================================================
-// FILE: SavePoint.cs
-// PATH: Assets/Version 1/Script/SaveSystem/SavePoint.cs
-// ============================================================
 using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using TMPro;
 
-public class SavePoint : MonoBehaviour
+public class SavePoint : MonoBehaviour, Interactable
 {
-    // ─────────────────────────────────────────────────────────
     #region Inspector
 
     [Header("=== Identity ===")]
     [Tooltip("ID เฉพาะของ Save Point นี้ (ห้ามซ้ำกันใน Scene)")]
     public string savePointID = "SP_001";
+
+    [Header("=== Interaction ===")]
+    [Tooltip("ข้อความที่แสดงบนป้าย prompt ตอนเข้าใกล้")]
+    [SerializeField] private string interactionPrompt = "Save Game";
 
     [Header("=== Start Point ===")]
     [Tooltip("ติ๊กถ้าเป็นจุดเริ่มต้นของด่าน → Auto Save ตอนโหลดโดยไม่ต้องรอ Trigger")]
@@ -27,7 +26,6 @@ public class SavePoint : MonoBehaviour
     [Header("=== Visual ===")]
     public GameObject idleVFX;
     public GameObject activeVFX;
-    public GameObject promptUI;
 
     [Header("=== Notification ===")]
     [Tooltip("Canvas แสดง 'บันทึกแล้ว!'")]
@@ -35,8 +33,13 @@ public class SavePoint : MonoBehaviour
     public TextMeshProUGUI saveNotificationText;
     public float notificationDuration = 2f;
 
+    [Tooltip("ชื่อจุดพักที่แสดงบรรทัดบน")]
+    public string notificationTitle = "Forest Sanctuary";
+    [Tooltip("ข้อความบรรทัดล่าง")]
+    public string notificationSubtitle = "Health Restored";
+
     [Header("=== Sound ===")]
-    [Tooltip("เสียงที่เล่นเมื่อ Save สำเร็จ ทั้งครั้งแรกและกด △ เอง")]
+    [Tooltip("เสียงที่เล่นเมื่อ Save สำเร็จ")]
     public AudioClip saveSound;
     [Range(0f, 1f)]
     public float saveSoundVolume = 0.8f;
@@ -46,17 +49,30 @@ public class SavePoint : MonoBehaviour
 
     #endregion
 
-    // ─────────────────────────────────────────────────────────
     #region State
 
     private bool _hasBeenVisited = false;
-    private bool _playerNearby = false;
     private bool _isSaving = false;
     private Coroutine _notifCoroutine;
 
     #endregion
 
-    // ─────────────────────────────────────────────────────────
+    #region Interactable Implementation
+
+    /// <summary>ข้อความที่ InteractionPromptUI จะเอาไปแสดงบนป้าย</summary>
+    public string InteractionPrompt => interactionPrompt;
+
+    /// <summary>ถูกเรียกจาก Interactor เมื่อผู้เล่นกด ⭕ ขณะอยู่ในระยะ</summary>
+    public bool Interact(Interactor interactor)
+    {
+        if (_isSaving) return false;
+
+        StartCoroutine(DoSave());
+        return true;
+    }
+
+    #endregion
+
     #region Unity Lifecycle
 
     private void Start()
@@ -74,7 +90,6 @@ public class SavePoint : MonoBehaviour
             SetVisualState(false);
         }
 
-        if (promptUI != null) promptUI.SetActive(false);
         if (saveNotificationText != null) saveNotificationText.gameObject.SetActive(false);
 
         // ── Start Point: Auto Save ทันทีถ้ายังไม่มี Save Data ──
@@ -89,53 +104,29 @@ public class SavePoint : MonoBehaviour
         }
     }
 
-    private void Update()
-    {
-        if (!_playerNearby || _isSaving) return;
-
-        // ถ้า Save Point นี้เคย Save แล้ว → รอกด △
-        if (_hasBeenVisited)
-        {
-            bool trianglePressed = false;
-
-            if (Gamepad.current != null)
-                trianglePressed = Gamepad.current.buttonNorth.wasPressedThisFrame;
-            if (Keyboard.current != null && Keyboard.current.tKey.wasPressedThisFrame)
-                trianglePressed = true;
-
-            if (trianglePressed)
-                StartCoroutine(DoSave());
-        }
-    }
-
     #endregion
 
-    // ─────────────────────────────────────────────────────────
-    #region Trigger
+    #region Trigger (Auto Save ครั้งแรก)
 
     private void OnTriggerEnter(Collider other)
     {
         if (!other.CompareTag("Player")) return;
-        _playerNearby = true;
         Debug.Log($"📍 [SavePoint:{savePointID}] Player entered");
 
+        // ครั้งแรกที่มาถึง → save อัตโนมัติ ไม่ต้องกดปุ่ม
+        // ครั้งต่อไป → ป้าย prompt จะขึ้นเอง (จาก Interactor) รอผู้เล่นกด ⭕
         if (!_hasBeenVisited)
             StartCoroutine(DoSave());
-        else
-            if (promptUI != null) promptUI.SetActive(true);
     }
 
     private void OnTriggerExit(Collider other)
     {
         if (!other.CompareTag("Player")) return;
-        _playerNearby = false;
-        if (promptUI != null) promptUI.SetActive(false);
         Debug.Log($"👋 [SavePoint:{savePointID}] Player left");
     }
 
     #endregion
 
-    // ─────────────────────────────────────────────────────────
     #region Save Logic
 
     private IEnumerator DoSave()
@@ -145,11 +136,25 @@ public class SavePoint : MonoBehaviour
         // บันทึกผ่าน SaveManager
         SaveManager.Instance?.SaveAtPoint(this);
 
-        // ── เสียง Save ────────────────────────────────────────
-        if (saveSound != null)
-            AudioSource.PlayClipAtPoint(saveSound, transform.position, saveSoundVolume);
+        _hasBeenVisited = true;
+        SetVisualState(true);
 
-        // ── Haptic ────────────────────────────────────────────
+        // แสดง notification ทันที (ไม่ต้องรอ haptic)
+        ShowSaveNotification();
+
+        // ── เสียง Save (2D ดังคงที่ ไม่ขึ้นกับระยะกล้อง) ──
+        if (saveSound != null)
+        {
+            GameObject sfxObj = new GameObject("SaveSFX");
+            AudioSource src = sfxObj.AddComponent<AudioSource>();
+            src.clip = saveSound;
+            src.volume = saveSoundVolume;
+            src.spatialBlend = 0f;
+            src.Play();
+            Destroy(sfxObj, saveSound.length + 0.1f);
+        }
+
+        // ── Haptic ──
         if (enableHaptic && Gamepad.current != null)
         {
             Gamepad.current.SetMotorSpeeds(0.2f, 0.5f);
@@ -157,18 +162,12 @@ public class SavePoint : MonoBehaviour
             Gamepad.current.SetMotorSpeeds(0f, 0f);
         }
 
-        _hasBeenVisited = true;
-        SetVisualState(true);
-        if (promptUI != null) promptUI.SetActive(false);
-        ShowSaveNotification();
-
         yield return new WaitForSeconds(0.5f);
         _isSaving = false;
     }
 
     #endregion
 
-    // ─────────────────────────────────────────────────────────
     #region Visual & UI
 
     private void SetVisualState(bool activated)
@@ -188,7 +187,7 @@ public class SavePoint : MonoBehaviour
     {
         if (saveNotificationPanel != null) saveNotificationPanel.SetActive(true);
         saveNotificationText.gameObject.SetActive(true);
-        saveNotificationText.text = "Shelter Found\nGame Saved Successfully";
+        saveNotificationText.text = $"{notificationTitle}\n{notificationSubtitle}";
 
         // Fade In
         var color = saveNotificationText.color;
@@ -216,13 +215,12 @@ public class SavePoint : MonoBehaviour
             yield return null;
         }
 
-        // ✅ ปิด Panel หลัง Fade Out
         saveNotificationText.gameObject.SetActive(false);
         if (saveNotificationPanel != null) saveNotificationPanel.SetActive(false);
     }
+
     #endregion
 
-    // ─────────────────────────────────────────────────────────
     #region Public API
 
     public Vector3 GetRespawnPosition()
@@ -230,7 +228,6 @@ public class SavePoint : MonoBehaviour
 
     #endregion
 
-    // ─────────────────────────────────────────────────────────
     #region Gizmos
 
     private void OnDrawGizmos()

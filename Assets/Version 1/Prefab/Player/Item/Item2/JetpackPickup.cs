@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using MOMO.Player;
+using Momo.UITutorial.Managers;
+using Momo.UITutorial.Data;
 
 public class JetpackPickup : MonoBehaviour
 {
@@ -33,6 +35,9 @@ public class JetpackPickup : MonoBehaviour
 
     [Header("Debug (Editor Only)")]
     [SerializeField] private bool _debugIgnoreSave = false;
+
+    [Header("Item Detail Popup")]
+    public ItemData jetpackItemData;   // ลาก ScriptableObject ที่จะสร้างใน Step ถัดไป
 
     // ── Private ──
     private bool _playerInRange = false;
@@ -189,6 +194,9 @@ public class JetpackPickup : MonoBehaviour
         // ── 6) VFX ──
         if (pickupEffect != null)
             Instantiate(pickupEffect, transform.position, Quaternion.identity);
+
+        if (jetpackItemData != null)
+            TutorialManager.Instance?.ShowItemDetail(jetpackItemData);
 
         // ── 7) ซ่อน Jetpack บนแท่น ──
         if (promptUI != null) promptUI.SetActive(false);

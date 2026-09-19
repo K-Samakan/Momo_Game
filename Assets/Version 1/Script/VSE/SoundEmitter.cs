@@ -60,6 +60,7 @@ public class SoundEmitter : MonoBehaviour
         if (intensity <= 0.05f) return;
 
         _lastEmitTime = Time.time;
+        Debug.Log($"[Emitter] ยิง VSE! tag={soundTag} intensity={intensity}");
         VisualSoundEffectManager.Instance?.ShowIcon(
             transform.position, intensity, soundTag);
 

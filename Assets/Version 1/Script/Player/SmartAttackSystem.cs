@@ -443,6 +443,24 @@ public class SmartAttackSystem : MonoBehaviour
             }
         }
 
+        foreach (var col in allHits)
+        {
+            if (!col.CompareTag("Rock")) continue;
+
+            Vector3 dir = (col.transform.position - transform.position).normalized;
+            float angle = Vector3.Angle(transform.forward, dir);
+
+            if (angle > attackAngle / 2f) continue;
+
+            RockController rock = col.GetComponent<RockController>();
+            if (rock != null)
+            {
+                rock.TakeDamage(damage);
+                Debug.Log($"[SmartAttack] Hit Rock: {col.name}");
+                HapticManager.Instance?.Vibrate(0.2f, 0.3f, 0.1f);
+            }
+        }
+
         Collider[] hits = Physics.OverlapSphere(origin.position, radius);
         foreach (var col in hits)
         {

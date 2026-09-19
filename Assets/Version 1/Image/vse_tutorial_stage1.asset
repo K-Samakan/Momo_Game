@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 59166cab730650b47b1642a17ff336cf, type: 3}
+  m_Name: vse_tutorial_stage1
+  m_EditorClassIdentifier: 
+  tutorialId: vse_tutorial_stage1
+  pages:
+  - image: {fileID: 21300000, guid: c39f6f83893aa1841a41eecaab61efdc, type: 3}
+    description: "VSE icons appear around you, pointing toward nearby sounds \u2014
+      paired with controller vibration to show direction and distance. They trigger
+      automatically near danger."
+  - image: {fileID: 21300000, guid: ce5d17ebc39a3f64aad3da2ec0c53315, type: 3}
+    description: "VSE colors:\r\n\u25CF RED \u2014 Monster nearby\r\n\u25CF PURPLE
+      \u2014 Incoming ranged attack\n\u25CF YELLOW \u2014 Side quest nearby\r\n\u25CF
+      ORANGE \u2014 Hazardous platform\r"

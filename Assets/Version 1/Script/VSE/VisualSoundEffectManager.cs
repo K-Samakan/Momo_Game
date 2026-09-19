@@ -132,7 +132,13 @@ public class VisualSoundEffectManager : MonoBehaviour
         if (intensity <= 0f) return;
 
         int slot = GetAvailableSlot();
-        if (slot < 0) slot = GetOldestSlot();
+        if (slot < 0)
+        {
+            slot = GetOldestSlot();
+            GameObject oldGo = _pool[slot];
+            if (_tags.TryGetValue(oldGo, out string oldTag))
+                VSEAlertUI.Instance?.EndAlert(oldTag); // <-- เพิ่ม: ปิด alert ของ tag เก่าก่อนแย่งช่องไปใช้ใหม่
+        }
 
         GameObject go = _pool[slot];
         RectTransform rt = _poolRTs[slot];
@@ -147,6 +153,8 @@ public class VisualSoundEffectManager : MonoBehaviour
         _sources[go] = sourceWorldPos;
         _timers[go] = displayTime;
         _tags[go] = tagName;
+
+        VSEAlertUI.Instance?.BeginAlert(tagName); // <-- เพิ่มบรรทัดนี้
     }
 
     #endregion
@@ -220,6 +228,8 @@ public class VisualSoundEffectManager : MonoBehaviour
 
             if (timeLeft <= 0f)
             {
+                VSEAlertUI.Instance?.EndAlert(tagName); // <-- เพิ่มบรรทัดนี้ (ก่อนปิดไอคอน)
+
                 go.SetActive(false);
                 _sources.Remove(go);
                 _timers.Remove(go);

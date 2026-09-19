@@ -1355,6 +1355,54 @@ public partial class @StarterAssetsInputsGenerated: IInputActionCollection2, IDi
                     ""isPartOfComposite"": false
                 }
             ]
+        },
+        {
+            ""name"": ""PopupUI"",
+            ""id"": ""0d100ca5-cced-4302-85b4-4950ce649652"",
+            ""actions"": [
+                {
+                    ""name"": ""Next"",
+                    ""type"": ""Button"",
+                    ""id"": ""ffc151a8-fd29-44ff-ba11-4d6124b18547"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Back"",
+                    ""type"": ""Button"",
+                    ""id"": ""df847a68-9588-4435-a99d-3949d662e1ca"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                }
+            ],
+            ""bindings"": [
+                {
+                    ""name"": """",
+                    ""id"": ""b8b989dd-884b-45bc-b4b7-0877023cc6ad"",
+                    ""path"": ""<Gamepad>/buttonEast"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": "";Gamepad;PS4 Controller"",
+                    ""action"": ""Next"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""97727c23-3241-49c8-adc0-cf37d1e9eabe"",
+                    ""path"": ""<Gamepad>/buttonWest"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": "";Gamepad;PS4 Controller"",
+                    ""action"": ""Back"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                }
+            ]
         }
     ],
     ""controlSchemes"": [
@@ -1452,6 +1500,10 @@ public partial class @StarterAssetsInputsGenerated: IInputActionCollection2, IDi
         m_PuzzleUI1_Long = m_PuzzleUI1.FindAction("Long", throwIfNotFound: true);
         m_PuzzleUI1_Cancel = m_PuzzleUI1.FindAction("Cancel", throwIfNotFound: true);
         m_PuzzleUI1_Replay = m_PuzzleUI1.FindAction("Replay", throwIfNotFound: true);
+        // PopupUI
+        m_PopupUI = asset.FindActionMap("PopupUI", throwIfNotFound: true);
+        m_PopupUI_Next = m_PopupUI.FindAction("Next", throwIfNotFound: true);
+        m_PopupUI_Back = m_PopupUI.FindAction("Back", throwIfNotFound: true);
     }
 
     ~@StarterAssetsInputsGenerated()
@@ -1461,6 +1513,7 @@ public partial class @StarterAssetsInputsGenerated: IInputActionCollection2, IDi
         UnityEngine.Debug.Assert(!m_Puzzle2.enabled, "This will cause a leak and performance issues, StarterAssetsInputsGenerated.Puzzle2.Disable() has not been called.");
         UnityEngine.Debug.Assert(!m_Puzzle3.enabled, "This will cause a leak and performance issues, StarterAssetsInputsGenerated.Puzzle3.Disable() has not been called.");
         UnityEngine.Debug.Assert(!m_PuzzleUI1.enabled, "This will cause a leak and performance issues, StarterAssetsInputsGenerated.PuzzleUI1.Disable() has not been called.");
+        UnityEngine.Debug.Assert(!m_PopupUI.enabled, "This will cause a leak and performance issues, StarterAssetsInputsGenerated.PopupUI.Disable() has not been called.");
     }
 
     /// <summary>
@@ -2342,6 +2395,113 @@ public partial class @StarterAssetsInputsGenerated: IInputActionCollection2, IDi
     /// Provides a new <see cref="PuzzleUI1Actions" /> instance referencing this action map.
     /// </summary>
     public PuzzleUI1Actions @PuzzleUI1 => new PuzzleUI1Actions(this);
+
+    // PopupUI
+    private readonly InputActionMap m_PopupUI;
+    private List<IPopupUIActions> m_PopupUIActionsCallbackInterfaces = new List<IPopupUIActions>();
+    private readonly InputAction m_PopupUI_Next;
+    private readonly InputAction m_PopupUI_Back;
+    /// <summary>
+    /// Provides access to input actions defined in input action map "PopupUI".
+    /// </summary>
+    public struct PopupUIActions
+    {
+        private @StarterAssetsInputsGenerated m_Wrapper;
+
+        /// <summary>
+        /// Construct a new instance of the input action map wrapper class.
+        /// </summary>
+        public PopupUIActions(@StarterAssetsInputsGenerated wrapper) { m_Wrapper = wrapper; }
+        /// <summary>
+        /// Provides access to the underlying input action "PopupUI/Next".
+        /// </summary>
+        public InputAction @Next => m_Wrapper.m_PopupUI_Next;
+        /// <summary>
+        /// Provides access to the underlying input action "PopupUI/Back".
+        /// </summary>
+        public InputAction @Back => m_Wrapper.m_PopupUI_Back;
+        /// <summary>
+        /// Provides access to the underlying input action map instance.
+        /// </summary>
+        public InputActionMap Get() { return m_Wrapper.m_PopupUI; }
+        /// <inheritdoc cref="UnityEngine.InputSystem.InputActionMap.Enable()" />
+        public void Enable() { Get().Enable(); }
+        /// <inheritdoc cref="UnityEngine.InputSystem.InputActionMap.Disable()" />
+        public void Disable() { Get().Disable(); }
+        /// <inheritdoc cref="UnityEngine.InputSystem.InputActionMap.enabled" />
+        public bool enabled => Get().enabled;
+        /// <summary>
+        /// Implicitly converts an <see ref="PopupUIActions" /> to an <see ref="InputActionMap" /> instance.
+        /// </summary>
+        public static implicit operator InputActionMap(PopupUIActions set) { return set.Get(); }
+        /// <summary>
+        /// Adds <see cref="InputAction.started"/>, <see cref="InputAction.performed"/> and <see cref="InputAction.canceled"/> callbacks provided via <param cref="instance" /> on all input actions contained in this map.
+        /// </summary>
+        /// <param name="instance">Callback instance.</param>
+        /// <remarks>
+        /// If <paramref name="instance" /> is <c>null</c> or <paramref name="instance"/> have already been added this method does nothing.
+        /// </remarks>
+        /// <seealso cref="PopupUIActions" />
+        public void AddCallbacks(IPopupUIActions instance)
+        {
+            if (instance == null || m_Wrapper.m_PopupUIActionsCallbackInterfaces.Contains(instance)) return;
+            m_Wrapper.m_PopupUIActionsCallbackInterfaces.Add(instance);
+            @Next.started += instance.OnNext;
+            @Next.performed += instance.OnNext;
+            @Next.canceled += instance.OnNext;
+            @Back.started += instance.OnBack;
+            @Back.performed += instance.OnBack;
+            @Back.canceled += instance.OnBack;
+        }
+
+        /// <summary>
+        /// Removes <see cref="InputAction.started"/>, <see cref="InputAction.performed"/> and <see cref="InputAction.canceled"/> callbacks provided via <param cref="instance" /> on all input actions contained in this map.
+        /// </summary>
+        /// <remarks>
+        /// Calling this method when <paramref name="instance" /> have not previously been registered has no side-effects.
+        /// </remarks>
+        /// <seealso cref="PopupUIActions" />
+        private void UnregisterCallbacks(IPopupUIActions instance)
+        {
+            @Next.started -= instance.OnNext;
+            @Next.performed -= instance.OnNext;
+            @Next.canceled -= instance.OnNext;
+            @Back.started -= instance.OnBack;
+            @Back.performed -= instance.OnBack;
+            @Back.canceled -= instance.OnBack;
+        }
+
+        /// <summary>
+        /// Unregisters <param cref="instance" /> and unregisters all input action callbacks via <see cref="PopupUIActions.UnregisterCallbacks(IPopupUIActions)" />.
+        /// </summary>
+        /// <seealso cref="PopupUIActions.UnregisterCallbacks(IPopupUIActions)" />
+        public void RemoveCallbacks(IPopupUIActions instance)
+        {
+            if (m_Wrapper.m_PopupUIActionsCallbackInterfaces.Remove(instance))
+                UnregisterCallbacks(instance);
+        }
+
+        /// <summary>
+        /// Replaces all existing callback instances and previously registered input action callbacks associated with them with callbacks provided via <param cref="instance" />.
+        /// </summary>
+        /// <remarks>
+        /// If <paramref name="instance" /> is <c>null</c>, calling this method will only unregister all existing callbacks but not register any new callbacks.
+        /// </remarks>
+        /// <seealso cref="PopupUIActions.AddCallbacks(IPopupUIActions)" />
+        /// <seealso cref="PopupUIActions.RemoveCallbacks(IPopupUIActions)" />
+        /// <seealso cref="PopupUIActions.UnregisterCallbacks(IPopupUIActions)" />
+        public void SetCallbacks(IPopupUIActions instance)
+        {
+            foreach (var item in m_Wrapper.m_PopupUIActionsCallbackInterfaces)
+                UnregisterCallbacks(item);
+            m_Wrapper.m_PopupUIActionsCallbackInterfaces.Clear();
+            AddCallbacks(instance);
+        }
+    }
+    /// <summary>
+    /// Provides a new <see cref="PopupUIActions" /> instance referencing this action map.
+    /// </summary>
+    public PopupUIActions @PopupUI => new PopupUIActions(this);
     private int m_KeyboardMouseSchemeIndex = -1;
     /// <summary>
     /// Provides access to the input control scheme.
@@ -2678,5 +2838,27 @@ public partial class @StarterAssetsInputsGenerated: IInputActionCollection2, IDi
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnReplay(InputAction.CallbackContext context);
+    }
+    /// <summary>
+    /// Interface to implement callback methods for all input action callbacks associated with input actions defined by "PopupUI" which allows adding and removing callbacks.
+    /// </summary>
+    /// <seealso cref="PopupUIActions.AddCallbacks(IPopupUIActions)" />
+    /// <seealso cref="PopupUIActions.RemoveCallbacks(IPopupUIActions)" />
+    public interface IPopupUIActions
+    {
+        /// <summary>
+        /// Method invoked when associated input action "Next" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnNext(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "Back" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnBack(InputAction.CallbackContext context);
     }
 }

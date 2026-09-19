@@ -1269,6 +1269,54 @@
                     "isPartOfComposite": false
                 }
             ]
+        },
+        {
+            "name": "PopupUI",
+            "id": "0d100ca5-cced-4302-85b4-4950ce649652",
+            "actions": [
+                {
+                    "name": "Next",
+                    "type": "Button",
+                    "id": "ffc151a8-fd29-44ff-ba11-4d6124b18547",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Back",
+                    "type": "Button",
+                    "id": "df847a68-9588-4435-a99d-3949d662e1ca",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "b8b989dd-884b-45bc-b4b7-0877023cc6ad",
+                    "path": "<Gamepad>/buttonEast",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";Gamepad;PS4 Controller",
+                    "action": "Next",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "97727c23-3241-49c8-adc0-cf37d1e9eabe",
+                    "path": "<Gamepad>/buttonWest",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";Gamepad;PS4 Controller",
+                    "action": "Back",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
         }
     ],
     "controlSchemes": [

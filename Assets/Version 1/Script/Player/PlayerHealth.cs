@@ -13,6 +13,10 @@ namespace MOMO.Player
         public int maxHealth = 5;
         public int currentHealth;
 
+        [Header("Shield (Map2 Oasis Reward)")]
+        [HideInInspector] public bool isShielded = false;
+        public event Action OnShieldHit;
+
         [Header("UI (Legacy - ของเดิม)")]
         public Text healthText;
         public Slider healthSlider;
@@ -105,6 +109,12 @@ namespace MOMO.Player
         public void TakeDamage(int amount)
         {
             if (_isDead || currentHealth <= 0) return;
+
+            if (isShielded)
+            {
+                OnShieldHit?.Invoke();
+                return;
+            }
 
             currentHealth = Mathf.Max(currentHealth - amount, 0);
             regenTimer = 0f;

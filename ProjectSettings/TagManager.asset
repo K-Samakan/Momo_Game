@@ -7,7 +7,6 @@ TagManager:
   - Shoot
   - Enemy
   - Event
-  - Boom
   - CinemachineTarget
   - JumpPad
   - Ledge
@@ -30,6 +29,9 @@ TagManager:
   - Cage
   - BreakableWall
   - GloveHitbox
+  - Warning
+  - Boom
+  - Rock
   layers:
   - Default
   - TransparentFX

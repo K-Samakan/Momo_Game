@@ -25,9 +25,29 @@ namespace Momo.UITutorial.Popups
         {
             itemIcon.sprite = item.itemIcon;
             itemNameText.text = item.itemName;
-            hpBonusText.text = $"HP + {item.hpBonus}";
-            atkBonusText.text = $"ATK + {item.atkBonus}";
             detailEffectText.text = item.detailEffect;
+
+            // ✅ HP Bonus — ซ่อนทั้งบรรทัดถ้า item.showHpBonus == false
+            if (item.showHpBonus)
+            {
+                hpBonusText.gameObject.SetActive(true);
+                hpBonusText.text = $"HP + {item.hpBonus}";
+            }
+            else
+            {
+                hpBonusText.gameObject.SetActive(false);
+            }
+
+            // ✅ ATK Bonus — ซ่อนทั้งบรรทัดถ้า item.showAtkBonus == false
+            if (item.showAtkBonus)
+            {
+                atkBonusText.gameObject.SetActive(true);
+                atkBonusText.text = $"ATK + {item.atkBonus}";
+            }
+            else
+            {
+                atkBonusText.gameObject.SetActive(false);
+            }
 
             Open();
         }
