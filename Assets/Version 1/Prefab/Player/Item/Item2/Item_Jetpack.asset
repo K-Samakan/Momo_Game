@@ -12,8 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bc2d6c7207621064ab8853b158fea60c, type: 3}
   m_Name: Item_Jetpack
   m_EditorClassIdentifier: 
-  itemName: Jetpack
-  itemIcon: {fileID: 0}
-  detailEffect: 
-  hpBonus: 0
+  itemName: Magic Jetpack
+  itemIcon: {fileID: 21300000, guid: 796bedc9f2933e545a75c1148bfe818e, type: 3}
+  detailEffect: Press Jump again in mid-air for a double jump. Hold the button to
+    hover as long as your energy lasts.
+  hpBonus: 2
   atkBonus: 0
+  showAtkBonus: 0
+  showHpBonus: 1

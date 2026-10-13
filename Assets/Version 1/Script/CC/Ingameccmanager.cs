@@ -13,6 +13,7 @@ using System.Collections.Generic;
 /// - Background ขยายตาม Content Size Fitter
 /// - มีแค่ Line1 → Line2 ซ่อน → Line1 อยู่กลาง
 /// </summary>
+
 public class InGameCCManager : MonoBehaviour
 {
     public static InGameCCManager Instance;
@@ -76,6 +77,13 @@ public class InGameCCManager : MonoBehaviour
         { "SideQuest",  2 },
     };
 
+    [Header("Background Fit")]
+    [Tooltip("ให้สคริปต์ปรับขนาด Background ตามข้อความเอง")]
+    public bool fitBackgroundToText = true;
+
+    [Tooltip("ระยะห่างระหว่างขอบกล่องกับตัวอักษร (x = ซ้าย-ขวา, y = บน-ล่าง)")]
+    public Vector2 backgroundPadding = new Vector2(16f, 8f);
+
     // ข้อมูล CC แต่ละ slot
     private class CCEntry
     {
@@ -124,13 +132,15 @@ public class InGameCCManager : MonoBehaviour
     /// เรียกจาก SoundEmitter, CageController หรือ script อื่น
     /// เมื่อมีเสียงเกิดขึ้นจริง
     /// </summary>
-    public void ShowCC(Vector3 sourceWorldPos, string tag)
+    public void ShowCC(Vector3 sourceWorldPos, string tag, string directionOverride = null)
     {
         if (player == null || cameraTransform == null) return;
 
         int priority = GetPriority(tag);
         string label = GetLabel(tag);
-        string direction = GetDirection(sourceWorldPos);
+        string direction = string.IsNullOrEmpty(directionOverride)
+            ? GetDirection(sourceWorldPos)
+            : directionOverride;
         string fullText = $"[ {label} - {direction} ]";
         float displayTime = GetDisplayTime(priority);
 
@@ -200,6 +210,7 @@ public class InGameCCManager : MonoBehaviour
             line2Text.text = showLine2 ? _slot2.text : "";
         }
 
+        FitBackground();
         // ── Fade Panel ──────────────────────────────────────────
         if (hasAny && !_isPanelVisible)
         {
@@ -242,6 +253,28 @@ public class InGameCCManager : MonoBehaviour
     /// คำนวณทิศทาง 4 แบบ: Front / Behind / Left / Right
     /// อิงจาก Camera Forward
     /// </summary>
+    /// 
+    void FitBackground()
+    {
+        if (!fitBackgroundToText || ccBackground == null || line1Text == null) return;
+        if (string.IsNullOrEmpty(line1Text.text)) return;
+
+        Vector2 size1 = line1Text.GetPreferredValues(line1Text.text);
+        float width = size1.x;
+        float height = size1.y;
+
+        // รวมบรรทัดที่ 2 เฉพาะตอนที่แสดงอยู่
+        if (line2Text != null && line2Text.gameObject.activeSelf && !string.IsNullOrEmpty(line2Text.text))
+        {
+            Vector2 size2 = line2Text.GetPreferredValues(line2Text.text);
+            width = Mathf.Max(width, size2.x);
+            height += size2.y;
+        }
+
+        RectTransform rt = ccBackground.rectTransform;
+        rt.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width + backgroundPadding.x * 2f);
+        rt.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height + backgroundPadding.y * 2f);
+    }
     string GetDirection(Vector3 sourceWorldPos)
     {
         Vector3 dir = sourceWorldPos - player.position;

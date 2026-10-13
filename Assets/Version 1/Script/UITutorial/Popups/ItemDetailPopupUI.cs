@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 using Momo.UITutorial.Core;
 using Momo.UITutorial.Data;
 
@@ -9,10 +10,10 @@ namespace Momo.UITutorial.Popups
     {
         [Header("Item Detail UI Refs")]
         [SerializeField] private Image itemIcon;
-        [SerializeField] private Text itemNameText;
-        [SerializeField] private Text hpBonusText;
-        [SerializeField] private Text atkBonusText;
-        [SerializeField] private Text detailEffectText;
+        [SerializeField] private TMP_Text itemNameText;
+        [SerializeField] private TMP_Text hpBonusText;
+        [SerializeField] private TMP_Text atkBonusText;
+        [SerializeField] private TMP_Text detailEffectText;
         [SerializeField] private Button closeButton;
 
         protected override void Awake()

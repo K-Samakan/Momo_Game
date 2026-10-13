@@ -204365,6 +204365,8 @@ MonoBehaviour:
     label: Projectile
   - tag: Warning
     label: Platform Breaking
+  fitBackgroundToText: 1
+  backgroundPadding: {x: 16, y: 8}
 --- !u!225 &788855335
 CanvasGroup:
   m_ObjectHideFlags: 0
@@ -354771,6 +354773,7 @@ MonoBehaviour:
   sideQuestUI: {fileID: 0}
   bossSoundEmitter: {fileID: 480378235}
   bossRoomVSERadius: 50
+  oasisShieldEffect: {fileID: 0}
 --- !u!114 &1303049883
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -413118,6 +413121,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maxHealth: 7
   currentHealth: 0
+  isShielded: 0
   healthText: {fileID: 0}
   healthSlider: {fileID: 0}
   healEffect: {fileID: 9017484664307500583, guid: aad36f6b0f0dc0b42bc5bbe74a4bb8ec,

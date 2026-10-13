@@ -32,6 +32,7 @@ TagManager:
   - Warning
   - Boom
   - Rock
+  - IceCrystal
   layers:
   - Default
   - TransparentFX

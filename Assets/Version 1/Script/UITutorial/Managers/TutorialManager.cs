@@ -2,6 +2,7 @@ using UnityEngine;
 using Momo.UITutorial.Popups;
 using Momo.UITutorial.Data;
 
+
 namespace Momo.UITutorial.Managers
 {
     public class TutorialManager : MonoBehaviour
@@ -9,12 +10,15 @@ namespace Momo.UITutorial.Managers
         public static TutorialManager Instance { get; private set; }
 
         [Header("Popup References (ลาก Prefab ที่วางใน Canvas มาใส่)")]
-        [SerializeField] private TutorialPopupUI tutorialPopup;      // ใช้ร่วมกันทั้ง VSE และ Puzzle
+        [SerializeField] private TutorialPopupUI tutorialPopup;
         [SerializeField] private ItemDetailPopupUI itemDetailPopup;
 
         [Header("Tutorial Data")]
         [SerializeField] private TutorialPageData vseTutorialData;
         [SerializeField] private TutorialPageData puzzleTutorialData;
+
+        [Header("Debug")]
+        [SerializeField] private bool showDebugLogs = true;
 
         private const string PREF_PREFIX = "TutorialSeen_";
 
@@ -27,7 +31,26 @@ namespace Momo.UITutorial.Managers
         // ---------- A) Visual Sound Effect Tutorial ----------
         public void TryShowVSETutorial()
         {
-            if (HasSeenTutorial(vseTutorialData.tutorialId)) return;
+            if (vseTutorialData == null)
+            {
+                Debug.LogError("[Tutorial] ❌ Vse Tutorial Data ว่างใน Inspector");
+                return;
+            }
+            if (tutorialPopup == null)
+            {
+                Debug.LogError("[Tutorial] ❌ Tutorial Popup ว่างใน Inspector");
+                return;
+            }
+
+            string key = PREF_PREFIX + vseTutorialData.tutorialId;
+            bool seen = HasSeenTutorial(vseTutorialData.tutorialId);
+
+            if (showDebugLogs)
+                Debug.Log($"[Tutorial] TryShowVSE called | key={key} | seen={seen}");
+
+            if (seen) return;
+
+            if (showDebugLogs) Debug.Log("[Tutorial] ▶ เปิด VSE Tutorial");
             tutorialPopup.ShowTutorial(vseTutorialData);
         }
 
@@ -38,7 +61,7 @@ namespace Momo.UITutorial.Managers
             tutorialPopup.ShowTutorial(puzzleTutorialData);
         }
 
-        // ---------- B) Item Detail (แสดงทุกครั้ง ไม่เช็คสถานะ) ----------
+        // ---------- B) Item Detail ----------
         public void ShowItemDetail(ItemData item)
         {
             itemDetailPopup.ShowItem(item);
@@ -54,14 +77,33 @@ namespace Momo.UITutorial.Managers
         {
             PlayerPrefs.SetInt(PREF_PREFIX + id, 1);
             PlayerPrefs.Save();
+            if (showDebugLogs) Debug.Log($"[Tutorial] ✔ บันทึกว่าดูแล้ว: {PREF_PREFIX + id}");
         }
 
-        // เผื่อ Debug/QA อยากรีเซ็ต tutorial เพื่อทดสอบซ้ำ
-        [ContextMenu("Reset All Tutorial Flags")]
-        public void ResetAllFlags()
+        // ---------- Debug Menu (คลิกขวาที่ component) ----------
+        [ContextMenu("Reset VSE Tutorial Flag")]
+        public void ResetVSEFlag()
         {
-            PlayerPrefs.DeleteKey(PREF_PREFIX + vseTutorialData.tutorialId);
-            PlayerPrefs.DeleteKey(PREF_PREFIX + puzzleTutorialData.tutorialId);
+            if (vseTutorialData == null)
+            {
+                Debug.LogError("[Tutorial] ❌ Vse Tutorial Data ว่าง รีเซ็ตไม่ได้");
+                return;
+            }
+            string key = PREF_PREFIX + vseTutorialData.tutorialId;
+            PlayerPrefs.DeleteKey(key);
+            PlayerPrefs.Save();
+            Debug.Log($"[Tutorial] 🔄 รีเซ็ตแล้ว: {key}");
+        }
+
+        [ContextMenu("Show VSE Tutorial Now (ข้ามการเช็ค)")]
+        public void ForceShowVSETutorial()
+        {
+            if (!Application.isPlaying)
+            {
+                Debug.LogWarning("[Tutorial] ต้องกดตอนอยู่ใน Play Mode");
+                return;
+            }
+            tutorialPopup.ShowTutorial(vseTutorialData);
         }
     }
 }

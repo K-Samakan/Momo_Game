@@ -461,6 +461,24 @@ public class SmartAttackSystem : MonoBehaviour
             }
         }
 
+        // ✅ [Map3 Side Quest] ผลึกน้ำแข็ง — ต่อย 1 ครั้ง = 1 ฮิต
+        foreach (var col in allHits)
+        {
+            if (!col.CompareTag("IceCrystal")) continue;
+
+            Vector3 dir = (col.transform.position - transform.position).normalized;
+            float angle = Vector3.Angle(transform.forward, dir);
+            if (angle > attackAngle / 2f) continue;
+
+            IceCrystalController crystal = col.GetComponentInParent<IceCrystalController>();
+            if (crystal != null && !crystal.IsBroken)
+            {
+                crystal.TakeDamage(damage);
+                Debug.Log($"[SmartAttack] Hit IceCrystal: {col.name}");
+                HapticManager.Instance?.Vibrate(0.2f, 0.3f, 0.1f);
+            }
+        }
+
         Collider[] hits = Physics.OverlapSphere(origin.position, radius);
         foreach (var col in hits)
         {

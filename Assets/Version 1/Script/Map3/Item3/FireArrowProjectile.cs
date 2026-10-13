@@ -1,6 +1,7 @@
 // ============================================================
 // FILE: FireArrowProjectile.cs
 // PATH: Assets/Version 1/Script/Map3/Item3/FireArrowProjectile.cs
+// ✅ [Map3 Side Quest] เพิ่ม: ธนูธรรมดาโดนผลึกน้ำแข็ง → TakeDamage (ธนูไฟใช้ IMeltable เดิม = ละลายทันที)
 // ============================================================
 using UnityEngine;
 using MOMO.AI.Monster;
@@ -46,13 +47,22 @@ public class FireArrowProjectile : MonoBehaviour
     {
         if (_hasHit) return;
 
-        // ── ละลายน้ำแข็ง (เฉพาะธนูไฟ) ──
+        // ── ละลายน้ำแข็ง (เฉพาะธนูไฟ) — รวมผลึกน้ำแข็ง Side Quest (IceCrystalController : IMeltable) ──
         var meltable = other.GetComponent<IMeltable>();
         if (_isFireArrow && meltable != null)
         {
             meltable.Melt();
             if (iceMeltVFX != null) Instantiate(iceMeltVFX, transform.position, Quaternion.identity);
             HapticManager.Instance?.Vibrate(0.2f, 0.2f, 0.15f);
+            ResolveHit();
+            return;
+        }
+
+        // ── ✅ [Map3 Side Quest] ธนูธรรมดาโดนผลึกน้ำแข็ง → นับ 1 ฮิต ──
+        var crystal = other.GetComponentInParent<IceCrystalController>();
+        if (crystal != null && !crystal.IsBroken)
+        {
+            crystal.TakeDamage(_damage);
             ResolveHit();
             return;
         }
@@ -112,7 +122,7 @@ public class FireArrowProjectile : MonoBehaviour
 }
 
 /// <summary>
-/// Interface สำหรับ object ที่ละลายได้ด้วยธนูไฟ (เช่น กำแพงน้ำแข็ง, ประตูน้ำแข็งใน Map3)
+/// Interface สำหรับ object ที่ละลายได้ด้วยธนูไฟ (เช่น กำแพงน้ำแข็ง, ประตูน้ำแข็ง, ผลึกน้ำแข็ง Side Quest ใน Map3)
 /// </summary>
 public interface IMeltable
 {

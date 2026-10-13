@@ -2,6 +2,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
+using Momo.UITutorial.Managers;
 
 /// <summary>
 /// VSE แบบ Spider-Sense — Ring ติดตาม MOMO บนหน้าจอ
@@ -123,6 +124,9 @@ public class VisualSoundEffectManager : MonoBehaviour
 
     public void ShowIcon(Vector3 sourceWorldPos, float intensity, string tagName = "")
     {
+        Debug.Log($"[VSE] ShowIcon called | tag={tagName}");
+        TutorialManager.Instance?.TryShowVSETutorial();
+
         if (visualPrefab == null || player == null ||
             cameraTransform == null || radialLayout == null)
         {
@@ -155,6 +159,44 @@ public class VisualSoundEffectManager : MonoBehaviour
         _tags[go] = tagName;
 
         VSEAlertUI.Instance?.BeginAlert(tagName); // <-- เพิ่มบรรทัดนี้
+    }
+
+    /// <summary>
+    /// ต่ออายุไอคอนเดิมของ source นี้ (รีเซ็ตตัวนับเวลา) ถ้าไม่มีให้สร้างใหม่
+    /// ใช้กับ object ที่ต้องการให้ไอคอนค้างอยู่ เช่น พื้นที่กำลังจะแตก
+    /// </summary>
+    public void KeepIconAlive(Vector3 sourceWorldPos, float intensity, string tagName)
+    {
+        for (int i = 0; i < _pool.Count; i++)
+        {
+            GameObject go = _pool[i];
+            if (!go.activeSelf) continue;
+            if (!_tags.TryGetValue(go, out string t) || t != tagName) continue;
+            if (!_sources.TryGetValue(go, out Vector3 src)) continue;
+            if ((src - sourceWorldPos).sqrMagnitude > 0.01f) continue;
+
+            _timers[go] = displayTime; // ต่ออายุอันเดิม ไม่สร้างซ้ำ
+            return;
+        }
+
+        ShowIcon(sourceWorldPos, intensity, tagName);
+    }
+
+    /// <summary>
+    /// ให้ไอคอนของ source นี้หมดเวลาทันที (ผ่านระบบหายตามปกติ จึงเรียก EndAlert ให้เอง)
+    /// </summary>
+    public void HideIconsFromSource(Vector3 sourceWorldPos, string tagName)
+    {
+        for (int i = 0; i < _pool.Count; i++)
+        {
+            GameObject go = _pool[i];
+            if (!go.activeSelf) continue;
+            if (!_tags.TryGetValue(go, out string t) || t != tagName) continue;
+            if (!_sources.TryGetValue(go, out Vector3 src)) continue;
+            if ((src - sourceWorldPos).sqrMagnitude > 0.01f) continue;
+
+            _timers[go] = 0f;
+        }
     }
 
     #endregion
