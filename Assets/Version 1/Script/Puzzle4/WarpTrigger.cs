@@ -6,10 +6,10 @@ public class WarpTrigger : MonoBehaviour
     [Header("References")]
     public WaterValvePuzzleManager puzzleManager;
     //public MirrorInteractionManager puzzle2Manager;
-    
+
     [Header("Input Action Name")]
     public string interactActionName = "InteractValve"; // ✅ เปลี่ยนเป็น "InteractValve"
-    
+
     private bool playerInRange = false;
     private PlayerInput playerInput;
     private InputAction interactAction;
@@ -18,7 +18,7 @@ public class WarpTrigger : MonoBehaviour
     {
         // Find player input component
         playerInput = FindObjectOfType<PlayerInput>();
-        
+
         if (playerInput != null)
         {
             // Get interact action from Player ActionMap
@@ -52,7 +52,7 @@ public class WarpTrigger : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             playerInRange = true;
-            
+
             Debug.Log("╔═══════════════════════════════════════════╗");
             Debug.Log("║     🚪 PUZZLE ENTRANCE                    ║");
             Debug.Log("║     Press ⭕ Circle to enter puzzle       ║");
@@ -71,14 +71,12 @@ public class WarpTrigger : MonoBehaviour
 
     void OnPlayerInteract(InputAction.CallbackContext context)
     {
-        if (playerInRange && puzzleManager != null)
+        // ✅ เช็คเพิ่มว่า puzzle ยังไม่ active ด้วย กันยิงซ้ำสองชั้น
+        if (playerInRange && puzzleManager != null && !puzzleManager.isPuzzleActive)
         {
             Debug.Log("[⭕ Circle] Warping to puzzle area...");
-            
-            // Enter puzzle area
+            playerInRange = false; // ✅ รีเซ็ตทันที กัน teleport ไม่ fire OnTriggerExit แล้ววนลูป
             puzzleManager.EnterPuzzle();
         }
-
-        
     }
 }

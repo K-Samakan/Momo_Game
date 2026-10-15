@@ -9,7 +9,8 @@ public class Inventory : MonoBehaviour
     public static Inventory Instance; // Singleton เพื่อให้เข้าถึงได้จากทุกที่
 
     public bool CorrectPuzzle;     // Map1
-    public bool CorrectPuzzle3;    // ✅ เพิ่มใหม่ — Map3 (Ice Puzzle) แก้สำเร็จหรือยัง
+    public bool CorrectPuzzle3;    // Map3
+    public bool CorrectPuzzle4;   // Map4
 
     private void Awake()
     {

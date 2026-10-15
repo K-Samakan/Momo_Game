@@ -1,9 +1,3 @@
-// ============================================================
-// FILE: FishingRodPickup.cs
-// PATH: Assets/Version 1/Script/Map4/Item4/FishingRodPickup.cs
-// รูปแบบเดียวกับ GlovePickup.cs (Map1) — ปรับให้เหมาะกับ "เบ็ดยืด"
-// วางสคริปต์นี้ไว้ที่จุดวางไอเทมในห้อง Puzzle ของ Map4
-// ============================================================
 using UnityEngine;
 using UnityEngine.InputSystem;
 using MOMO.Player;
@@ -25,6 +19,7 @@ public class FishingRodPickup : MonoBehaviour
 
     private bool _pickedUp = false;
     private bool _playerInRange = false;
+    private bool _pedestalRevealed = false;
     private InputAction _interactAction;
 
     private PlayerHealth _playerHealth;
@@ -34,7 +29,6 @@ public class FishingRodPickup : MonoBehaviour
 
     void Start()
     {
-        // ✅ เริ่มต้นให้โมเดลไอเทมถูกซ่อนไว้ก่อน (ยังไม่เก็บ)
         if (fishingRodItemObject != null)
             fishingRodItemObject.SetActive(false);
 
@@ -52,7 +46,7 @@ public class FishingRodPickup : MonoBehaviour
         var playerMap = _playerInput.actions.FindActionMap("Player");
         if (playerMap != null)
         {
-            _interactAction = playerMap.FindAction("Attack"); // ปุ่มเดียวกับที่ใช้เก็บถุงมือใน Map1
+            _interactAction = playerMap.FindAction("Attack");
             if (_interactAction != null)
                 _interactAction.performed += OnInteract;
             else
@@ -61,6 +55,19 @@ public class FishingRodPickup : MonoBehaviour
         else
         {
             Debug.LogError("[FishingRodPickup] ❌ ไม่พบ ActionMap 'Player'!");
+        }
+    }
+
+    void Update()
+    {
+        if (_pickedUp || _pedestalRevealed) return;
+
+        bool puzzleSolved = Inventory.Instance != null && Inventory.Instance.CorrectPuzzle4;
+        if (puzzleSolved)
+        {
+            _pedestalRevealed = true;
+            if (fishingRodItemObject != null) fishingRodItemObject.SetActive(true);
+            Debug.Log("[FishingRodPickup] ✅ Puzzle4 สำเร็จแล้ว — เบ็ดยืดปรากฏขึ้น!");
         }
     }
 
@@ -73,7 +80,7 @@ public class FishingRodPickup : MonoBehaviour
     // ─────────────────────────────────────────────
     void OnTriggerEnter(Collider other)
     {
-        if (_pickedUp || !other.CompareTag("Player")) return;
+        if (_pickedUp || !_pedestalRevealed || !other.CompareTag("Player")) return;
 
         _playerInRange = true;
         _playerHealth = other.GetComponent<PlayerHealth>();

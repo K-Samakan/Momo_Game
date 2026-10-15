@@ -39,6 +39,7 @@ public class WaterValvePuzzleManager : MonoBehaviour
     [SerializeField] private IntroScreenUI introScreenUI;
     [SerializeField] private InGameHUD inGameHUD;
     [SerializeField] private PuzzleClearUI puzzleClearUI;
+    [SerializeField] private GameObject overworldHUD;
 
     private Valve currentInteractingValve;
     private InputAction interactAction;
@@ -132,12 +133,15 @@ public class WaterValvePuzzleManager : MonoBehaviour
             }
         }
 
+        // ✅ ซ่อน HUD หลักทันทีตอนเข้าห้อง
+        if (overworldHUD != null)
+            overworldHUD.SetActive(false);
+
         if (introScreenUI != null)
         {
             introScreenUI.Show();
         }
 
-        // Switch to Puzzle4 ActionMap (หลังจาก Intro จบ)
         float switchDelay = introScreenUI != null ? 3.5f : 0f;
         Invoke(nameof(ActivatePuzzleMode), switchDelay);
     }
@@ -180,12 +184,14 @@ public class WaterValvePuzzleManager : MonoBehaviour
             inGameHUD.HideImmediate();
         }
 
-        // Switch back to Player ActionMap
+        // ✅ เปิด HUD หลักกลับมาตอนออกจากห้อง
+        if (overworldHUD != null)
+            overworldHUD.SetActive(true);
+
         playerInput.SwitchCurrentActionMap("Player");
         isPuzzleActive = false;
         currentInteractingValve = null;
 
-        // หยุดตรวจสอบ Puzzle
         StopPuzzleCheck();
 
         if (showDebugLogs)
@@ -574,6 +580,16 @@ public class WaterValvePuzzleManager : MonoBehaviour
     void PuzzleSolved()
     {
         isPuzzleSolved = true;
+
+        if (Inventory.Instance != null)
+        {
+            Inventory.Instance.CorrectPuzzle4 = true;
+            Debug.Log("[WaterValvePuzzleManager] ✅ CorrectPuzzle4 = true");
+        }
+        else
+        {
+            Debug.LogWarning("⚠️ Inventory.Instance not found! ไม่สามารถบันทึก CorrectPuzzle4 ได้");
+        }
 
         if (puzzleDoor != null)
         {
