@@ -1,8 +1,12 @@
+// ============================================================
+// FILE: BossMap4RoomTrigger.cs  (แทนที่ไฟล์เดิม)
+// PATH: Assets/Version 1/Script/AI/Boss/Boss_Map4/BossMap4RoomTrigger.cs
+// ============================================================
 using UnityEngine;
 
 /// <summary>
 /// Trigger เข้าห้องบอสด่าน 4 (หุ่นยนต์หมึกยักษ์)
-/// โครงสร้างเหมือน BossRoomTrigger (Map1) / BossMap2RoomTrigger / BossMap3RoomTrigger ทุกประการ
+/// โครงสร้างเหมือน BossMap2RoomTrigger — เพิ่มการเปิด TempleBlessingEffect (รางวัล Side Quest)
 ///
 /// ติดบน Collider (Is Trigger = true) ที่วางกั้นทางเข้าห้องบอส
 /// </summary>
@@ -17,6 +21,9 @@ public class BossMap4RoomTrigger : MonoBehaviour
     [Tooltip("ตัวปล่อยเสียง/การสั่นของบอส — ขยายรัศมีให้ผู้เล่นรู้ตำแหน่งบอสทั้งห้องตอนเข้าฉากสู้")]
     public SoundEmitter bossSoundEmitter;
     public float bossRoomVSERadius = 50f;
+
+    [Header("Temple Blessing (Side Quest Reward)")]
+    public TempleBlessingEffect templeBlessingEffect;
 
     private bool _triggered = false;
 
@@ -38,6 +45,10 @@ public class BossMap4RoomTrigger : MonoBehaviour
 
         if (bossController != null)
             bossController.OnPlayerEnterBossRoom();
+
+        // ✅ เปิดวนรอบบัฟ — ถ้ายังไม่ได้ทำเควส จะไม่มีอะไรเกิดขึ้น (เช็กใน TempleBlessingEffect เอง)
+        if (templeBlessingEffect != null)
+            templeBlessingEffect.SetBossFightActive(true);
 
         Debug.Log("[BossMap4RoomTrigger] 🐙 ผู้เล่นเข้าห้องบอส — เริ่มการต่อสู้!");
     }

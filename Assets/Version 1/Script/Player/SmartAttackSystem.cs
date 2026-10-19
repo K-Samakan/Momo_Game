@@ -49,6 +49,18 @@ public class SmartAttackSystem : MonoBehaviour
     public string kickLeftTrigger = "KickLeft";
     public string kickRight2Trigger = "KickRight2";
 
+    [Header("Fishing Rod Animator Parameters (Map4)")]
+    [Tooltip("Trigger ตัวเดียวสำหรับฟาดเบ็ดทุกท่า — สร้างใน Animator → Parameters เป็น Trigger")]
+    public string rodAttackTrigger = "RodAttack";
+    [Tooltip("Int บอกว่าเป็นท่าที่เท่าไหร่ (1, 2, 3) — สร้างใน Animator → Parameters เป็น Int")]
+    public string rodStepParam = "RodStep";
+
+    [Header("Fishing Rod Hit Fallback (กันกรณีคลิปไม่มี Animation Event)")]
+    [Tooltip("ถ้าคลิปฟาดเบ็ดไม่ยิง Event ภายในเวลานี้ ระบบจะสั่งตีให้เอง")]
+    public bool useRodHitFallback = true;
+    [Tooltip("ท่า 1, 2, 3 — เวลาหลังกดปุ่มที่ถือว่าเป็นจังหวะฟาดโดน (วินาที)")]
+    public float[] rodFallbackHitDelay = { 0.2f, 0.2f, 0.3f };
+
     [Header("Combo Settings")]
     public float comboResetTime = 1.2f;
 
@@ -73,6 +85,8 @@ public class SmartAttackSystem : MonoBehaviour
     private int _hashKickRight;
     private int _hashKickLeft;
     private int _hashKickRight2;
+    private int _hashRodAttack;
+    private int _hashRodStep;
 
     // ✅ Reference to GloveController
     private GloveController _gloveController;
@@ -80,6 +94,13 @@ public class SmartAttackSystem : MonoBehaviour
     // ✅ เพิ่มใหม่ — Reference to FireBowController (Map3)
     //    ใช้กันไม่ให้ปุ่ม □ สั่งต่อยซ้อนกับการยิงธนู ตอนสวมธนูไฟอยู่
     private FireBowController _fireBowController;
+
+    // ✅ เพิ่มใหม่ — Reference to FishingRodController (Map4)
+    //    ใช้สลับ hitbox ไปตามแนวเส้นเหลือง + เล่น Lash FX ตอนสวมเบ็ดยืด
+    private FishingRodController _fishingRodController;
+
+    bool IsGloveEquipped => _gloveController != null && _gloveController.IsEquipped;
+    bool IsRodEquipped => _fishingRodController != null && _fishingRodController.IsEquipped;
 
     // ────────────────────────────────────────
     // Enum
@@ -109,6 +130,8 @@ public class SmartAttackSystem : MonoBehaviour
         _hashKickRight = Animator.StringToHash(kickRightTrigger);
         _hashKickLeft = Animator.StringToHash(kickLeftTrigger);
         _hashKickRight2 = Animator.StringToHash(kickRight2Trigger);
+        _hashRodAttack = Animator.StringToHash(rodAttackTrigger);
+        _hashRodStep = Animator.StringToHash(rodStepParam);
 
         if (punchPoint == null) punchPoint = transform;
         if (kickPoint == null) kickPoint = transform;
@@ -128,6 +151,13 @@ public class SmartAttackSystem : MonoBehaviour
             Debug.Log("[SmartAttack] ✅ พบ FireBowController");
         else
             Debug.Log("[SmartAttack] ℹ️ ไม่พบ FireBowController (ปกติถ้ายังไม่ได้สวมธนู)");
+
+        // ✅ เพิ่มใหม่ — Map4 เบ็ดยืด
+        _fishingRodController = FindFirstObjectByType<FishingRodController>();
+        if (_fishingRodController != null)
+            Debug.Log("[SmartAttack] ✅ พบ FishingRodController");
+        else
+            Debug.Log("[SmartAttack] ℹ️ ไม่พบ FishingRodController (ปกติถ้ายังไม่ถึง Map4)");
     }
 
     // ────────────────────────────────────────
@@ -147,35 +177,64 @@ public class SmartAttackSystem : MonoBehaviour
     // Animation Events
     // ────────────────────────────────────────
 
-    public void OnPunchRightHit()
-    {
-        // ✅ ใช้ radius ใหญ่ขึ้นถ้าสวมถุงมือ
-        float radius = (_gloveController != null && _gloveController.IsEquipped)
-            ? glovePunchDetectRadius
-            : punchDetectRadius;
+    // ✅ ชื่อ Event เดิมทั้ง 3 ตัว → คลิปต่อยเดิม และคลิปฟาดเบ็ด ใช้ชื่อเดียวกันได้เลย
+    public void OnPunchRightHit() => DoPunchHit(punchDamage, 1);
+    public void OnPunchLeftHit() => DoPunchHit(punchDamage, 2);
+    public void OnPunchRight2Hit() => DoPunchHit(punchDamage2, 3);
 
-        DoDetection(punchPoint, radius, punchDamage);
-        _gloveController?.SpawnShockwaveRight();
+    /// <summary>
+    /// รวม logic ของหมัด 3 จังหวะ
+    /// - สวมเบ็ดยืด → hitbox เลื่อนไปข้างหน้าตามแนวเส้นเหลือง + เล่น Lash FX
+    /// - สวมถุงมือ → radius ใหญ่ + Shockwave
+    /// - ปกติ → radius ปกติ
+    /// </summary>
+    void DoPunchHit(int damage, int comboStep)
+    {
+        if (IsRodEquipped)
+        {
+            // 🎣 เบ็ด = ตีเหมือนหมัด แต่ใช้ระยะที่เบ็ดเพิ่มให้ (glovePunchDetectRadius ถูกตั้งเป็น extendedAttackRange)
+            //    damage ถูกบวก +2 ไว้แล้วตอน Equip
+            _rodHitReceived = true; // บอก fallback ว่า Event ทำงานแล้ว ไม่ต้องตีซ้ำ
+            DoDetection(punchPoint, glovePunchDetectRadius, damage);
+            Debug.Log($"[SmartAttack] 🎣 Rod Hit ท่า {comboStep} | radius {glovePunchDetectRadius} | DMG {damage}");
+            return;
+        }
+
+        float radius = IsGloveEquipped ? glovePunchDetectRadius : punchDetectRadius;
+        DoDetection(punchPoint, radius, damage);
+
+        if (comboStep == 2) _gloveController?.SpawnShockwaveLeft();
+        else _gloveController?.SpawnShockwaveRight();
     }
 
-    public void OnPunchLeftHit()
-    {
-        float radius = (_gloveController != null && _gloveController.IsEquipped)
-            ? glovePunchDetectRadius
-            : punchDetectRadius;
+    // ────────────────────────────────────────
+    // Fishing Rod Hit Fallback
+    // ถ้าคลิป RodAttack ไม่มี Animation Event → ตีให้เองตามเวลาที่ตั้งไว้
+    // ถ้ามี Event → Event ตีก่อน แล้ว fallback จะข้ามไป (ไม่ตีซ้ำ)
+    // ────────────────────────────────────────
+    private bool _rodHitReceived;
+    private Coroutine _rodFallbackRoutine;
 
-        DoDetection(punchPoint, radius, punchDamage);
-        _gloveController?.SpawnShockwaveLeft();
+    void StartRodHitFallback(int step)
+    {
+        if (!useRodHitFallback) return;
+        if (_rodFallbackRoutine != null) StopCoroutine(_rodFallbackRoutine);
+        _rodHitReceived = false;
+        _rodFallbackRoutine = StartCoroutine(RodHitFallback(step));
     }
 
-    public void OnPunchRight2Hit()
+    IEnumerator RodHitFallback(int step)
     {
-        float radius = (_gloveController != null && _gloveController.IsEquipped)
-            ? glovePunchDetectRadius
-            : punchDetectRadius;
+        int i = Mathf.Clamp(step - 1, 0, rodFallbackHitDelay.Length - 1);
+        float delay = rodFallbackHitDelay.Length > 0 ? rodFallbackHitDelay[i] : 0.2f;
+        yield return new WaitForSeconds(delay);
 
-        DoDetection(punchPoint, radius, punchDamage2);
-        _gloveController?.SpawnShockwaveRight();
+        if (!_rodHitReceived && IsRodEquipped)
+        {
+            Debug.Log($"[SmartAttack] 🎣 ไม่มี Animation Event ในคลิปท่า {step} → ใช้ Fallback Hit แทน");
+            DoPunchHit(step == 3 ? punchDamage2 : punchDamage, step);
+        }
+        _rodFallbackRoutine = null;
     }
 
     public void OnKickRightHit() => DoDetection(kickPoint, kickDetectRadius, kickDamage);
@@ -321,8 +380,9 @@ public class SmartAttackSystem : MonoBehaviour
 
     AttackType DetermineAttackType(GameObject target)
     {
-        // ✅ ถ้าสวมถุงมือ → ใช้แต่ Punch เท่านั้น ไม่มี Kick
-        if (_gloveController != null && _gloveController.IsEquipped)
+        // ✅ ถ้าสวมถุงมือ หรือ เบ็ดยืด → ใช้แต่ Punch (= ท่าฟาดเบ็ด) เท่านั้น ไม่มี Kick
+        //    (ถ้าไม่กันไว้ ตีมอนตัวเล็กจะออกท่าเตะ → ไม่มีท่าฟาดเบ็ด/เส้นเหลือง)
+        if (IsGloveEquipped || IsRodEquipped)
         {
             switch (_punchStep)
             {
@@ -369,6 +429,28 @@ public class SmartAttackSystem : MonoBehaviour
     void ExecuteAnimation(AttackType type)
     {
         if (_animator == null) return;
+
+        // 🎣 สวมเบ็ด → ใช้ Trigger "RodAttack" ตัวเดียว + Int "RodStep" (1/2/3) เลือกท่า
+        //    ไม่สวม → ยิง Trigger ต่อยเดิม (ถุงมือ/ปกติ ไม่เปลี่ยน)
+        if (IsRodEquipped &&
+            (type == AttackType.PunchRight || type == AttackType.PunchLeft || type == AttackType.PunchRight2))
+        {
+            int step = type == AttackType.PunchRight ? 1 : type == AttackType.PunchLeft ? 2 : 3;
+
+            // ⚠️ ต้อง SetInteger ก่อน SetTrigger เสมอ — Transition จะเช็คทั้งสองค่าพร้อมกัน
+            _animator.SetInteger(_hashRodStep, step);
+            _animator.SetTrigger(_hashRodAttack);
+
+            _punchStep = step == 3 ? 0 : step;
+            Debug.Log($"[SmartAttack] ครั้งที่ {step} → 🎣 ROD ATTACK (RodStep = {step})");
+
+            // สั่นแบบเดียวกับหมัด (ท่า 3 แรงกว่า)
+            if (step == 3) HapticManager.Instance?.Vibrate(0.25f, 0.6f, 0.2f);
+            else HapticManager.Instance?.Vibrate(0.15f, 0.3f, 0.12f);
+
+            StartRodHitFallback(step);
+            return;
+        }
 
         switch (type)
         {
@@ -479,6 +561,21 @@ public class SmartAttackSystem : MonoBehaviour
             }
         }
 
+        foreach (var col in allHits)
+        {
+            if (!col.CompareTag("Anchor")) continue;
+
+            Vector3 dir = (col.transform.position - transform.position).normalized;
+            if (Vector3.Angle(transform.forward, dir) > attackAngle / 2f) continue;
+
+            AnchorController anchor = col.GetComponent<AnchorController>();
+            if (anchor != null && !anchor.IsBroken)
+            {
+                anchor.TakeHit(); // เลือกดาเมจหมัด/เบ็ดเอง ไม่ใช้ค่า damage
+                Debug.Log($"[SmartAttack] Hit Anchor: {col.name}");
+            }
+        }
+
         Collider[] hits = Physics.OverlapSphere(origin.position, radius);
         foreach (var col in hits)
         {
@@ -567,10 +664,10 @@ public class SmartAttackSystem : MonoBehaviour
 
         if (punchPoint)
         {
-            Gizmos.color = Color.blue;
-            bool equipped = _gloveController != null && _gloveController.IsEquipped;
+            // 🎣 สวมเบ็ด = สีเหลือง, ถุงมือ/ปกติ = สีน้ำเงิน
+            Gizmos.color = IsRodEquipped ? new Color(1f, 0.85f, 0.1f, 1f) : Color.blue;
             Gizmos.DrawWireSphere(punchPoint.position,
-                equipped ? glovePunchDetectRadius : punchDetectRadius);
+                (IsGloveEquipped || IsRodEquipped) ? glovePunchDetectRadius : punchDetectRadius);
         }
 
         if (kickPoint)

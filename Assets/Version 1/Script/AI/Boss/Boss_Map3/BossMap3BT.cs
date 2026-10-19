@@ -508,9 +508,11 @@ public class BossMap3BT : MonoBehaviour
         }
 
         proj.Init(snowballDamage, dir, snowballSpeed, snowballSlowDuration, snowballSlowMultiplier,
-            snowballKnockbackForce);
+        snowballKnockbackForce);   // ← บรรทัด 510–511
 
-        Destroy(snowball, 8f);
+        ProjectileShootEmitter.Attach(snowball);   // ✅ เพิ่มตรงนี้
+
+        Destroy(snowball, 8f);   // ← บรรทัด 513 เดิม
     }
 
     // ═══════════════════════════════════════════════════

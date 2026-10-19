@@ -8,7 +8,7 @@ using System.Collections.Generic;
 /// <summary>
 /// In-Gameplay Closed Caption Manager
 /// แสดง CC ล่างกลางจอ สูงสุด 2 บรรทัด
-/// Priority: Enemy/Projectile (0) > Warning (1) > Cage/SideQuest (2)
+/// Priority: Enemy/Shoot (0) > Warning (1) > Cage/SideQuest (2)
 /// Format: [ Sound Name - Direction ]
 /// - Background ขยายตาม Content Size Fitter
 /// - มีแค่ Line1 → Line2 ซ่อน → Line1 อยู่กลาง
@@ -31,7 +31,7 @@ public class InGameCCManager : MonoBehaviour
     [Tooltip("CanvasGroup ของ CC Panel ทั้งหมด (ใช้ Fade)")]
     public CanvasGroup ccPanelGroup;
 
-    [Tooltip("Text บรรทัดที่ 1 — Priority สูง (Enemy, Projectile)")]
+    [Tooltip("Text บรรทัดที่ 1 — Priority สูง (Enemy, Shoot)")]
     public TextMeshProUGUI line1Text;
 
     [Tooltip("Text บรรทัดที่ 2 — Priority ต่ำ (Warning, Cage, SideQuest)")]
@@ -42,7 +42,7 @@ public class InGameCCManager : MonoBehaviour
 
     // ─── Display Settings ────────────────────────────────────────
     [Header("Display Settings")]
-    [Tooltip("เวลาแสดง CC สำหรับ Enemy / Projectile (วินาที)")]
+    [Tooltip("เวลาแสดง CC สำหรับ Enemy / Shoot (วินาที)")]
     public float displayTimeHigh = 1.5f;
 
     [Tooltip("เวลาแสดง CC สำหรับ Warning (วินาที)")]
@@ -71,7 +71,7 @@ public class InGameCCManager : MonoBehaviour
     private static readonly Dictionary<string, int> TagPriority = new Dictionary<string, int>
     {
         { "Enemy",      0 },
-        { "Projectile", 0 },
+        { "Shoot", 0 },
         { "Warning",    1 },
         { "Cage",       2 },   // ✅ เพิ่ม Cage
         { "SideQuest",  2 },
@@ -153,7 +153,7 @@ public class InGameCCManager : MonoBehaviour
 
         if (priority <= 0)
         {
-            // Enemy / Projectile → Slot 1 เสมอ
+            // Enemy / Shoot → Slot 1 เสมอ
             _slot1 = entry;
         }
         else
@@ -299,7 +299,7 @@ public class InGameCCManager : MonoBehaviour
         switch (tag)
         {
             case "Enemy": return "Monster Sound";
-            case "Projectile": return "Projectile";
+            case "Shoot": return "Shoot Sound";
             case "Warning": return "Warning Sound";
             case "Cage": return "Tiger Roar";
             case "SideQuest": return "Ambient Sound";

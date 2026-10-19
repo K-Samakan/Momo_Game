@@ -43,7 +43,35 @@ public class MirrorInteractionManager : MonoBehaviour
     [Header("Jetpack Reward")]
     public JetpackPickup jetpackPickup;
 
+    // ─────────────────────────────────────────────
+    // ✅ NEW: Puzzle UI (ใช้ต้นแบบจาก Map4)
+    // ─────────────────────────────────────────────
+    [Header("Puzzle UI (ต้นแบบจาก Map4)")]
+    [SerializeField] private IntroScreenUI introScreenUI;     // ลาก IntroScreenUI (ตัวถือสคริปต์)
+    [SerializeField] private InGameHUD inGameHUD;             // ลาก InGameHUDUI (ตัวถือสคริปต์)
+    [SerializeField] private PuzzleClearUI puzzleClearUI;     // ลาก SucScreenUI (ตัวถือสคริปต์)
+
+    [Header("Puzzle UI Settings")]
+    [Tooltip("ควรเท่ากับ fadeIn + display + fadeOut ของ IntroScreenUI (0.5 + 3 + 0.5 = 4)")]
+    [SerializeField] private float introWaitTime = 4f;
+
+    [Tooltip("ควรเท่ากับ fadeIn + display + fadeOut ของ PuzzleClearUI (0.5 + 2 + 0.5 = 3)")]
+    [SerializeField] private float clearWaitTime = 3f;
+
+    [Tooltip("ข้อความเป้าหมายที่จะแสดงใน InGameHUD")]
+    [TextArea(2, 4)]
+    [SerializeField] private string objectiveMessage = "🪞 หมุนกระจกสะท้อนแสงไปยังเป้าหมาย\n⚠️ ระวังกระจกหลอก!";
+
+    [Tooltip("true = ใช้หัวใจของ InGameHUD แทน Health Panel เดิมของ MirrorUIManager (กันหัวใจซ้อน 2 ชุด)")]
+    [SerializeField] private bool useInGameHUDHearts = true;
+
+    [Tooltip("ล็อกการควบคุมผู้เล่นระหว่างหน้าจอ Intro / Clear")]
+    [SerializeField] private bool lockInputDuringScreens = true;
+
     private bool isSolved = false;
+    private bool isPuzzleActive = false;   // ✅ NEW
+    private bool isEntering = false;       // ✅ NEW (กันกด ⭕ ซ้ำระหว่าง Intro)
+    private Coroutine sequenceRoutine;     // ✅ NEW
 
     private void Awake()
     {
@@ -96,13 +124,43 @@ public class MirrorInteractionManager : MonoBehaviour
         Debug.Log("🎮 Mirror input subscribed (puzzle NOT active yet)");
     }
 
+    // ✅ NEW: ถอด event ตอนปิด (กัน callback ค้างหลังแก้ puzzle เสร็จ)
+    private void OnDisable()
+    {
+        if (l2Action == null || r2Action == null) return;
+
+        l2Action.started -= OnL2Started;
+        l2Action.canceled -= OnL2Canceled;
+        r2Action.started -= OnR2Started;
+        r2Action.canceled -= OnR2Canceled;
+    }
+
     private void SetPuzzleVisualsActive(bool on)
     {
         if (cameraMiniMap != null)
             cameraMiniMap.SetActive(on);
 
         if (MirrorUIManager.Instance != null)
-            MirrorUIManager.Instance.SetPuzzleUIActive(on);
+        {
+            // ถ้าใช้หัวใจของ InGameHUD → ไม่เปิด Health Panel เดิม
+            // แต่ตอนปิด (on = false) ยังเรียกเพื่อซ่อน Mirror Interaction UI เสมอ
+            if (!on || !useInGameHUDHearts)
+                MirrorUIManager.Instance.SetPuzzleUIActive(on);
+        }
+
+        // ✅ NEW: InGameHUD (หัวใจ + เป้าหมาย + วิธีเล่น)
+        if (inGameHUD != null)
+        {
+            if (on)
+            {
+                inGameHUD.Show(playerCurrentHealth, playerMaxHealth);
+                inGameHUD.UpdateObjective(objectiveMessage);
+            }
+            else
+            {
+                inGameHUD.HideImmediate();
+            }
+        }
 
         if (mainHUD != null)
             mainHUD.SetActive(!on);
@@ -110,9 +168,19 @@ public class MirrorInteractionManager : MonoBehaviour
         Debug.Log($"HUD = {!on}");
     }
 
+    #region Puzzle Entry (✅ NEW: มี Intro Screen)
+
     public void EnterPuzzle()
     {
-        if (isSolved) return;
+        if (isSolved || isPuzzleActive || isEntering) return;
+
+        if (sequenceRoutine != null) StopCoroutine(sequenceRoutine);
+        sequenceRoutine = StartCoroutine(EnterPuzzleSequence());
+    }
+
+    private IEnumerator EnterPuzzleSequence()
+    {
+        isEntering = true;
 
         if (player == null)
         {
@@ -120,6 +188,7 @@ public class MirrorInteractionManager : MonoBehaviour
             if (p != null) player = p.transform;
         }
 
+        // 1) วาร์ปเข้าห้อง
         if (player != null && puzzleSpawnPoint != null)
         {
             CharacterController cc = player.GetComponent<CharacterController>();
@@ -129,13 +198,42 @@ public class MirrorInteractionManager : MonoBehaviour
             if (cc != null) cc.enabled = true;
         }
 
-        playerInput.SwitchCurrentActionMap("Puzzle2");
+        // 2) ซ่อน HUD หลักทันที
+        if (mainHUD != null) mainHUD.SetActive(false);
 
         Debug.Log("=== ENTER PUZZLE ===");
+
+        // 3) แสดง Intro Screen
+        if (introScreenUI != null)
+        {
+            if (lockInputDuringScreens && playerInput != null)
+                playerInput.DeactivateInput();
+
+            introScreenUI.Show();
+
+            // สั่นสั้น ๆ บอกผู้เล่นว่า "เข้าห้องปริศนาแล้ว" (สำคัญสำหรับผู้เล่นที่ไม่ได้ยินเสียง)
+            if (HapticManager.Instance != null)
+                HapticManager.Instance.PlayPattern(HapticPatternType.Short);
+
+            yield return new WaitForSeconds(introWaitTime);
+
+            if (lockInputDuringScreens && playerInput != null)
+                playerInput.ActivateInput();
+        }
+
+        // 4) เข้าโหมด Puzzle2 + เปิด InGameHUD / MiniMap
+        playerInput.SwitchCurrentActionMap("Puzzle2");
         SetPuzzleVisualsActive(true);
+
+        isPuzzleActive = true;
+        isEntering = false;
+        sequenceRoutine = null;
+
         Debug.Log("Puzzle UI Opened");
         Debug.Log("🪞 เข้าโหมด Puzzle2 แล้ว");
     }
+
+    #endregion
 
     public void RegisterMirror(InteractionMirror mirror)
     {
@@ -184,6 +282,7 @@ public class MirrorInteractionManager : MonoBehaviour
 
     private void OnL2Started(InputAction.CallbackContext context)
     {
+        if (!isPuzzleActive) return; // ✅ NEW
         Debug.Log("🎮 L2 Started");
 
         if (activeMirror != null)
@@ -201,6 +300,7 @@ public class MirrorInteractionManager : MonoBehaviour
 
     private void OnR2Started(InputAction.CallbackContext context)
     {
+        if (!isPuzzleActive) return; // ✅ NEW
         Debug.Log("🎮 R2 Started");
 
         if (activeMirror != null)
@@ -225,6 +325,10 @@ public class MirrorInteractionManager : MonoBehaviour
 
         if (MirrorUIManager.Instance != null)
             MirrorUIManager.Instance.OnPlayerHealthChanged(playerCurrentHealth, playerMaxHealth);
+
+        // ✅ NEW: อัปเดตหัวใจใน InGameHUD
+        if (inGameHUD != null)
+            inGameHUD.UpdateHearts(Mathf.Max(playerCurrentHealth, 0));
 
         if (HapticManager.Instance != null)
             HapticManager.Instance.PlayPattern(HapticPatternType.Boom);
@@ -276,6 +380,10 @@ public class MirrorInteractionManager : MonoBehaviour
         if (MirrorUIManager.Instance != null)
             MirrorUIManager.Instance.OnPlayerHealthChanged(playerCurrentHealth, playerMaxHealth);
 
+        // ✅ NEW
+        if (inGameHUD != null)
+            inGameHUD.UpdateHearts(playerCurrentHealth);
+
         if (HapticManager.Instance != null)
             HapticManager.Instance.PlayPattern(HapticPatternType.Success);
     }
@@ -300,38 +408,73 @@ public class MirrorInteractionManager : MonoBehaviour
         Debug.Log("All mirrors have been disabled/hidden after puzzle complete.");
     }
 
+    #region Puzzle Complete (✅ NEW: มี Clear Screen)
+
     public void OnPuzzleComplete()
     {
         if (isSolved) return;
         isSolved = true;
+        isPuzzleActive = false;
         Debug.Log("🎉 PUZZLE2 COMPLETED! 🎉");
 
+        if (sequenceRoutine != null) StopCoroutine(sequenceRoutine);
+        sequenceRoutine = StartCoroutine(PuzzleCompleteSequence());
+    }
+
+    private IEnumerator PuzzleCompleteSequence()
+    {
         if (HapticManager.Instance != null)
             HapticManager.Instance.PlayPuzzleCompleteFeedback();
 
-        // 1) สลับกลับ Player ก่อน — ต้องทำก่อนเสมอ เพื่อให้กด Attack เก็บ jetpack ได้
-        playerInput.SwitchCurrentActionMap("Player");
+        // 1) หยุดกระจกที่กำลังหมุน + ปิดกระจกทั้งหมดทันที
+        if (activeMirror != null)
+        {
+            activeMirror.StopRotation();
+            activeMirror = null;
+        }
+        DisableAllMirrors();
 
-        if (jetpackPickup != null)
-            jetpackPickup.ShowJetpackAfterPuzzle();
-
-        // 2) ปิดแค่ entranceDoor (กันคนเข้าซ้ำ) — 
-        //    ❌ ไม่แตะ exitDoor ตรงนี้แล้ว! exitDoor จะเปิดก็ต่อเมื่อ
-        //    JetpackPickup.EquipJetpack() เก็บ jetpack สำเร็จเท่านั้น
+        // 2) ปิดแค่ entranceDoor (กันคนเข้าซ้ำ)
+        //    ❌ ไม่แตะ exitDoor — exitDoor เปิดที่ JetpackPickup.EquipJetpack() เท่านั้น
         if (entranceDoor != null) entranceDoor.SetActive(false);
         Debug.Log("🚪 ปิดทางเข้าแล้ว รอผู้เล่นเก็บ Jetpack เพื่อเปิดทางออก");
 
         // 3) ล็อกแท่นกด
         if (warpTrigger != null) warpTrigger.LockPedestal();
 
-        // 4) ปิด UI + MiniMap
+        // 4) ซ่อน Puzzle HUD + MiniMap (mainHUD ยังซ่อนไว้ระหว่าง Clear Screen)
+        if (inGameHUD != null) inGameHUD.HideImmediate();
+        if (MirrorUIManager.Instance != null) MirrorUIManager.Instance.SetPuzzleUIActive(false);
+        if (cameraMiniMap != null) cameraMiniMap.SetActive(false);
+
+        // 5) แสดง Clear Screen
+        if (puzzleClearUI != null)
+        {
+            if (lockInputDuringScreens && playerInput != null)
+                playerInput.DeactivateInput();
+
+            puzzleClearUI.Show();
+            yield return new WaitForSeconds(clearWaitTime);
+
+            if (lockInputDuringScreens && playerInput != null)
+                playerInput.ActivateInput();
+        }
+
+        // 6) สลับกลับ Player — ต้องทำก่อนโชว์ Jetpack เพื่อให้กด Attack เก็บ jetpack ได้
+        playerInput.SwitchCurrentActionMap("Player");
+
+        if (jetpackPickup != null)
+            jetpackPickup.ShowJetpackAfterPuzzle();
+
+        // 7) เปิด HUD หลักกลับมา
         SetPuzzleVisualsActive(false);
 
-        // 5) ปิดกระจกทั้งหมด
-        DisableAllMirrors();
+        sequenceRoutine = null;
 
-        // 6) ปิดตัวจัดการ puzzle
+        // 8) ปิดตัวจัดการ puzzle (ทำท้ายสุด หลัง Coroutine จบ)
         this.enabled = false;
         Debug.Log("🛑 ปิด MirrorInteractionManager แล้ว");
     }
+
+    #endregion
 }

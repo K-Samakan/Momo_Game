@@ -1,15 +1,17 @@
+// ============================================================
+// FILE: RockQuestManager.cs
+// PATH: Assets/Version 1/Script/Map2/SideQuest2/RockQuestManager.cs
+// ============================================================
 using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 using System.Collections;
 
 /// <summary>
-/// จัดการภารกิจรอง "ฟื้นฟูโอเอซิส" (Map2) — ดัดแปลงจาก CageQuestManager.cs (Map1)
-/// โครงสร้าง UI/Effect/Debug เหมือนเดิมทุกอย่าง ต่างแค่:
-///   • นับหิน (destroyedRocks) แทนกรง
-///   • ตอนสำเร็จ ปลดล็อกความสามารถ "โล่ป้องกัน" ผ่าน OasisShieldEffect
-///     แทนการเปิด TigerAllyEffect โดยตรง (เพราะโล่ต้องรอเงื่อนไข HP<=2 ตอนสู้บอสอีกที
-///     ไม่ได้ enable ทันทีเหมือนเสือ)
+/// จัดการภารกิจรอง "ฟื้นฟูโอเอซิส" (Map2) — ใช้ UI flow เดียวกับ CageQuestManager.cs (Map1)
+///   • นับหิน 5 ก้อน
+///   • ตอนสำเร็จ → ไฮไลท์เขียวบนป้ายเควส แล้ว fade ป้ายหายไปทั้งก้อน (เหมือน Map1)
+///   • ปลดล็อก OasisShieldEffect (โล่ตอนสู้บอส HP <= 2)
 /// </summary>
 public class RockQuestManager : MonoBehaviour
 {
@@ -20,14 +22,26 @@ public class RockQuestManager : MonoBehaviour
     private int destroyedRocks = 0;
 
     [Header("UI")]
+    [Tooltip("Text ตัวนับ (บรรทัดเล็กใต้ชื่อเควส)")]
     public TextMeshProUGUI questCounterText;
+    [Tooltip("ข้อความหน้าตัวเลข → \"Rocks destroyed : 0/5\"")]
+    public string counterLabel = "Rocks destroyed";
+
+    [Tooltip("(ไม่บังคับ) Panel แจ้งเตือนแยก — เว้นว่างได้ถ้าใช้แค่ไฮไลท์บนป้ายเควส")]
     public GameObject questCompletePanel;
     public TextMeshProUGUI questCompleteText;
     public Image panelBackground;
 
+    [Header("Side Quest Popup Complete FX")]
+    [Tooltip("ป้ายเควสทั้งก้อน — จะ fade หายไปตอนจบ (เช่น SideQuest_Root)")]
+    public GameObject sideQuestPopupRoot;
+    [Tooltip("Panel ไฮไลท์สีเขียวหลังชื่อเควส (Pivot X = 0.5, ปิดไว้ก่อนใน Scene)")]
+    public RectTransform highlightPanel;
+    public float highlightRevealDuration = 0.2f;
+
     [Header("Effect Settings")]
     public Color normalColor = new Color(0.2f, 0.2f, 0.2f, 0.8f);
-    public Color successColor = new Color(0f, 0.8f, 0.2f, 0.8f);
+    public Color successColor = new Color(0f, 0.8f, 0.2f, 0.8f); // เขียว (เหมือน Map1)
     public float textPunchScale = 1.4f;
     public float fadeOutDelay = 2f;
     public float fadeOutDuration = 1f;
@@ -36,7 +50,6 @@ public class RockQuestManager : MonoBehaviour
     public OasisShieldEffect oasisShieldEffect;
 
     [Header("🧪 Debug / Test")]
-    [Tooltip("เปิดถ้าอยากใช้ปุ่มคีย์บอร์ดลัดเทสตอน Runtime (นอกเหนือจาก ContextMenu)")]
     public bool enableDebugKey = true;
     public KeyCode debugCompleteKey = KeyCode.F9;
 
@@ -46,6 +59,7 @@ public class RockQuestManager : MonoBehaviour
     {
         Instance = this;
         if (questCompletePanel) questCompletePanel.SetActive(false);
+        if (highlightPanel) highlightPanel.gameObject.SetActive(false); // ซ่อนไฮไลท์ไว้ก่อน
     }
 
     void Start()
@@ -56,15 +70,14 @@ public class RockQuestManager : MonoBehaviour
     void Update()
     {
         if (enableDebugKey && Input.GetKeyDown(debugCompleteKey))
-        {
             TEST_CompleteRockQuestInstantly();
-        }
     }
 
     public void OnRockDestroyed()
     {
-        destroyedRocks++;
-        destroyedRocks = Mathf.Clamp(destroyedRocks, 0, totalRocks);
+        if (IsQuestComplete) return;
+
+        destroyedRocks = Mathf.Clamp(destroyedRocks + 1, 0, totalRocks);
         UpdateUI();
 
         if (destroyedRocks >= totalRocks)
@@ -81,16 +94,18 @@ public class RockQuestManager : MonoBehaviour
         HapticManager.Instance?.PlayPattern(HapticPatternType.PuzzleComplete);
 
         StartCoroutine(QuestCompleteEffect());
+        StartCoroutine(SideQuestPopupCompleteEffect());
 
         Debug.Log("[Quest] ภารกิจฟื้นฟูโอเอซิสสำเร็จ!");
     }
 
+    // ── Panel แจ้งเตือนแยก (ทำงานเฉพาะถ้าผูกไว้) ──
     IEnumerator QuestCompleteEffect()
     {
-        if (questCompletePanel) questCompletePanel.SetActive(true);
+        if (!questCompletePanel) yield break;
 
-        if (panelBackground)
-            panelBackground.color = successColor;
+        questCompletePanel.SetActive(true);
+        if (panelBackground) panelBackground.color = successColor;
 
         if (questCompleteText)
         {
@@ -99,85 +114,103 @@ public class RockQuestManager : MonoBehaviour
         }
 
         yield return new WaitForSeconds(fadeOutDelay);
+        yield return StartCoroutine(FadeOut(questCompletePanel));
+        questCompletePanel.SetActive(false);
+    }
 
-        yield return StartCoroutine(FadeOutPanel());
+    /// <summary>
+    /// เหมือน Map1:
+    /// 1) ซ่อนตัวนับ "0/5"
+    /// 2) ไฮไลท์เขียวเผยจากกลาง → ซ้าย-ขวา
+    /// 3) ค้างไว้ fadeOutDelay วิ
+    /// 4) Fade ป้ายเควสทั้งก้อนหายไป
+    /// </summary>
+    IEnumerator SideQuestPopupCompleteEffect()
+    {
+        if (questCounterText) questCounterText.gameObject.SetActive(false);
 
-        if (questCompletePanel) questCompletePanel.SetActive(false);
+        if (highlightPanel)
+        {
+            var img = highlightPanel.GetComponent<Image>();
+            if (img) img.color = successColor;
+
+            highlightPanel.gameObject.SetActive(true);
+            Vector3 startScale = new Vector3(0f, 1f, 1f);
+            highlightPanel.localScale = startScale;
+
+            float elapsed = 0f;
+            while (elapsed < highlightRevealDuration)
+            {
+                elapsed += Time.deltaTime;
+                highlightPanel.localScale = Vector3.Lerp(startScale, Vector3.one, elapsed / highlightRevealDuration);
+                yield return null;
+            }
+            highlightPanel.localScale = Vector3.one;
+        }
+
+        yield return new WaitForSeconds(fadeOutDelay);
+
+        if (sideQuestPopupRoot)
+        {
+            yield return StartCoroutine(FadeOut(sideQuestPopupRoot));
+            sideQuestPopupRoot.SetActive(false);
+        }
     }
 
     IEnumerator PunchTextEffect(TextMeshProUGUI text)
     {
-        float elapsed = 0f;
-        float duration = 0.3f;
-        Vector3 originalScale = Vector3.one;
+        float half = 0.15f, elapsed = 0f;
+        Vector3 s = Vector3.one;
 
-        while (elapsed < duration / 2f)
+        while (elapsed < half)
         {
             elapsed += Time.deltaTime;
-            float t = elapsed / (duration / 2f);
-            text.transform.localScale = Vector3.Lerp(originalScale,
-                originalScale * textPunchScale, t);
+            text.transform.localScale = Vector3.Lerp(s, s * textPunchScale, elapsed / half);
             yield return null;
         }
 
         elapsed = 0f;
-
-        while (elapsed < duration / 2f)
+        while (elapsed < half)
         {
             elapsed += Time.deltaTime;
-            float t = elapsed / (duration / 2f);
-            text.transform.localScale = Vector3.Lerp(originalScale * textPunchScale,
-                originalScale, t);
+            text.transform.localScale = Vector3.Lerp(s * textPunchScale, s, elapsed / half);
             yield return null;
         }
-
-        text.transform.localScale = originalScale;
+        text.transform.localScale = s;
     }
 
-    IEnumerator FadeOutPanel()
+    IEnumerator FadeOut(GameObject target)
     {
+        CanvasGroup cg = target.GetComponent<CanvasGroup>();
+        if (cg == null) cg = target.AddComponent<CanvasGroup>();
+
+        cg.alpha = 1f;
         float elapsed = 0f;
-
-        CanvasGroup canvasGroup = questCompletePanel.GetComponent<CanvasGroup>();
-        if (canvasGroup == null)
-            canvasGroup = questCompletePanel.AddComponent<CanvasGroup>();
-
-        canvasGroup.alpha = 1f;
-
         while (elapsed < fadeOutDuration)
         {
             elapsed += Time.deltaTime;
-            canvasGroup.alpha = Mathf.Lerp(1f, 0f, elapsed / fadeOutDuration);
+            cg.alpha = Mathf.Lerp(1f, 0f, elapsed / fadeOutDuration);
             yield return null;
         }
-
-        canvasGroup.alpha = 0f;
+        cg.alpha = 0f;
     }
 
-    /// <summary>
-    /// 🧪 TEST ONLY — จบ Side Quest โอเอซิสทันที โดยไม่ต้องทุบหินจริง
-    /// เรียก flow เดิมทุกขั้นตอน (UI, Haptic, OasisShieldEffect) เหมือนเล่นจริง
-    /// </summary>
     [ContextMenu("🧪 TEST - Complete Rock Quest Instantly")]
     public void TEST_CompleteRockQuestInstantly()
     {
         if (IsQuestComplete)
         {
-            Debug.Log("[TEST] เควสฟื้นฟูโอเอซิสสำเร็จไปแล้ว ไม่ต้องทำซ้ำ");
+            Debug.Log("[TEST] เควสฟื้นฟูโอเอซิสสำเร็จไปแล้ว");
             return;
         }
 
-        Debug.Log("[TEST] ⚡ บังคับจบ Side Quest โอเอซิส (ข้ามการทุบหินจริง)");
-
-        while (destroyedRocks < totalRocks)
-        {
-            OnRockDestroyed();
-        }
+        Debug.Log("[TEST] ⚡ บังคับจบ Side Quest โอเอซิส");
+        while (!IsQuestComplete) OnRockDestroyed();
     }
 
     void UpdateUI()
     {
         if (questCounterText)
-            questCounterText.text = $"Rocks destroyed : {destroyedRocks}/{totalRocks}";
+            questCounterText.text = $"{counterLabel} : {destroyedRocks}/{totalRocks}";
     }
 }

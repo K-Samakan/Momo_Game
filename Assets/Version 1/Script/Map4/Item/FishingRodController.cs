@@ -1,35 +1,39 @@
 // ============================================================
-// FILE: FishingRodController.cs
-// PATH: Assets/Version 1/Script/Map4/Item4/FishingRodController.cs
+// FILE: FishingRodController.cs  (v4 — ตีเหมือนหมัด + ระยะไกลขึ้น + แรงขึ้น + ท่า RodAttack)
+// PATH: Assets/Version 1/Script/Map4/Item/FishingRodController.cs
 // วางไว้เป็นลูกของ Player (เหมือน GloveController.cs ของ Map1)
+//
+// ท่าฟาดเบ็ด: SmartAttackSystem จะยิง Trigger "RodAttack" + Int "RodStep" (1/2/3)
+//             เองเมื่อ IsEquipped = true → เข้า State RodAttack1/2/3 ใน Animator
+// ดาเมจ: ใช้ระบบเดียวกับหมัด (DoDetection ที่ punchPoint) แต่ radius = extendedAttackRange
 // ============================================================
 using UnityEngine;
 
 public class FishingRodController : MonoBehaviour
 {
     [Header("=== Combat Bonus ===")]
-    [Tooltip("ระยะตรวจจับศัตรูที่เพิ่มขึ้นเมื่อสวมเบ็ดยืด (แทน punchDetectRadius ปกติ)")]
+    [Tooltip("ระยะ hitbox ของหมัดตอนสวมเบ็ด (ปกติหมัด = 1.5)")]
     public float extendedAttackRange = 4.5f;
 
-    [Tooltip("แนวโจมตีทั่วไป (SmartAttackSystem.attackRange) ที่เพิ่มขึ้นเมื่อสวมเบ็ดยืด")]
+    [Tooltip("ระยะล็อกเป้า (SmartAttackSystem.attackRange) เมื่อสวมเบ็ดยืด — ควร ≥ extendedAttackRange")]
     public float extendedDetectionRange = 5f;
 
-    [Tooltip("โบนัสพลังโจมตี (หน่วย) ที่บวกเพิ่มจากค่าปกติ เช่น ปกติ 1 → รวมบวก 2 = 3")]
+    [Tooltip("โบนัสพลังโจมตี (หน่วย) เช่น ปกติ 1 → บวก 2 = 3")]
     public int attackDamageBonus = 2;
 
     [Header("=== Oxygen Bonus (อยู่ใต้น้ำได้นานขึ้น) ===")]
-    [Tooltip("เพิ่ม Max Oxygen กี่ % จากค่าเดิม")]
-    [Range(0f, 2f)]
-    public float extraOxygenPercent = 0.5f; // +50%
+    [Range(0f, 2f)] public float extraOxygenPercent = 0.5f;               // +50%
+    [Range(0f, 1f)] public float oxygenDepletionReductionPercent = 0.3f;  // -30%
 
-    [Tooltip("ลดอัตราการใช้ออกซิเจนกี่ % จากค่าเดิม")]
-    [Range(0f, 1f)]
-    public float oxygenDepletionReductionPercent = 0.3f; // -30%
+    [Header("=== Rod Model ===")]
+    [Tooltip("โมเดลเบ็ดที่ติดอยู่ในมือ (Mesh_0 ใต้ hand.R) — เปิดตอนสวม ปิดตอนถอด")]
+    public GameObject rodHandModel;
 
     [Header("=== References ===")]
     public SmartAttackSystem smartAttackSystem;
     public SwimmingControllerHybrid swimmingController;
 
+    // ── Private ──
     private bool _isEquipped = false;
     private float _originalPunchDetectRadius;
     private float _originalAttackRange;
@@ -44,10 +48,12 @@ public class FishingRodController : MonoBehaviour
             smartAttackSystem = GetComponentInParent<SmartAttackSystem>();
         if (swimmingController == null)
             swimmingController = GetComponentInParent<SwimmingControllerHybrid>();
+
+        if (rodHandModel != null) rodHandModel.SetActive(false);
     }
 
     // ─────────────────────────────────────────────
-    // เรียกจาก FishingRodPickup ตอนเก็บไอเทม
+    // Equip / Unequip
     // ─────────────────────────────────────────────
     public void OnEquip()
     {
@@ -56,8 +62,9 @@ public class FishingRodController : MonoBehaviour
 
         ApplyCombatBonus();
         ApplyOxygenBonus();
+        if (rodHandModel != null) rodHandModel.SetActive(true);
 
-        Debug.Log("[FishingRodController] 🎣 Equipped! ระยะโจมตี+พลังโจมตี+ออกซิเจน อัปเดตแล้ว");
+        Debug.Log($"[FishingRodController] 🎣 Equipped! ระยะตี {extendedAttackRange} | DMG +{attackDamageBonus} | ออกซิเจนเพิ่ม");
     }
 
     public void OnUnequip()
@@ -67,6 +74,7 @@ public class FishingRodController : MonoBehaviour
 
         RevertCombatBonus();
         RevertOxygenBonus();
+        if (rodHandModel != null) rodHandModel.SetActive(false);
     }
 
     // ─────────────────────────────────────────────
@@ -80,23 +88,19 @@ public class FishingRodController : MonoBehaviour
             return;
         }
 
-        // เก็บค่าดั้งเดิมไว้ก่อน (เผื่อถอดเบ็ดออก)
         _originalPunchDetectRadius = smartAttackSystem.glovePunchDetectRadius;
         _originalAttackRange = smartAttackSystem.attackRange;
         _originalPunchDamage = smartAttackSystem.punchDamage;
         _originalPunchDamage2 = smartAttackSystem.punchDamage2;
 
-        // ✅ เพิ่มระยะโจมตี
+        // ✅ ระยะหมัด (SmartAttackSystem ใช้ค่านี้ตอนสวมเบ็ด)
         smartAttackSystem.glovePunchDetectRadius = extendedAttackRange;
+        // ✅ ระยะล็อกเป้า + ระยะตี Cage/Rock/Anchor
         smartAttackSystem.attackRange = Mathf.Max(smartAttackSystem.attackRange, extendedDetectionRange);
 
-        // ✅ เพิ่มพลังโจมตี (1 → 3 เมื่อ bonus = 2)
+        // ✅ ความแรง (1 → 3, 2 → 4)
         smartAttackSystem.punchDamage = _originalPunchDamage + attackDamageBonus;
         smartAttackSystem.punchDamage2 = _originalPunchDamage2 + attackDamageBonus;
-
-        // ✅ ให้ระบบคอมโบต่อยรับรู้ว่ามีอุปกรณ์สวมใส่อยู่ (ใช้พาธเดียวกับถุงมือ)
-        //    ถ้า SmartAttackSystem อ้างอิง GloveController อยู่แล้ว ให้ปล่อยผ่านได้ตามปกติ
-        //    เบ็ดยืดใช้ท่าต่อย 3 คอมโบเดียวกัน (PunchRight → PunchLeft → PunchRight2)
     }
 
     void RevertCombatBonus()
@@ -110,7 +114,7 @@ public class FishingRodController : MonoBehaviour
     }
 
     // ─────────────────────────────────────────────
-    // Oxygen Bonus — ต้องมี method เสริมใน SwimmingControllerHybrid (ดูหมายเหตุด้านล่าง)
+    // Oxygen Bonus
     // ─────────────────────────────────────────────
     void ApplyOxygenBonus()
     {
@@ -119,7 +123,6 @@ public class FishingRodController : MonoBehaviour
             Debug.LogWarning("[FishingRodController] ⚠️ ไม่พบ SwimmingControllerHybrid!");
             return;
         }
-
         swimmingController.ApplyOxygenBonus(extraOxygenPercent, oxygenDepletionReductionPercent);
     }
 
@@ -130,41 +133,24 @@ public class FishingRodController : MonoBehaviour
     }
 
     // ─────────────────────────────────────────────
-    // 🧪 TEST — สลับสวม/ถอดด้วยปุ่มเดียว (ไม่ชนกับ F9 ของ BossMap4Tester)
+    // 🧪 TEST — F6 สลับสวม/ถอด
     // ─────────────────────────────────────────────
-    [Header("=== Debug / Test Toggle ===")]
-    [Tooltip("ปุ่มสลับสวม-ถอดเบ็ดยืดสำหรับทดสอบ (ไม่แตะ Puzzle/Save)")]
+    [Header("=== Debug / Test ===")]
     public KeyCode testToggleKey = KeyCode.F6;
 
     [ContextMenu("TEST: Equip Fishing Rod Now")]
-    public void TestEquipNow()
-    {
-        OnEquip();
-        Debug.Log("[FishingRodController] 🧪 TEST EQUIP เรียกใช้งานแล้ว");
-    }
+    public void TestEquipNow() { OnEquip(); Debug.Log("[FishingRodController] 🧪 TEST EQUIP"); }
 
     [ContextMenu("TEST: Unequip Fishing Rod Now")]
-    public void TestUnequipNow()
-    {
-        OnUnequip();
-        Debug.Log("[FishingRodController] 🧪 TEST UNEQUIP เรียกใช้งานแล้ว");
-    }
+    public void TestUnequipNow() { OnUnequip(); Debug.Log("[FishingRodController] 🧪 TEST UNEQUIP"); }
 
     [ContextMenu("TEST: Toggle Equip Now")]
-    public void TestToggleNow()
-    {
-        if (_isEquipped) TestUnequipNow();
-        else TestEquipNow();
-    }
+    public void TestToggleNow() { if (_isEquipped) TestUnequipNow(); else TestEquipNow(); }
 
 #if UNITY_EDITOR
     void Update()
     {
-        // ✅ F6 = Toggle สวม/ถอดเบ็ดยืด (เปลี่ยนจาก F9 เดิม กันชนกับ BossMap4Tester)
-        if (Input.GetKeyDown(testToggleKey))
-        {
-            TestToggleNow();
-        }
+        if (Input.GetKeyDown(testToggleKey)) TestToggleNow();
     }
 #endif
 }

@@ -33,6 +33,7 @@ TagManager:
   - Boom
   - Rock
   - IceCrystal
+  - Anchor
   layers:
   - Default
   - TransparentFX

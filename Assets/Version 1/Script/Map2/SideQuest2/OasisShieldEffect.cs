@@ -1,19 +1,20 @@
+// ============================================================
+// FILE: OasisShieldEffect.cs
+// PATH: Assets/Version 1/Script/Map2/SideQuest2/OasisShieldEffect.cs
+// ============================================================
 using UnityEngine;
 using MOMO.Player;
 
 /// <summary>
 /// รางวัลภารกิจรอง Map2 — "โล่ป้องกันโอเอซิส"
-/// ไม่มีต้นแบบตรงจาก Map1 (TigerAllyEffect เป็นบัฟโจมตี ส่วนนี้เป็นบัฟป้องกัน)
 ///
-/// เงื่อนไขที่ยืนยันแล้ว:
-///   • ทำงานเฉพาะตอน RockQuestManager.IsQuestComplete == true และอยู่ในห้องสู้บอส Map2
-///   • HP ผู้เล่น <= 2 (และยังไม่ตาย) → เปิดโล่อัตโนมัติ
-///   • โล่พังเมื่อ: บล็อกดาเมจครบ 3 ครั้ง หรือผ่านไป 45 วินาที (แล้วแต่อย่างไหนถึงก่อน)
-///   • หลังโล่พัง คูลดาวน์ 60 วินาที ก่อน trigger ใหม่ได้อีกครั้ง
-///   • ไม่มีระบบตกแพลตฟอร์ม (ตัดออกจากทุกด่านแล้ว) — ไม่ต้อง handle
+/// โล่จะเปิดเองเมื่อครบ 3 เงื่อนไขพร้อมกัน:
+///   1) Quest Unlocked  = ทุบหินครบ 5 ก้อน (RockQuestManager เรียก EnableShieldCapability)
+///   2) Boss Fight Active = เดินเข้าห้องบอส (BossMap2RoomTrigger เรียก SetBossFightActive(true))
+///   3) HP ผู้เล่น <= 2 และยังไม่ตาย และไม่ติดคูลดาวน์
 ///
-/// ⚠️ ต้องแก้ PlayerHealth.cs เพิ่ม field `isShielded` + event `OnShieldHit`
-///    (ดูคำแนะนำ patch แยกต่างหาก) ไม่งั้นสคริปต์นี้ compile ไม่ผ่าน
+/// ✅ v2: เช็คเงื่อนไขทุกเฟรมใน Update (ไม่พึ่ง event OnHPChanged อย่างเดียว)
+/// ✅ v2: โชว์สถานะทุกเงื่อนไขใน Inspector ตอน Play — ดูได้เลยว่าข้อไหนไม่ผ่าน
 /// </summary>
 public class OasisShieldEffect : MonoBehaviour
 {
@@ -21,6 +22,8 @@ public class OasisShieldEffect : MonoBehaviour
     public int maxHitsAbsorbed = 3;
     public float shieldDuration = 45f;
     public float shieldCooldown = 60f;
+    [Tooltip("โล่เปิดเมื่อ HP <= ค่านี้")]
+    public int hpThreshold = 2;
 
     [Header("References")]
     public PlayerHealth playerHealth;
@@ -29,50 +32,73 @@ public class OasisShieldEffect : MonoBehaviour
     [Tooltip("โมเดล/Particle โล่รอบตัวผู้เล่น — เปิด/ปิดตาม SetActive")]
     public GameObject shieldVFX;
 
-    [Tooltip("Popup UI ตอนโล่เปิด (ใช้ class TigerAssistPopupUI เดิมจาก Map1 — เป็น popup กลางๆ ใช้ซ้ำได้ ไม่ผูกกับเสือ)")]
+    [Tooltip("Popup UI ตอนโล่เปิด (ใช้ class TigerAssistPopupUI เดิมจาก Map1)")]
     public TigerAssistPopupUI shieldPopup;
 
+    [Header("📊 Status (ดูตอน Play — ต้องติ๊กครบ 2 ช่องแรก)")]
+    [SerializeField] private bool questUnlocked = false;     // เงื่อนไข 1
+    [SerializeField] private bool bossFightActive = false;   // เงื่อนไข 2
+    [SerializeField] private int currentHP = 0;              // เงื่อนไข 3
+    [SerializeField] private bool isShieldActive = false;
+    [SerializeField] private float cooldownLeft = 0f;
+
     [Header("🧪 Debug / Test")]
-    [Tooltip("เปิดถ้าอยากใช้ปุ่มคีย์บอร์ดลัดเทส — บังคับเปิด/ปิดโล่ได้ทันที ไม่ต้องอยู่ในห้องบอสหรือทำเควสก่อน")]
     public bool enableDebugKey = true;
     public KeyCode debugActivateKey = KeyCode.F8;
     public KeyCode debugDeactivateKey = KeyCode.F7;
 
-    private bool bossFightActive = false;
-    private bool shieldCapabilityUnlocked = false; // = RockQuestManager สำเร็จแล้ว
-    private bool isShieldActive = false;
     private int hitsAbsorbed = 0;
     private float shieldTimer = 0f;
-    private float cooldownTimer = 0f;
+    private bool warnedNotAlive = false;
+
+    void Awake()
+    {
+        // ✅ v3: ถ้าช่อง Player Health ว่าง หรือลาก Prefab จาก Project มาใส่ (ไม่ใช่ตัวใน Scene)
+        //        → หา PlayerHealth ตัวจริงใน Scene จาก Tag "Player" ให้อัตโนมัติ
+        if (playerHealth == null || !playerHealth.gameObject.scene.IsValid())
+        {
+            if (playerHealth != null)
+                Debug.LogWarning("[OasisShield] ⚠️ ช่อง Player Health เป็น Prefab ใน Project ไม่ใช่ตัวใน Scene — กำลังหาตัวจริงให้");
+
+            GameObject p = GameObject.FindWithTag("Player");
+            if (p != null)
+            {
+                PlayerHealth found = p.GetComponentInParent<PlayerHealth>();
+                if (found == null) found = p.GetComponentInChildren<PlayerHealth>();
+                playerHealth = found;
+            }
+        }
+    }
 
     void OnEnable()
     {
-        if (playerHealth != null)
+        if (playerHealth == null)
         {
-            playerHealth.OnHPChanged += HandleHPChanged;
-            playerHealth.OnShieldHit += HandleShieldHit;
+            Debug.LogError("[OasisShield] ❌ ยังไม่ได้ลาก Player Health ใส่ใน Inspector — โล่จะไม่ทำงาน");
+            return;
         }
+        playerHealth.OnShieldHit += HandleShieldHit;
     }
 
     void OnDisable()
     {
         if (playerHealth != null)
-        {
-            playerHealth.OnHPChanged -= HandleHPChanged;
             playerHealth.OnShieldHit -= HandleShieldHit;
-        }
     }
 
     void Update()
     {
+        if (playerHealth != null) currentHP = playerHealth.currentHealth;
+
         if (isShieldActive)
         {
             shieldTimer -= Time.deltaTime;
             if (shieldTimer <= 0f) DeactivateShield();
         }
-        else if (cooldownTimer > 0f)
+        else
         {
-            cooldownTimer -= Time.deltaTime;
+            if (cooldownLeft > 0f) cooldownLeft -= Time.deltaTime;
+            TryAutoActivate();
         }
 
         if (enableDebugKey)
@@ -82,30 +108,42 @@ public class OasisShieldEffect : MonoBehaviour
         }
     }
 
-    /// <summary>เรียกจาก RockQuestManager ตอนภารกิจรองสำเร็จ (ปลดล็อกความสามารถ ยังไม่เปิดโล่ทันที)</summary>
+    // เช็คทุกเฟรม — ถ้าครบเงื่อนไขก็เปิดโล่ทันที
+    private void TryAutoActivate()
+    {
+        if (!questUnlocked || !bossFightActive) return;
+        if (playerHealth == null) return;
+
+        if (playerHealth.currentHealth <= hpThreshold && !playerHealth.IsAlive())
+        {
+            if (!warnedNotAlive)
+            {
+                Debug.LogWarning($"[OasisShield] ⚠️ HP = {playerHealth.currentHealth} แต่ IsAlive() = false — เช็ค IsAlive() ใน PlayerHealth");
+                warnedNotAlive = true;
+            }
+            return;
+        }
+        if (cooldownLeft > 0f) return;
+
+        if (playerHealth.currentHealth <= hpThreshold)
+            ActivateShield();
+    }
+
+    /// <summary>เรียกจาก RockQuestManager ตอนภารกิจรองสำเร็จ</summary>
     public void EnableShieldCapability()
     {
-        shieldCapabilityUnlocked = true;
-        Debug.Log("[OasisShield] ✅ ปลดล็อกความสามารถโล่ป้องกันแล้ว (จะทำงานตอนสู้บอสและ HP<=2)");
+        questUnlocked = true;
+        Debug.Log("[OasisShield] ✅ เงื่อนไข 1 ผ่าน: ปลดล็อกโล่แล้ว (เควสหินสำเร็จ)");
     }
 
     /// <summary>เรียกจาก BossMap2RoomTrigger ตอนผู้เล่นเข้า/ออกห้องบอส</summary>
     public void SetBossFightActive(bool active)
     {
         bossFightActive = active;
-    }
+        Debug.Log($"[OasisShield] {(active ? "✅" : "⛔")} เงื่อนไข 2: Boss Fight Active = {active}");
 
-    private void HandleHPChanged(int current, int max)
-    {
-        if (!shieldCapabilityUnlocked || !bossFightActive) return;
-        if (playerHealth == null || !playerHealth.IsAlive()) return;
-        if (isShieldActive || cooldownTimer > 0f) return;
-
-        // ✅ HP <= 2 (ไม่ใช่ ==2 พอดี) ตามที่ยืนยันไว้
-        if (current <= 2)
-        {
-            ActivateShield();
-        }
+        if (active && !questUnlocked)
+            Debug.LogWarning("[OasisShield] ⚠️ เข้าห้องบอสแล้ว แต่ยังไม่ได้ปลดล็อกโล่ (เควสหินยังไม่สำเร็จ หรือ RockQuestManager ไม่ได้ผูกช่อง Oasis Shield Effect)");
     }
 
     private void ActivateShield()
@@ -119,7 +157,7 @@ public class OasisShieldEffect : MonoBehaviour
         shieldPopup?.ShowPopup();
         HapticManager.Instance?.Vibrate(0.4f, 0.4f, 0.2f);
 
-        Debug.Log("[OasisShield] 🛡️ โล่เปิดใช้งาน (HP <= 2)");
+        Debug.Log($"[OasisShield] 🛡️ โล่เปิดใช้งาน (HP = {playerHealth.currentHealth})");
     }
 
     private void HandleShieldHit()
@@ -137,23 +175,18 @@ public class OasisShieldEffect : MonoBehaviour
     {
         isShieldActive = false;
         playerHealth.isShielded = false;
-        cooldownTimer = shieldCooldown;
+        cooldownLeft = shieldCooldown;
 
         if (shieldVFX) shieldVFX.SetActive(false);
 
-        Debug.Log("[OasisShield] 💥 โล่พัง — เริ่มคูลดาวน์ 60 วินาที");
+        Debug.Log($"[OasisShield] 💥 โล่พัง — คูลดาวน์ {shieldCooldown} วินาที");
     }
 
     // ════════════════════════════════════════════════════════════
     #region 🧪 Debug / Test
     // ════════════════════════════════════════════════════════════
 
-    /// <summary>
-    /// 🧪 TEST ONLY — บังคับเปิดโล่ทันที ข้ามทุกเงื่อนไข
-    /// (ไม่ต้องทำเควสสำเร็จ, ไม่ต้องอยู่ในห้องบอส, ไม่ต้อง HP<=2)
-    /// เรียกได้ 2 ทาง: กดปุ่ม debugActivateKey (F8) ตอน Runtime
-    ///                  หรือคลิกขวา component นี้ตอน Play Mode > เลือกเมนูนี้
-    /// </summary>
+    /// <summary>บังคับเปิดโล่ทันที ข้ามทุกเงื่อนไข (F8) — ใช้เช็คว่า VFX/Popup ทำงาน</summary>
     [ContextMenu("🧪 TEST - Force Activate Shield")]
     public void TEST_ForceActivateShield()
     {
@@ -162,31 +195,29 @@ public class OasisShieldEffect : MonoBehaviour
             Debug.LogWarning("[OasisShield][TEST] ⚠️ ยังไม่ได้ผูก Player Health ใน Inspector");
             return;
         }
+        if (isShieldActive) return;
 
-        if (isShieldActive)
-        {
-            Debug.Log("[OasisShield][TEST] โล่เปิดอยู่แล้ว ไม่ต้องเปิดซ้ำ");
-            return;
-        }
-
-        Debug.Log("[OasisShield][TEST] ⚡ บังคับเปิดโล่ (ข้ามเงื่อนไขเควส/ห้องบอส/HP ทั้งหมด)");
+        Debug.Log("[OasisShield][TEST] ⚡ บังคับเปิดโล่");
         ActivateShield();
     }
 
-    /// <summary>
-    /// 🧪 TEST ONLY — บังคับปิดโล่ทันที (จำลองว่าโล่พังแล้ว รวมคูลดาวน์ด้วย)
-    /// </summary>
+    /// <summary>บังคับปิดโล่ทันที (F7)</summary>
     [ContextMenu("🧪 TEST - Force Deactivate Shield")]
     public void TEST_ForceDeactivateShield()
     {
-        if (!isShieldActive)
-        {
-            Debug.Log("[OasisShield][TEST] โล่ไม่ได้เปิดอยู่ ไม่มีอะไรให้ปิด");
-            return;
-        }
+        if (!isShieldActive) return;
 
         Debug.Log("[OasisShield][TEST] ⚡ บังคับปิดโล่");
         DeactivateShield();
+    }
+
+    /// <summary>จำลองเงื่อนไข 1+2 ผ่าน — แล้วลองโดนตีจน HP <= 2 เพื่อเทส flow จริง</summary>
+    [ContextMenu("🧪 TEST - Unlock + Boss Active (เทสเงื่อนไข HP)")]
+    public void TEST_UnlockAndBossActive()
+    {
+        EnableShieldCapability();
+        SetBossFightActive(true);
+        cooldownLeft = 0f;
     }
 
     #endregion

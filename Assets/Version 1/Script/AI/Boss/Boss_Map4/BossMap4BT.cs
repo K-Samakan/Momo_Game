@@ -343,6 +343,9 @@ public class BossMap4BT : MonoBehaviour
         _activeTentacleWhip = TentacleWhipVFX.Spawn(
             origin, originOffset, _player, tentacleGrowDuration, tentacleTrackDuration, effectiveRange, tentacleColor, tentacleWidth);
 
+        if (_activeTentacleWhip != null)
+            ProjectileShootEmitter.Attach(_activeTentacleWhip.gameObject);
+
         // รอให้หนวดยืดออกไปถึงผู้เล่นก่อน (เหมือนก้อนหิมะที่ต้องบินถึงเป้าหมายก่อนถึงจะกระทบ)
         yield return new WaitForSeconds(tentacleGrowDuration);
         if (_attackCancelled) { EndLungeSequence(); yield break; }

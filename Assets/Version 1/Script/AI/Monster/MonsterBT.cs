@@ -89,7 +89,6 @@ namespace MOMO.AI.Monster
             var rb = GetComponent<Rigidbody>();
             if (rb != null) rb.isKinematic = true;
 
-            // เก็บ Renderer และสีเดิมทั้งหมดไว้สำหรับ flash
             _renderers = GetComponentsInChildren<Renderer>();
             _originalColors = new Color[_renderers.Length];
             for (int i = 0; i < _renderers.Length; i++)
@@ -115,7 +114,6 @@ namespace MOMO.AI.Monster
             if (_isDead || _root == null || !_isOnNavMesh) return;
             _root.Tick();
 
-            // Debug keys — กด T ลด HP, กด Y ตายทันที
             if (enableDebugKeys)
             {
                 if (Input.GetKeyDown(KeyCode.T))
@@ -126,41 +124,56 @@ namespace MOMO.AI.Monster
             }
         }
 
-        System.Collections.IEnumerator InitOnNavMesh()
+        // ════════════════════════════════════════════════════════
+        // ✅ FIXED — retry + รัศมีค้นหากว้างขึ้น (เดิม: ลองครั้งเดียว 3m แล้วเลิกถาวร)
+        // ════════════════════════════════════════════════════════
+        IEnumerator InitOnNavMesh()
         {
-            yield return null;
-            yield return null;
+            const int maxAttempts = 10;
+            const float retryDelay = 0.5f;
+            const float searchRadius = 5f;
 
-            if (NavMesh.SamplePosition(transform.position, out var hit, 3f, NavMesh.AllAreas))
+            for (int attempt = 1; attempt <= maxAttempts; attempt++)
             {
-                transform.position = hit.position;
-                _spawnPos = hit.position;
-            }
-            else
-            {
-                Debug.LogWarning($"[{stats.monsterName}] ไม่พบ NavMesh ใกล้เคียง!");
-                yield break;
-            }
+                yield return (attempt == 1) ? null : new WaitForSeconds(retryDelay);
+                if (attempt == 1) yield return null;
 
-            _agent.enabled = true;
-            _agent.speed = stats.walkSpeed;
-            _agent.stoppingDistance = stats.attackRange * 0.8f;
-            _agent.acceleration = 12f;
-            _agent.angularSpeed = 360f;
-            _agent.autoBraking = true;
-            _agent.isStopped = true;
+                if (NavMesh.SamplePosition(transform.position, out var hit, searchRadius, NavMesh.AllAreas))
+                {
+                    transform.position = hit.position;
+                    _spawnPos = hit.position;
 
-            yield return null;
+                    _agent.enabled = true;
+                    _agent.speed = stats.walkSpeed;
+                    _agent.stoppingDistance = stats.attackRange * 0.8f;
+                    _agent.acceleration = 12f;
+                    _agent.angularSpeed = 360f;
+                    _agent.autoBraking = true;
+                    _agent.isStopped = true;
 
-            if (_agent.isOnNavMesh)
-            {
-                _spawnPos = transform.position;
-                _isOnNavMesh = true;
-                _root = BuildTree();
-            }
-            else
-            {
-                Debug.LogError($"[{stats.monsterName}] Agent ไม่อยู่บน NavMesh แม้หลัง warp!");
+                    yield return null;
+
+                    if (_agent.isOnNavMesh)
+                    {
+                        _spawnPos = transform.position;
+                        _isOnNavMesh = true;
+                        _root = BuildTree();
+                        Debug.Log($"[{stats.monsterName}] ✅ NavMesh Ready (attempt {attempt})");
+                        yield break;
+                    }
+
+                    _agent.enabled = false;
+                }
+
+                if (attempt == maxAttempts)
+                {
+                    Debug.LogError($"[{stats.monsterName}] ❌ ไม่พบ NavMesh หลังลอง {maxAttempts} ครั้ง ที่ตำแหน่ง {transform.position} " +
+                                    "— เช็คว่า Bake NavMeshSurface ครอบคลุมจุดนี้หรือยัง (Window → AI → NavMesh Island Checker)");
+                }
+                else if (attempt == 1)
+                {
+                    Debug.LogWarning($"[{stats.monsterName}] ไม่พบ NavMesh ใกล้เคียง — กำลังลองใหม่... (ตำแหน่ง {transform.position})");
+                }
             }
         }
 
@@ -280,7 +293,7 @@ namespace MOMO.AI.Monster
             _agent.ResetPath();
             monsterAnimator?.PlayDeath();
             DropSouls();
-            Destroy(gameObject, deathFadeDelay); // ← ใช้ field แทน hardcode 3f
+            Destroy(gameObject, deathFadeDelay);
             return BTStatus.Running;
         }
 
@@ -319,7 +332,6 @@ namespace MOMO.AI.Monster
 
             sfxEmitter?.EmitByDistance(_player);
 
-            // ── เปลี่ยนจาก Damage ทันที → รอ Animation ถึง attackDamagePoint ──
             StartCoroutine(DealDamageDelayed());
 
             return BTStatus.Success;
@@ -327,14 +339,12 @@ namespace MOMO.AI.Monster
 
         IEnumerator DealDamageDelayed()
         {
-            // รอให้ Animation เล่นถึง attackDamagePoint (ค่าใน MonsterAnimator)
             float waitTime = monsterAnimator != null
-                ? monsterAnimator.attackDamagePoint  // ใช้ค่าจาก Inspector
-                : 0.5f;                              // fallback
+                ? monsterAnimator.attackDamagePoint
+                : 0.5f;
 
             yield return new WaitForSeconds(waitTime);
 
-            // เช็คว่า Player ยังอยู่ในระยะโจมตีไหม
             if (_player == null) yield break;
 
             float dist = Vector3.Distance(transform.position, _player.position);
@@ -410,22 +420,19 @@ namespace MOMO.AI.Monster
         {
             if (_isDead) return;
 
-            // Spawn hit effect ที่ตำแหน่งมอนสเตอร์
             if (hitEffectPrefab != null)
             {
                 var effect = Instantiate(hitEffectPrefab,
                     transform.position + Vector3.up * 0.5f,
                     Quaternion.identity);
-                Destroy(effect, 2f); // ลบหลัง 2 วินาที
+                Destroy(effect, 2f);
             }
 
             CurrentHealth -= damage;
 
-            // Flash สีแดง
             if (!_isFlashing)
                 StartCoroutine(HitFlash());
 
-            // ตาย
             if (CurrentHealth <= 0)
             {
                 CurrentHealth = 0;
@@ -434,10 +441,9 @@ namespace MOMO.AI.Monster
                 if (HapticManager.Instance != null)
                     HapticManager.Instance.Vibrate(0.8f, 0.8f, 0.3f);
 
-                return; // BT จะจัดการ DoBehaviorDead ใน frame ถัดไป
+                return;
             }
 
-            // ยังไม่ตาย
             _isHit = true;
             _hitRecoveryTimer = stunDuration;
             monsterAnimator?.PlayHit();
@@ -454,7 +460,6 @@ namespace MOMO.AI.Monster
         {
             _isFlashing = true;
 
-            // เปลี่ยนเป็นสีแดง
             for (int i = 0; i < _renderers.Length; i++)
             {
                 if (_renderers[i] != null && _renderers[i].material != null)
@@ -463,7 +468,6 @@ namespace MOMO.AI.Monster
 
             yield return new WaitForSeconds(hitFlashDuration);
 
-            // คืนสีเดิม
             for (int i = 0; i < _renderers.Length; i++)
             {
                 if (_renderers[i] != null && _renderers[i].material != null)
@@ -481,8 +485,6 @@ namespace MOMO.AI.Monster
         {
             if (stats.soulPrefab == null) return;
 
-            // drop ตาม soulDropCount ที่กำหนดใน MonsterStats
-            // แต่ละชิ้นมีโอกาส drop ตาม soulDropChance
             int dropped = 0;
             for (int i = 0; i < stats.soulDropCount; i++)
             {
@@ -496,7 +498,6 @@ namespace MOMO.AI.Monster
                         transform.position + offset,
                         Quaternion.identity);
 
-                    // ดีด soul ขึ้นเล็กน้อย
                     var rb = soul.GetComponent<Rigidbody>();
                     if (rb != null)
                     {

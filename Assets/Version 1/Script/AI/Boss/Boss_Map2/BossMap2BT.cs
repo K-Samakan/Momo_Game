@@ -429,8 +429,11 @@ public class BossMap2BT : MonoBehaviour
         Vector3 dir = (_player.position + Vector3.up - spawnPos).normalized;
         var fist = Instantiate(fistProjectilePrefab, spawnPos, Quaternion.LookRotation(dir) * Quaternion.Euler(90f, 0f, 0f));
         var rb = fist.GetComponent<Rigidbody>(); if (rb != null) rb.linearVelocity = dir * fistSpeed;
-        var proj = fist.GetComponent<FistProjectile>(); if (proj != null) proj.Init(damage, dir, fistKnockbackForce);
-        Destroy(fist, 5f);
+        var proj = fist.GetComponent<FistProjectile>(); if (proj != null) proj.Init(damage, dir, fistKnockbackForce);   // ← บรรทัด 432
+
+        ProjectileShootEmitter.Attach(fist);   // ✅ เพิ่มตรงนี้
+
+        Destroy(fist, 5f);   // ← บรรทัด 433 เดิม
     }
 
     void ChasePlayer()

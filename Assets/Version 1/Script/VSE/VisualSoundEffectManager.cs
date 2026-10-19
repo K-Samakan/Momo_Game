@@ -7,7 +7,7 @@ using Momo.UITutorial.Managers;
 /// <summary>
 /// VSE แบบ Spider-Sense — Ring ติดตาม MOMO บนหน้าจอ
 /// icon โผล่บน Radial Ring รอบตัวละคร ชี้ทิศเสียง + แยกสีตาม tag
-/// + Haptic ทิศทาง + Priority System (Enemy/Projectile > Warning > SideQuest)
+/// + Haptic ทิศทาง + Priority System (Enemy/Shoot > Warning > SideQuest)
 /// + Monster 2 ตัว: ข้างใกล้เต็ม, ข้างไกลลด 50%
 /// </summary>
 public class VisualSoundEffectManager : MonoBehaviour
@@ -69,7 +69,7 @@ public class VisualSoundEffectManager : MonoBehaviour
     private static readonly Dictionary<string, int> TagPriority = new Dictionary<string, int>
     {
         { "Enemy",      0 },
-        { "Projectile", 0 },
+        { "Shoot", 0 },
         { "Warning",    1 },
         { "SideQuest",  2 },
     };
@@ -363,7 +363,7 @@ public class VisualSoundEffectManager : MonoBehaviour
                 HapticManager.Instance.Vibrate(left, right, 0.15f);
                 break;
 
-            case "Projectile":
+            case "Shoot":
                 HapticManager.Instance.Vibrate(left * 0.8f, right * 0.8f, 0.08f);
                 break;
 
@@ -373,7 +373,7 @@ public class VisualSoundEffectManager : MonoBehaviour
                 break;
 
             case "SideQuest":
-                // เบา ambient — ✅ จะถูกข้ามถ้ามี Enemy/Projectile/Warning อยู่
+                // เบา ambient — ✅ จะถูกข้ามถ้ามี Enemy/Shoot/Warning อยู่
                 HapticManager.Instance.Vibrate(left * 0.4f, right * 0.4f, 0.2f);
                 break;
 

@@ -349,34 +349,33 @@ namespace MOMO.Cutscene
         IEnumerator EndCutscene()
         {
             isTransitioning = true;
-            isFinished = true;   // หยุด Update ทันที กัน index เกินขอบ
+            isFinished = true;
 
             if (HapticManager.Instance != null) HapticManager.Instance.StopVibration();
             if (sfxSource != null) sfxSource.Stop();
             if (videoPlayer != null) videoPlayer.Stop();
 
-            // fade จอดำลง (ตั้ง 0f ถ้าไม่อยากได้ fade)
-            yield return StartCoroutine(FadeCanvas(slideCanvasGroup, 0f, 0.5f));
+            // ✅ เปิด Loading ทับทันที (ย้ายขึ้นมาไว้ตรงนี้)
+            if (loadingScreen != null) loadingScreen.SetActive(true);
+            if (subtitleGroup != null) subtitleGroup.alpha = 0f;
+
+            // ❌ ลบบรรทัด fade เดิมทิ้ง (หรือใส่ // ไว้หน้าบรรทัด)
+            // yield return StartCoroutine(FadeCanvas(slideCanvasGroup, 0f, 0.5f));
 
             Debug.Log($"🎬 Cutscene จบ → เข้า {nextSceneName}");
 
-            // โชว์จอ Loading ระหว่างรอ Map1 โหลด
-            if (loadingScreen != null) loadingScreen.SetActive(true);
-
             float loadingStart = Time.unscaledTime;
 
-            // รอจน Map1 โหลดครบ (async ค้างที่ 0.9 จนกว่าจะ activate)
+            // ↓↓↓ ส่วนที่เหลือเหมือนเดิมทุกบรรทัด ↓↓↓
             if (preloadOp != null)
             {
                 while (preloadOp.progress < 0.9f)
                     yield return null;
             }
 
-            // โชว์จอ Loading ให้ครบเวลาขั้นต่ำ แม้โหลดเสร็จก่อน
             while (Time.unscaledTime - loadingStart < minLoadingTime)
                 yield return null;
 
-            // เข้า Map1
             if (preloadOp != null)
                 preloadOp.allowSceneActivation = true;
             else

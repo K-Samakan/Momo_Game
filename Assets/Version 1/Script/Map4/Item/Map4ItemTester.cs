@@ -20,7 +20,7 @@ using MOMO.Player;
 ///  - บั๊กต้นเหตุยังอยู่ใน PlayerHealthUI.cs เหมือนเดิม อันนี้เป็นแค่ workaround ฝั่ง Tester
 /// </summary>
 public class Map4ItemTester : MonoBehaviour
-{
+{/*
     [Header("=== References (ลากจาก Player) ===")]
     [Tooltip("FishingRodController ที่อยู่ใต้ Player")]
     public FishingRodController rodController;
@@ -132,5 +132,5 @@ public class Map4ItemTester : MonoBehaviour
 
         GUI.Label(new Rect(10, Screen.height - 40, 400, 30),
             $"[F6] Map4 Item Test: {(isTestEquipped ? "✅ EQUIPPED" : "❌ NOT EQUIPPED")}");
-    }
+    }*/
 }

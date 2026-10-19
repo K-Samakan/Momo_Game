@@ -1,12 +1,26 @@
+// ============================================================
+// FILE: FishingRodPickup.cs
+// PATH: Assets/Version 1/Script/Map4/Item4/FishingRodPickup.cs
+// รูปแบบเดียวกับ GlovePickup.cs (Map1)
+// ============================================================
 using UnityEngine;
 using UnityEngine.InputSystem;
 using MOMO.Player;
+using Momo.UITutorial.Data;
+using Momo.UITutorial.Managers;
 
 public class FishingRodPickup : MonoBehaviour
 {
-    [Header("=== Item Object ===")]
-    [Tooltip("GameObject ของโมเดลเบ็ดยืดที่จะถูก 'เปิด' ออกมาเมื่อเก็บ (เช่น อยู่ใน Chest หรือแท่นวาง)")]
+    [Header("=== Item Object (แท่นวาง) ===")]
+    [Tooltip("โมเดลเบ็ดยืดบนแท่น — โผล่ตอน puzzle สำเร็จ และหายไปตอนเก็บ")]
     public GameObject fishingRodItemObject;
+
+    [Header("=== Item Visual บนตัวผู้เล่น ===")]
+    [Tooltip("ลาก GameObject โมเดลเบ็ดยืดที่ติดอยู่กับตัวผู้เล่น (ใต้มือ/หลัง) — ซ่อนไว้ก่อน จะโชว์ตอนเก็บสำเร็จ")]
+    public GameObject rodVisualOnPlayer;
+
+    [Header("=== Item Data (สำหรับ Item Detail Popup) ===")]
+    public ItemData itemData;
 
     [Header("=== UI Prompt ===")]
     public GameObject promptUI;
@@ -25,12 +39,15 @@ public class FishingRodPickup : MonoBehaviour
     private PlayerHealth _playerHealth;
     private SmartAttackSystem _smartAttack;
     private FishingRodController _rodController;
-    private MonoBehaviour _swimmingController; // ใช้ SendMessage เพื่อไม่ต้อง reference type ตรง ๆ
+    private MonoBehaviour _swimmingController;
 
     void Start()
     {
         if (fishingRodItemObject != null)
             fishingRodItemObject.SetActive(false);
+
+        if (rodVisualOnPlayer != null)
+            rodVisualOnPlayer.SetActive(false); // ✅ ซ่อนไว้จนกว่าจะเก็บสำเร็จ
 
         if (promptUI != null) promptUI.SetActive(false);
 
@@ -77,7 +94,6 @@ public class FishingRodPickup : MonoBehaviour
             _interactAction.performed -= OnInteract;
     }
 
-    // ─────────────────────────────────────────────
     void OnTriggerEnter(Collider other)
     {
         if (_pickedUp || !_pedestalRevealed || !other.CompareTag("Player")) return;
@@ -102,32 +118,34 @@ public class FishingRodPickup : MonoBehaviour
         if (promptUI != null) promptUI.SetActive(false);
     }
 
-    // ─────────────────────────────────────────────
     void OnInteract(InputAction.CallbackContext context)
     {
         if (!_playerInRange || _pickedUp) return;
         PickUpFishingRod();
     }
 
-    // ─────────────────────────────────────────────
-    // เรียกโดยตรงได้จากปุ่ม Test เพื่อเปิดใช้งานทันที
-    // ─────────────────────────────────────────────
+    // เรียกตรงได้จากปุ่ม Test หรือจาก SaveManager ตอน Respawn
     public void PickUpFishingRod()
     {
         _pickedUp = true;
 
-        // ── 1) เปิด GameObject item ที่ถูกซ่อนไว้ในห้อง puzzle ──
+        // ── 1) ซ่อนเบ็ดยืดบนแท่น (เก็บไปแล้ว) ──
         if (fishingRodItemObject != null)
-            fishingRodItemObject.SetActive(true);
+            fishingRodItemObject.SetActive(false);
 
-        // ✅ บันทึก flag ลง disk ทันที
+        // ── 2) โชว์โมเดลเบ็ดยืดที่ติดตัวผู้เล่น ──
+        if (rodVisualOnPlayer != null)
+            rodVisualOnPlayer.SetActive(true);
+        else
+            Debug.LogWarning("[FishingRodPickup] ⚠️ ไม่ได้ลาก rodVisualOnPlayer ใส่ — จะไม่เห็นโมเดลติดตัวผู้เล่น!");
+
         if (SaveManager.Instance != null)
         {
-            SaveManager.Instance.CurrentSave.hasFishingRod = true; // เพิ่ม field นี้ใน SaveData
+            SaveManager.Instance.CurrentSave.hasFishingRod = true;
             SaveManager.Instance.ForceSaveCurrentState();
         }
 
-        // ── 2) HP Max + Heal ──
+        // ── 3) HP Max + Heal ──
         if (_playerHealth != null)
         {
             int oldMax = _playerHealth.maxHealth;
@@ -140,20 +158,26 @@ public class FishingRodPickup : MonoBehaviour
         }
         else Debug.LogWarning("[FishingRodPickup] ⚠️ ไม่พบ PlayerHealth!");
 
-        // ── 3) Equip ระบบต่อสู้ + oxygen bonus ──
+        // ── 4) Equip ระบบต่อสู้ + oxygen bonus ──
         if (_rodController != null)
         {
             _rodController.OnEquip();
         }
         else
         {
-            Debug.LogWarning("[FishingRodPickup] ⚠️ ไม่พบ FishingRodController บนตัวผู้เล่น! (ต้องเพิ่ม component นี้ใต้ Player)");
+            Debug.LogWarning("[FishingRodPickup] ⚠️ ไม่พบ FishingRodController บนตัวผู้เล่น!");
         }
 
         if (promptUI != null) promptUI.SetActive(false);
 
         if (SaveManager.Instance != null)
             SaveManager.Instance.ForceSaveCurrentState();
+
+        // ── 5) แสดง Item Detail Popup ──
+        if (itemData != null)
+            TutorialManager.Instance?.ShowItemDetail(itemData);
+        else
+            Debug.LogWarning("[FishingRodPickup] ⚠️ ไม่พบ ItemData! ลืมลาก reference ใน Inspector หรือเปล่า?");
 
         Debug.Log("[FishingRodPickup] 🎣 เก็บเบ็ดยืดสำเร็จ! พร้อมใช้งาน");
     }
