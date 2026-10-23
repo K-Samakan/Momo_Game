@@ -512,6 +512,8 @@ public class BossMap3BT : MonoBehaviour
 
         ProjectileShootEmitter.Attach(snowball);   // ✅ เพิ่มตรงนี้
 
+        if (health != null && health.bossAudio != null) health.bossAudio.PlayAttack1();
+
         Destroy(snowball, 8f);   // ← บรรทัด 513 เดิม
     }
 
@@ -529,6 +531,8 @@ public class BossMap3BT : MonoBehaviour
         // ต้องมี State "Spin_TPose" ใน Animator Controller (Motion = T-pose clip, Loop Time = true)
         // + Transition: Any State → Spin_TPose (Condition: Spin trigger, Has Exit Time ❌)
         animator.SetTrigger(HashSpin);
+
+        if (health != null && health.bossAudio != null) health.bossAudio.muteFootsteps = true;
 
         // เปิด VFX
         SetSpinTrails(true);
@@ -574,6 +578,8 @@ public class BossMap3BT : MonoBehaviour
                 rotationsCompleted++;
                 hitPlayersThisRotation.Clear();
                 Debug.Log($"[BossMap3] 🌀 หมุนครบ {rotationsCompleted}/{spinMaxRotations} รอบ");
+
+                if (health != null && health.bossAudio != null) health.bossAudio.PlayAttack2();
             }
 
             // เช็ค Damage ทุก frame (กัน hit ซ้ำด้วย HashSet)
@@ -615,6 +621,8 @@ public class BossMap3BT : MonoBehaviour
     /// </summary>
     void EndSpinSequence(bool interrupted)
     {
+        if (health != null && health.bossAudio != null) health.bossAudio.muteFootsteps = false;
+
         SetSpinTrails(false);
 
         // ✅ ปิด Tornado VFX เสมอ ไม่ว่าจะจบแบบไหน

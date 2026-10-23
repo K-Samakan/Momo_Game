@@ -6,8 +6,13 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using MOMO.AI.Monster;
 
-public class GloveController : MonoBehaviour
+public class GloveController : MonoBehaviour, IAttackSfxProvider
 {
+    [Header("SFX (Map1 Glove)")]
+    public AttackSfxSet attackSfx;
+    public AttackSfxSet AttackSfx => attackSfx;
+    public int SfxPriority => 10;
+
     [Header("Shockwave")]
     [Tooltip("ลาก GloveShockwave Prefab มาใส่")]
     public GameObject shockwavePrefab;

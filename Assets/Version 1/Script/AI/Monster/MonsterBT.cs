@@ -35,7 +35,7 @@ namespace MOMO.AI.Monster
         public bool enableDebugKeys = true;
 
         [Header("Death Settings")]
-        [Tooltip("เวลาก่อนหายหลังตาย (วินาที)")]
+        [Tooltip("เวลาก่อนหายหลังตาย (วินาที) — ควรยาวกว่าเสียง Hit เพื่อไม่ให้เสียงถูกตัด")]
         public float deathFadeDelay = 1f;
 
         [Header("Hit Effect")]
@@ -45,6 +45,13 @@ namespace MOMO.AI.Monster
         [Header("Visual Sound Effect")]
         [Tooltip("SoundEmitter สำหรับเสียง Monster — Add SoundEmitter Component แล้วลากมาใส่")]
         public SoundEmitter sfxEmitter;
+
+        [Header("Audio")]
+        [Tooltip("MonsterAudio บน prefab นี้ (ถ้าเว้นว่างจะหาอัตโนมัติใน Awake)")]
+        [SerializeField] MonsterAudio monsterAudio;
+
+        [Tooltip("true = เล่นเสียงโจมตีตอนเริ่มง้าง | false = เล่นตอนจังหวะฟาด (attackDamagePoint)")]
+        [SerializeField] bool playAttackSfxOnWindup = false;
 
         private float _lastFootstepEmit = -999f;
 
@@ -89,6 +96,10 @@ namespace MOMO.AI.Monster
             var rb = GetComponent<Rigidbody>();
             if (rb != null) rb.isKinematic = true;
 
+            // ✅ SFX — หา MonsterAudio อัตโนมัติถ้ายังไม่ได้ลากใส่
+            if (monsterAudio == null) monsterAudio = GetComponent<MonsterAudio>();
+            if (monsterAudio == null) monsterAudio = GetComponentInChildren<MonsterAudio>();
+
             _renderers = GetComponentsInChildren<Renderer>();
             _originalColors = new Color[_renderers.Length];
             for (int i = 0; i < _renderers.Length; i++)
@@ -105,6 +116,10 @@ namespace MOMO.AI.Monster
             var go = GameObject.FindGameObjectWithTag("Player");
             if (go != null) _player = go.transform;
             else Debug.LogWarning($"[{stats.monsterName}] Player not found! ตรวจสอบ Tag 'Player'");
+
+            // ✅ SFX — เตือนถ้าลืมใส่ MonsterAudio
+            if (monsterAudio == null)
+                Debug.LogWarning($"[{stats.monsterName}] ไม่พบ MonsterAudio — จะไม่มีเสียงโจมตี/โดนตี");
 
             StartCoroutine(InitOnNavMesh());
         }
@@ -332,6 +347,10 @@ namespace MOMO.AI.Monster
 
             sfxEmitter?.EmitByDistance(_player);
 
+            // ✅ SFX — โหมดเล่นเสียงตอนเริ่มง้าง (เช่นเสียงคำราม)
+            if (playAttackSfxOnWindup && monsterAudio != null)
+                monsterAudio.PlayAttack();
+
             StartCoroutine(DealDamageDelayed());
 
             return BTStatus.Success;
@@ -345,7 +364,12 @@ namespace MOMO.AI.Monster
 
             yield return new WaitForSeconds(waitTime);
 
-            if (_player == null) yield break;
+            // ตายหรือโดนตีขัดจังหวะระหว่างรอ → ไม่ต้องเล่นเสียง/ทำดาเมจ
+            if (_isDead || _player == null) yield break;
+
+            // ✅ SFX — โหมดเล่นเสียงตรงจังหวะฟาด (ค่าเริ่มต้น) เล่นแม้ผู้เล่นหลบได้
+            if (!playAttackSfxOnWindup && monsterAudio != null)
+                monsterAudio.PlayAttack();
 
             float dist = Vector3.Distance(transform.position, _player.position);
             if (dist <= stats.attackRange)
@@ -429,6 +453,10 @@ namespace MOMO.AI.Monster
             }
 
             CurrentHealth -= damage;
+
+            // ✅ SFX — เล่นก่อนเช็คตาย เพื่อให้ hit สุดท้ายมีเสียงด้วย
+            if (monsterAudio != null)
+                monsterAudio.PlayHit();
 
             if (!_isFlashing)
                 StartCoroutine(HitFlash());

@@ -2,19 +2,19 @@ using UnityEngine;
 
 /// <summary>
 /// ระบบ HP ของบอสด่าน 2 — หุ่นยนต์พ่อมด
-/// เปลี่ยนจาก Map1: maxHP 50 → 40
-/// โครงสร้างเหมือน BossMap1Health ทุกประการ
+/// HP = 40, Soul Drop ทุก -10 HP
 /// </summary>
 public class BossMap2Health : MonoBehaviour
 {
     [Header("Stats")]
-    public int maxHP = 40;   // ▼ เปลี่ยนจาก 50 → 40 ตามเอกสาร
+    public int maxHP = 40;
     private int _currentHP;
     private int _lastSoulDropHP;
 
     [Header("References")]
     public BossMap2BT bossController;
     public BossMap2UI bossUI;
+    public BossSFX bossAudio;
     public GameObject soulPrefab;
 
     [Header("Damage Cooldown")]
@@ -30,6 +30,13 @@ public class BossMap2Health : MonoBehaviour
             Debug.LogError("❌ BossMap2Health: ไม่ได้ต่อ bossController ใน Inspector!");
         else
             Debug.Log("✅ BossMap2Health: เชื่อมต่อ bossController สำเร็จ");
+
+        if (bossAudio == null)
+        {
+            bossAudio = GetComponentInChildren<BossSFX>();
+            if (bossAudio == null)
+                Debug.LogWarning("⚠️ BossMap2Health: ไม่พบ BossSFX → บอสจะไม่มีเสียงโดนตี/ตาย");
+        }
     }
 
     public void TakeDamage(int damage)
@@ -44,7 +51,11 @@ public class BossMap2Health : MonoBehaviour
 
         Debug.Log($"💔 [BossMap2] HP: {_currentHP}/{maxHP}");
 
-        // Soul Drop ทุก HP -10 (เหมือน Map1)
+        // ✅ เสียงโดนตี (เฉพาะตอนยังไม่ตาย)
+        if (_currentHP > 0 && bossAudio != null)
+            bossAudio.PlayHurt();
+
+        // Soul Drop ทุก HP -10
         if (_lastSoulDropHP - _currentHP >= 10)
         {
             _lastSoulDropHP -= 10;
@@ -56,6 +67,11 @@ public class BossMap2Health : MonoBehaviour
         if (_currentHP <= 0)
         {
             Debug.Log("💀 [BossMap2] HP = 0 → เรียก OnDead()");
+
+            // ✅ เสียงตาย
+            if (bossAudio != null)
+                bossAudio.PlayDeath();
+
             bossController.OnDead();
             bossUI.HideBossUI();
         }

@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: efe75edca9e98064fb6cc86b8a017b44, type: 3}
+  m_Name: MonsterSFX_IronRobot
+  m_EditorClassIdentifier: 
+  attackClips:
+  - {fileID: 8300000, guid: 2e373c8e5d367164f94f48aa5a96df53, type: 3}
+  attackVolume: 0.7
+  hitClips:
+  - {fileID: 8300000, guid: 8527e06517eaa8d47bdce9fce7e85596, type: 3}
+  hitVolume: 0.8
+  pitchRange: {x: 0.92, y: 1.08}
+  minDistance: 2
+  maxDistance: 20
+  outputGroup: {fileID: 0}

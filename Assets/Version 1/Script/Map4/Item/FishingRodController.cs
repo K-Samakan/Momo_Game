@@ -9,8 +9,13 @@
 // ============================================================
 using UnityEngine;
 
-public class FishingRodController : MonoBehaviour
+public class FishingRodController : MonoBehaviour, IAttackSfxProvider
 {
+    [Header("=== SFX (Map4 Rod) ===")]
+    public AttackSfxSet attackSfx;
+    public AttackSfxSet AttackSfx => attackSfx;
+    public int SfxPriority => 20;
+
     [Header("=== Combat Bonus ===")]
     [Tooltip("ระยะ hitbox ของหมัดตอนสวมเบ็ด (ปกติหมัด = 1.5)")]
     public float extendedAttackRange = 4.5f;

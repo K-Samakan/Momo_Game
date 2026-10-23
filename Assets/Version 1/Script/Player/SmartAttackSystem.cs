@@ -1,6 +1,7 @@
 // ============================================================
 // FILE: SmartAttackSystem.cs
 // PATH: Assets/Version 1/Script/Player/SmartAttackSystem.cs
+// 🔊 = จุดที่เพิ่มสำหรับระบบเสียงโจมตี (PlayerCombatAudio)
 // ============================================================
 using System.Collections;
 using UnityEngine;
@@ -91,13 +92,17 @@ public class SmartAttackSystem : MonoBehaviour
     // ✅ Reference to GloveController
     private GloveController _gloveController;
 
-    // ✅ เพิ่มใหม่ — Reference to FireBowController (Map3)
+    // ✅ Reference to FireBowController (Map3)
     //    ใช้กันไม่ให้ปุ่ม □ สั่งต่อยซ้อนกับการยิงธนู ตอนสวมธนูไฟอยู่
     private FireBowController _fireBowController;
 
-    // ✅ เพิ่มใหม่ — Reference to FishingRodController (Map4)
+    // ✅ Reference to FishingRodController (Map4)
     //    ใช้สลับ hitbox ไปตามแนวเส้นเหลือง + เล่น Lash FX ตอนสวมเบ็ดยืด
     private FishingRodController _fishingRodController;
+
+    // 🔊 ระบบเสียงโจมตี
+    private PlayerCombatAudio _combatAudio;
+    private AttackKind _lastAttackKind = AttackKind.Punch;
 
     bool IsGloveEquipped => _gloveController != null && _gloveController.IsEquipped;
     bool IsRodEquipped => _fishingRodController != null && _fishingRodController.IsEquipped;
@@ -135,6 +140,11 @@ public class SmartAttackSystem : MonoBehaviour
 
         if (punchPoint == null) punchPoint = transform;
         if (kickPoint == null) kickPoint = transform;
+
+        // 🔊
+        _combatAudio = GetComponent<PlayerCombatAudio>();
+        if (_combatAudio == null)
+            Debug.LogWarning("[SmartAttack] ⚠️ ไม่พบ PlayerCombatAudio บน Player — จะไม่มีเสียงโจมตี");
     }
 
     void Start()
@@ -145,14 +155,12 @@ public class SmartAttackSystem : MonoBehaviour
         else
             Debug.Log("[SmartAttack] ℹ️ ไม่พบ GloveController (ปกติถ้ายังไม่ได้สวมถุงมือ)");
 
-        // ✅ เพิ่มใหม่
         _fireBowController = FindFirstObjectByType<FireBowController>();
         if (_fireBowController != null)
             Debug.Log("[SmartAttack] ✅ พบ FireBowController");
         else
             Debug.Log("[SmartAttack] ℹ️ ไม่พบ FireBowController (ปกติถ้ายังไม่ได้สวมธนู)");
 
-        // ✅ เพิ่มใหม่ — Map4 เบ็ดยืด
         _fishingRodController = FindFirstObjectByType<FishingRodController>();
         if (_fishingRodController != null)
             Debug.Log("[SmartAttack] ✅ พบ FishingRodController");
@@ -166,7 +174,7 @@ public class SmartAttackSystem : MonoBehaviour
 
     public void TriggerAttack()
     {
-        // ✅ เพิ่มใหม่ — สวมธนูไฟอยู่ → ไม่ต่อย ปล่อยให้ FireBowController.OnQuickShotInput() จัดการยิงธนูแทน
+        // ✅ สวมธนูไฟอยู่ → ไม่ต่อย ปล่อยให้ FireBowController.OnQuickShotInput() จัดการยิงธนู (และเล่นเสียงธนู) แทน
         if (_fireBowController != null && _fireBowController.IsEquipped) return;
 
         if (_isExecuting) return;
@@ -448,6 +456,10 @@ public class SmartAttackSystem : MonoBehaviour
             if (step == 3) HapticManager.Instance?.Vibrate(0.25f, 0.6f, 0.2f);
             else HapticManager.Instance?.Vibrate(0.15f, 0.3f, 0.12f);
 
+            // 🔊 เสียงเหวี่ยงเบ็ด (PlayerCombatAudio เลือกเสียงเบ็ดให้อัตโนมัติ เพราะ Rod priority สูงกว่า Glove)
+            _lastAttackKind = AttackKind.Punch;
+            _combatAudio?.PlaySwing(AttackKind.Punch, step == 3);
+
             StartRodHitFallback(step);
             return;
         }
@@ -496,6 +508,12 @@ public class SmartAttackSystem : MonoBehaviour
                 HapticManager.Instance?.Vibrate(0.25f, 0.6f, 0.2f);
                 break;
         }
+
+        // 🔊 เสียงโจมตี — สวมถุงมือ = เสียงถุงมือ / ไม่มีไอเทม หรือมีแค่โล่ Map2 = เสียงต่อย/เตะเดิม
+        bool isKick = type == AttackType.KickRight || type == AttackType.KickLeft || type == AttackType.KickRight2;
+        bool isFinisher = type == AttackType.PunchRight2 || type == AttackType.KickRight2;
+        _lastAttackKind = isKick ? AttackKind.Kick : AttackKind.Punch;
+        _combatAudio?.PlaySwing(_lastAttackKind, isFinisher);
     }
 
     // ────────────────────────────────────────
@@ -504,6 +522,7 @@ public class SmartAttackSystem : MonoBehaviour
 
     void DoDetection(Transform origin, float radius, int damage)
     {
+        bool hitSomething = false;   // 🔊
         Debug.Log($"[DoDetection] Called! origin={origin.name}");
 
         Collider[] allHits = Physics.OverlapSphere(transform.position, attackRange);
@@ -520,6 +539,7 @@ public class SmartAttackSystem : MonoBehaviour
             if (cage != null)
             {
                 cage.TakeDamage(damage);
+                hitSomething = true;   // 🔊
                 Debug.Log($"[SmartAttack] Hit Cage: {col.name}");
                 HapticManager.Instance?.Vibrate(0.2f, 0.3f, 0.1f);
             }
@@ -538,6 +558,7 @@ public class SmartAttackSystem : MonoBehaviour
             if (rock != null)
             {
                 rock.TakeDamage(damage);
+                hitSomething = true;   // 🔊
                 Debug.Log($"[SmartAttack] Hit Rock: {col.name}");
                 HapticManager.Instance?.Vibrate(0.2f, 0.3f, 0.1f);
             }
@@ -556,6 +577,7 @@ public class SmartAttackSystem : MonoBehaviour
             if (crystal != null && !crystal.IsBroken)
             {
                 crystal.TakeDamage(damage);
+                hitSomething = true;   // 🔊
                 Debug.Log($"[SmartAttack] Hit IceCrystal: {col.name}");
                 HapticManager.Instance?.Vibrate(0.2f, 0.3f, 0.1f);
             }
@@ -572,6 +594,7 @@ public class SmartAttackSystem : MonoBehaviour
             if (anchor != null && !anchor.IsBroken)
             {
                 anchor.TakeHit(); // เลือกดาเมจหมัด/เบ็ดเอง ไม่ใช้ค่า damage
+                hitSomething = true;   // 🔊
                 Debug.Log($"[SmartAttack] Hit Anchor: {col.name}");
             }
         }
@@ -588,6 +611,7 @@ public class SmartAttackSystem : MonoBehaviour
             if (bt != null)
             {
                 bt.TakeDamage(damage);
+                hitSomething = true;   // 🔊
                 Debug.Log($"[SmartAttack] Hit: {col.name} | DMG: {damage}");
                 HapticManager.Instance?.Vibrate(0.1f, 0.4f, 0.1f);
                 continue;
@@ -597,6 +621,7 @@ public class SmartAttackSystem : MonoBehaviour
             if (mh != null && mh.IsAlive())
             {
                 mh.TakeDamage(damage, transform.position);
+                hitSomething = true;   // 🔊
                 Debug.Log($"[SmartAttack] Hit (MH): {col.name} | DMG: {damage}");
                 HapticManager.Instance?.Vibrate(0.1f, 0.4f, 0.1f);
                 continue;
@@ -607,6 +632,7 @@ public class SmartAttackSystem : MonoBehaviour
             if (bossHealth != null && bossHealth.IsAlive())
             {
                 bossHealth.TakeDamage(damage);
+                hitSomething = true;   // 🔊
                 Debug.Log($"[SmartAttack] Hit Boss Map1: {col.name} | DMG: {damage}");
                 HapticManager.Instance?.Vibrate(0.1f, 0.4f, 0.1f);
                 continue;
@@ -617,6 +643,7 @@ public class SmartAttackSystem : MonoBehaviour
             if (bossHP2 != null && bossHP2.IsAlive())
             {
                 bossHP2.TakeDamage(damage);
+                hitSomething = true;   // 🔊
                 Debug.Log($"[SmartAttack] Hit Boss Map2: {col.name} | DMG: {damage}");
                 HapticManager.Instance?.Vibrate(0.1f, 0.4f, 0.1f);
                 continue;
@@ -627,21 +654,26 @@ public class SmartAttackSystem : MonoBehaviour
             if (bossHP3 != null && bossHP3.IsAlive())
             {
                 bossHP3.TakeDamage(damage);
+                hitSomething = true;   // 🔊
                 Debug.Log($"[SmartAttack] Hit Boss Map3: {col.name} | DMG: {damage}");
                 HapticManager.Instance?.Vibrate(0.1f, 0.4f, 0.1f);
                 continue;
             }
 
-            // ✅ Boss Map4 — เพิ่มใหม่ (เดิมขาดไป ทำให้ตี Boss Map4 ไม่เข้า)
+            // ✅ Boss Map4
             BossMap4Health bossHP4 = col.GetComponent<BossMap4Health>();
             if (bossHP4 != null && bossHP4.IsAlive())
             {
                 bossHP4.TakeDamage(damage);
+                hitSomething = true;   // 🔊
                 Debug.Log($"[SmartAttack] Hit Boss Map4: {col.name} | DMG: {damage}");
                 HapticManager.Instance?.Vibrate(0.1f, 0.4f, 0.1f);
                 continue;
             }
         }
+
+        // 🔊 เล่นเสียงโดนเป้า "ครั้งเดียว" หลังเช็คครบทุกอย่าง (โดนหลายตัวพร้อมกันก็ดังครั้งเดียว)
+        if (hitSomething) _combatAudio?.PlayHit(_lastAttackKind);
     }
 
     // ────────────────────────────────────────

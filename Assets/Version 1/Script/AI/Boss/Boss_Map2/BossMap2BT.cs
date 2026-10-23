@@ -308,6 +308,8 @@ public class BossMap2BT : MonoBehaviour
         // ✅ ระเบิด! ทำ damage + knockback
         DoAoEAttack();
 
+        if (health != null && health.bossAudio != null) health.bossAudio.PlayAttack2();
+
         // Haptic สะเทือน
         HapticManager.Instance?.Vibrate(0.5f, 1.0f, 0.25f);
 
@@ -432,6 +434,8 @@ public class BossMap2BT : MonoBehaviour
         var proj = fist.GetComponent<FistProjectile>(); if (proj != null) proj.Init(damage, dir, fistKnockbackForce);   // ← บรรทัด 432
 
         ProjectileShootEmitter.Attach(fist);   // ✅ เพิ่มตรงนี้
+
+        if (health != null && health.bossAudio != null) health.bossAudio.PlayAttack1();
 
         Destroy(fist, 5f);   // ← บรรทัด 433 เดิม
     }

@@ -15,6 +15,7 @@ public class BossMap3Health : MonoBehaviour
     [Header("References")]
     public BossMap3BT bossController;
     public BossMap3UI bossUI;
+    public BossSFX bossAudio;
     public GameObject soulPrefab;
 
     [Header("Damage Cooldown")]
@@ -25,6 +26,13 @@ public class BossMap3Health : MonoBehaviour
     {
         _currentHP = maxHP;
         _lastSoulDropHP = maxHP;
+
+        if (bossAudio == null)
+        {
+            bossAudio = GetComponentInChildren<BossSFX>();
+            if (bossAudio == null)
+                Debug.LogWarning("⚠️ BossMap3Health: ไม่พบ BossSFX → บอสจะไม่มีเสียงโดนตี/ตาย");
+        }
     }
 
     public void TakeDamage(int damage)
@@ -38,11 +46,15 @@ public class BossMap3Health : MonoBehaviour
 
         Debug.Log($"💔 [BossMap3] HP: {_currentHP}/{maxHP}");
 
+        // ✅ เสียงโดนตี (เฉพาะตอนยังไม่ตาย)
+        if (_currentHP > 0 && bossAudio != null)
+            bossAudio.PlayHurt();
+
         // Soul Drop ทุก HP -10
         if (_lastSoulDropHP - _currentHP >= 10)
         {
             _lastSoulDropHP -= 10;
-            DropSouls(6); // 6 ชิ้นตามเอกสาร
+            DropSouls(6);
         }
 
         bossController.OnHitByPlayer();
@@ -50,6 +62,11 @@ public class BossMap3Health : MonoBehaviour
         if (_currentHP <= 0)
         {
             Debug.Log("💀 [BossMap3] HP = 0 → OnDead()");
+
+            // ✅ เสียงตาย
+            if (bossAudio != null)
+                bossAudio.PlayDeath();
+
             bossController.OnDead();
             bossUI.HideBossUI();
         }

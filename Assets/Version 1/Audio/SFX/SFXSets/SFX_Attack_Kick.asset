@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 20560e149433f894ebed1953eb9e0f61, type: 3}
+  m_Name: SFX_Attack_Kick
+  m_EditorClassIdentifier: 
+  swingClips:
+  - {fileID: 8300000, guid: 933a8331098e998499c938a517e16d0a, type: 3}
+  finisherClips: []
+  hitClips: []
+  volume: 0.75
+  finisherVolume: 1
+  hitVolume: 0.9
+  pitchRange: {x: 0.85, y: 1}

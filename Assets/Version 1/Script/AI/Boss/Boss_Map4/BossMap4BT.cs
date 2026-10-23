@@ -346,6 +346,8 @@ public class BossMap4BT : MonoBehaviour
         if (_activeTentacleWhip != null)
             ProjectileShootEmitter.Attach(_activeTentacleWhip.gameObject);
 
+        if (health != null && health.bossAudio != null) health.bossAudio.PlayAttack1();
+
         // รอให้หนวดยืดออกไปถึงผู้เล่นก่อน (เหมือนก้อนหิมะที่ต้องบินถึงเป้าหมายก่อนถึงจะกระทบ)
         yield return new WaitForSeconds(tentacleGrowDuration);
         if (_attackCancelled) { EndLungeSequence(); yield break; }
@@ -438,6 +440,8 @@ public class BossMap4BT : MonoBehaviour
             // ✅ ทำดาเมจ + สร้างคลื่นตอนบอสถึงพื้นแล้วเท่านั้น
             DoWaveHit();
             SpawnWaveRing();
+
+            if (health != null && health.bossAudio != null) health.bossAudio.PlayAttack2();
 
             HapticManager.Instance?.Vibrate(0.3f, 0.6f, 0.15f);
 

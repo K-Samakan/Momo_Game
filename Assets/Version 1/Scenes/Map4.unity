@@ -903,6 +903,94 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1927924077}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &8234449
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 748386182}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_Name
+      value: Meshy_AI_Crimson_Sentinel_0504153000_texture (1)
+      objectReference: {fileID: 0}
+    - target: {fileID: 2664098864995057252, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: f30dbb133b4d95a438c894e70e01cbee, type: 2}
+    - target: {fileID: 5866666021909216657, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5866666021909216657, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_Controller
+      value: 
+      objectReference: {fileID: 9100000, guid: e0fec11429d15994598a123225aebec5, type: 2}
+    - target: {fileID: 5866666021909216657, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_ApplyRootMotion
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 4ddffd104a11d7c468fb7f5b73d57694, type: 3}
 --- !u!1 &9115699
 GameObject:
   m_ObjectHideFlags: 0
@@ -28827,6 +28915,8 @@ MonoBehaviour:
   hitEffectPrefab: {fileID: 8782009059513614302, guid: 171dda363e9efd94ca9bc63e38ca9658,
     type: 3}
   sfxEmitter: {fileID: 92775482}
+  monsterAudio: {fileID: 0}
+  playAttackSfxOnWindup: 0
   footstepEmitInterval: 0.5
 --- !u!54 &92775478
 Rigidbody:
@@ -34367,6 +34457,8 @@ MonoBehaviour:
   hitEffectPrefab: {fileID: 8782009059513614302, guid: 171dda363e9efd94ca9bc63e38ca9658,
     type: 3}
   sfxEmitter: {fileID: 111691995}
+  monsterAudio: {fileID: 0}
+  playAttackSfxOnWindup: 0
   footstepEmitInterval: 0.5
 --- !u!54 &111692001
 Rigidbody:
@@ -68634,6 +68726,8 @@ MonoBehaviour:
   hitEffectPrefab: {fileID: 8782009059513614302, guid: 171dda363e9efd94ca9bc63e38ca9658,
     type: 3}
   sfxEmitter: {fileID: 215672345}
+  monsterAudio: {fileID: 0}
+  playAttackSfxOnWindup: 0
   footstepEmitInterval: 0.5
 --- !u!54 &215672341
 Rigidbody:
@@ -84612,6 +84706,8 @@ MonoBehaviour:
   hitEffectPrefab: {fileID: 8782009059513614302, guid: 171dda363e9efd94ca9bc63e38ca9658,
     type: 3}
   sfxEmitter: {fileID: 244163364}
+  monsterAudio: {fileID: 0}
+  playAttackSfxOnWindup: 0
   footstepEmitInterval: 0.5
 --- !u!54 &244163370
 Rigidbody:
@@ -132972,6 +133068,8 @@ MonoBehaviour:
   hitEffectPrefab: {fileID: 8782009059513614302, guid: 171dda363e9efd94ca9bc63e38ca9658,
     type: 3}
   sfxEmitter: {fileID: 454246104}
+  monsterAudio: {fileID: 0}
+  playAttackSfxOnWindup: 0
   footstepEmitInterval: 0.5
 --- !u!54 &454246100
 Rigidbody:
@@ -134535,6 +134633,12 @@ Transform:
   m_Children: []
   m_Father: {fileID: 398654563}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!4 &466029313 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+    type: 3}
+  m_PrefabInstance: {fileID: 8234449}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &466488082
 GameObject:
   m_ObjectHideFlags: 0
@@ -134637,6 +134741,8 @@ MonoBehaviour:
   hitEffectPrefab: {fileID: 8782009059513614302, guid: 171dda363e9efd94ca9bc63e38ca9658,
     type: 3}
   sfxEmitter: {fileID: 0}
+  monsterAudio: {fileID: 0}
+  playAttackSfxOnWindup: 0
   footstepEmitInterval: 0.5
 --- !u!54 &466488087
 Rigidbody:
@@ -162702,90 +162808,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 582692414}
   m_CullTransparentMesh: 1
---- !u!1001 &582972287
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 1380542982}
-    m_Modifications:
-    - target: {fileID: -8679921383154817045, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-        type: 3}
-      propertyPath: m_LocalPosition.x
-      value: -0.011
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-        type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0.807
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-        type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -0.068
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-        type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 0.7071068
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-        type: 3}
-      propertyPath: m_LocalRotation.x
-      value: -0.7071068
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-        type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-        type: 3}
-      propertyPath: m_LocalRotation.z
-      value: -0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-        type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-        type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-        type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -7511558181221131132, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-        type: 3}
-      propertyPath: 'm_Materials.Array.data[0]'
-      value: 
-      objectReference: {fileID: 2100000, guid: f30dbb133b4d95a438c894e70e01cbee, type: 2}
-    - target: {fileID: 919132149155446097, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-        type: 3}
-      propertyPath: m_Name
-      value: Meshy_AI_Crimson_Sentinel_0504153000_texture
-      objectReference: {fileID: 0}
-    - target: {fileID: 5866666021909216657, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-        type: 3}
-      propertyPath: m_Controller
-      value: 
-      objectReference: {fileID: 9100000, guid: 189e3a5480a95814c8b1b0f30f4f47a4, type: 2}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 77badc2b73982ae4ebbbb077114b8ccd, type: 3}
---- !u!4 &582972288 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-    type: 3}
-  m_PrefabInstance: {fileID: 582972287}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &583147728
 GameObject:
   m_ObjectHideFlags: 0
@@ -164681,6 +164703,8 @@ MonoBehaviour:
   hitEffectPrefab: {fileID: 8782009059513614302, guid: 171dda363e9efd94ca9bc63e38ca9658,
     type: 3}
   sfxEmitter: {fileID: 596127796}
+  monsterAudio: {fileID: 0}
+  playAttackSfxOnWindup: 0
   footstepEmitInterval: 0.5
 --- !u!54 &596127792
 Rigidbody:
@@ -190695,6 +190719,8 @@ MonoBehaviour:
   hitEffectPrefab: {fileID: 8782009059513614302, guid: 171dda363e9efd94ca9bc63e38ca9658,
     type: 3}
   sfxEmitter: {fileID: 0}
+  monsterAudio: {fileID: 0}
+  playAttackSfxOnWindup: 0
   footstepEmitInterval: 0.5
 --- !u!54 &684946760
 Rigidbody:
@@ -205661,7 +205687,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 1
   m_Children:
-  - {fileID: 1057080164}
+  - {fileID: 466029313}
   m_Father: {fileID: 302373856}
   m_LocalEulerAnglesHint: {x: 4.793, y: -79.4, z: -0.766}
 --- !u!114 &748386183
@@ -205742,6 +205768,8 @@ MonoBehaviour:
   hitEffectPrefab: {fileID: 8782009059513614302, guid: 171dda363e9efd94ca9bc63e38ca9658,
     type: 3}
   sfxEmitter: {fileID: 748386191}
+  monsterAudio: {fileID: 0}
+  playAttackSfxOnWindup: 0
   footstepEmitInterval: 0.5
 --- !u!54 &748386187
 Rigidbody:
@@ -205824,7 +205852,7 @@ Animator:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 748386181}
   m_Enabled: 1
-  m_Avatar: {fileID: 9000000, guid: 77badc2b73982ae4ebbbb077114b8ccd, type: 3}
+  m_Avatar: {fileID: 9000000, guid: 4ddffd104a11d7c468fb7f5b73d57694, type: 3}
   m_Controller: {fileID: 9100000, guid: 189e3a5480a95814c8b1b0f30f4f47a4, type: 2}
   m_CullingMode: 1
   m_UpdateMode: 0
@@ -291468,6 +291496,8 @@ MonoBehaviour:
   hitEffectPrefab: {fileID: 8782009059513614302, guid: 171dda363e9efd94ca9bc63e38ca9658,
     type: 3}
   sfxEmitter: {fileID: 1009051328}
+  monsterAudio: {fileID: 0}
+  playAttackSfxOnWindup: 0
   footstepEmitInterval: 0.5
 --- !u!54 &1009051324
 Rigidbody:
@@ -295368,6 +295398,8 @@ MonoBehaviour:
   hitEffectPrefab: {fileID: 8782009059513614302, guid: 171dda363e9efd94ca9bc63e38ca9658,
     type: 3}
   sfxEmitter: {fileID: 1020498200}
+  monsterAudio: {fileID: 0}
+  playAttackSfxOnWindup: 0
   footstepEmitInterval: 0.5
 --- !u!54 &1020498196
 Rigidbody:
@@ -301964,12 +301996,6 @@ Transform:
   - {fileID: 1749218283}
   m_Father: {fileID: 926088738}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!4 &1057080164 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-    type: 3}
-  m_PrefabInstance: {fileID: 1576809693}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1057220778
 GameObject:
   m_ObjectHideFlags: 0
@@ -303434,6 +303460,8 @@ MonoBehaviour:
   hitEffectPrefab: {fileID: 8782009059513614302, guid: 171dda363e9efd94ca9bc63e38ca9658,
     type: 3}
   sfxEmitter: {fileID: 0}
+  monsterAudio: {fileID: 0}
+  playAttackSfxOnWindup: 0
   footstepEmitInterval: 0.5
 --- !u!54 &1058601431
 Rigidbody:
@@ -316622,6 +316650,8 @@ MonoBehaviour:
   hitEffectPrefab: {fileID: 8782009059513614302, guid: 171dda363e9efd94ca9bc63e38ca9658,
     type: 3}
   sfxEmitter: {fileID: 1111840060}
+  monsterAudio: {fileID: 0}
+  playAttackSfxOnWindup: 0
   footstepEmitInterval: 0.5
 --- !u!54 &1111840056
 Rigidbody:
@@ -337645,6 +337675,8 @@ MonoBehaviour:
   hitEffectPrefab: {fileID: 8782009059513614302, guid: 171dda363e9efd94ca9bc63e38ca9658,
     type: 3}
   sfxEmitter: {fileID: 1156326219}
+  monsterAudio: {fileID: 0}
+  playAttackSfxOnWindup: 0
   footstepEmitInterval: 0.5
 --- !u!54 &1156326215
 Rigidbody:
@@ -341765,6 +341797,94 @@ Transform:
   - {fileID: 1119739365}
   m_Father: {fileID: 1326142574}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &1170164642
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1380542982}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_Name
+      value: Meshy_AI_Crimson_Sentinel_0504153000_texture (1)
+      objectReference: {fileID: 0}
+    - target: {fileID: 2664098864995057252, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: f30dbb133b4d95a438c894e70e01cbee, type: 2}
+    - target: {fileID: 5866666021909216657, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5866666021909216657, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_Controller
+      value: 
+      objectReference: {fileID: 9100000, guid: e0fec11429d15994598a123225aebec5, type: 2}
+    - target: {fileID: 5866666021909216657, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+        type: 3}
+      propertyPath: m_ApplyRootMotion
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 4ddffd104a11d7c468fb7f5b73d57694, type: 3}
 --- !u!1 &1170169810
 GameObject:
   m_ObjectHideFlags: 0
@@ -363243,6 +363363,8 @@ MonoBehaviour:
   hitEffectPrefab: {fileID: 8782009059513614302, guid: 171dda363e9efd94ca9bc63e38ca9658,
     type: 3}
   sfxEmitter: {fileID: 1246390627}
+  monsterAudio: {fileID: 0}
+  playAttackSfxOnWindup: 0
   footstepEmitInterval: 0.5
 --- !u!54 &1246390623
 Rigidbody:
@@ -372905,6 +373027,8 @@ MonoBehaviour:
   hitEffectPrefab: {fileID: 8782009059513614302, guid: 171dda363e9efd94ca9bc63e38ca9658,
     type: 3}
   sfxEmitter: {fileID: 1310154172}
+  monsterAudio: {fileID: 0}
+  playAttackSfxOnWindup: 0
   footstepEmitInterval: 0.5
 --- !u!54 &1310154178
 Rigidbody:
@@ -383432,7 +383556,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 1
   m_Children:
-  - {fileID: 582972288}
+  - {fileID: 2125906273}
   m_Father: {fileID: 302373856}
   m_LocalEulerAnglesHint: {x: 4.793, y: -79.4, z: -0.766}
 --- !u!114 &1380542983
@@ -383513,6 +383637,8 @@ MonoBehaviour:
   hitEffectPrefab: {fileID: 8782009059513614302, guid: 171dda363e9efd94ca9bc63e38ca9658,
     type: 3}
   sfxEmitter: {fileID: 1380542991}
+  monsterAudio: {fileID: 0}
+  playAttackSfxOnWindup: 0
   footstepEmitInterval: 0.5
 --- !u!54 &1380542987
 Rigidbody:
@@ -383595,7 +383721,7 @@ Animator:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1380542981}
   m_Enabled: 1
-  m_Avatar: {fileID: 9000000, guid: 77badc2b73982ae4ebbbb077114b8ccd, type: 3}
+  m_Avatar: {fileID: 9000000, guid: 4ddffd104a11d7c468fb7f5b73d57694, type: 3}
   m_Controller: {fileID: 9100000, guid: 189e3a5480a95814c8b1b0f30f4f47a4, type: 2}
   m_CullingMode: 1
   m_UpdateMode: 0
@@ -396228,6 +396354,8 @@ MonoBehaviour:
   hitEffectPrefab: {fileID: 8782009059513614302, guid: 171dda363e9efd94ca9bc63e38ca9658,
     type: 3}
   sfxEmitter: {fileID: 1427778274}
+  monsterAudio: {fileID: 0}
+  playAttackSfxOnWindup: 0
   footstepEmitInterval: 0.5
 --- !u!54 &1427778270
 Rigidbody:
@@ -408997,6 +409125,8 @@ MonoBehaviour:
   hitEffectPrefab: {fileID: 8782009059513614302, guid: 171dda363e9efd94ca9bc63e38ca9658,
     type: 3}
   sfxEmitter: {fileID: 1483464625}
+  monsterAudio: {fileID: 0}
+  playAttackSfxOnWindup: 0
   footstepEmitInterval: 0.5
 --- !u!54 &1483464631
 Rigidbody:
@@ -429429,84 +429559,6 @@ Transform:
   - {fileID: 533656567}
   m_Father: {fileID: 393176924}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1001 &1576809693
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 748386182}
-    m_Modifications:
-    - target: {fileID: -8679921383154817045, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-        type: 3}
-      propertyPath: m_LocalPosition.x
-      value: -0.011
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-        type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0.807
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-        type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -0.068
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-        type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 0.7071068
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-        type: 3}
-      propertyPath: m_LocalRotation.x
-      value: -0.7071068
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-        type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-        type: 3}
-      propertyPath: m_LocalRotation.z
-      value: -0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-        type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-        type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-        type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -7511558181221131132, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-        type: 3}
-      propertyPath: 'm_Materials.Array.data[0]'
-      value: 
-      objectReference: {fileID: 2100000, guid: f30dbb133b4d95a438c894e70e01cbee, type: 2}
-    - target: {fileID: 919132149155446097, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-        type: 3}
-      propertyPath: m_Name
-      value: Meshy_AI_Crimson_Sentinel_0504153000_texture
-      objectReference: {fileID: 0}
-    - target: {fileID: 5866666021909216657, guid: 77badc2b73982ae4ebbbb077114b8ccd,
-        type: 3}
-      propertyPath: m_Controller
-      value: 
-      objectReference: {fileID: 9100000, guid: 189e3a5480a95814c8b1b0f30f4f47a4, type: 2}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 77badc2b73982ae4ebbbb077114b8ccd, type: 3}
 --- !u!1 &1576851709
 GameObject:
   m_ObjectHideFlags: 0
@@ -432425,6 +432477,7 @@ GameObject:
   - component: {fileID: 1598640484}
   - component: {fileID: 1598640486}
   - component: {fileID: 1598640487}
+  - component: {fileID: 1598640488}
   m_Layer: 8
   m_Name: PlayerArmature
   m_TagString: Player
@@ -432878,6 +432931,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5a1c6ce8eb50b424eb3bdeeb6f7f6bb2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  attackSfx: {fileID: 11400000, guid: 33807f22beba03c44bdbff359fcc1964, type: 2}
   extendedAttackRange: 5
   extendedDetectionRange: 5
   attackDamageBonus: 2
@@ -432928,6 +432982,25 @@ MonoBehaviour:
     m_Bits: 4294966985
   impactPrefab: {fileID: 0}
   impactLifetime: 0.6
+--- !u!114 &1598640488
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1598640456}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c219c444f55a57845907460f4f67ae72, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  punchSfx: {fileID: 11400000, guid: ba7ab463a7300364790fe76acfb59d1f, type: 2}
+  kickSfx: {fileID: 11400000, guid: 53581d43d7420b54cb3a695b908545d8, type: 2}
+  source: {fileID: 0}
+  spatialBlend: 0.5
+  emitVSE: 0
+  attackEmitter: {fileID: 0}
+  showDebugLog: 1
 --- !u!1 &1600031908
 GameObject:
   m_ObjectHideFlags: 0
@@ -442163,6 +442236,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cdb88ecc651ac57419b005d043643fd5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  attackSfx: {fileID: 0}
   shockwavePrefab: {fileID: 6982263153641847612, guid: 583ab0678c6d63c42b3665a17351a981,
     type: 3}
   spawnPoint_R: {fileID: 1517376022}
@@ -455428,6 +455502,8 @@ MonoBehaviour:
   hitEffectPrefab: {fileID: 8782009059513614302, guid: 171dda363e9efd94ca9bc63e38ca9658,
     type: 3}
   sfxEmitter: {fileID: 0}
+  monsterAudio: {fileID: 0}
+  playAttackSfxOnWindup: 0
   footstepEmitInterval: 0.5
 --- !u!54 &1661859782
 Rigidbody:
@@ -489833,6 +489909,8 @@ MonoBehaviour:
   hitEffectPrefab: {fileID: 8782009059513614302, guid: 171dda363e9efd94ca9bc63e38ca9658,
     type: 3}
   sfxEmitter: {fileID: 0}
+  monsterAudio: {fileID: 0}
+  playAttackSfxOnWindup: 0
   footstepEmitInterval: 0.5
 --- !u!54 &1770241567
 Rigidbody:
@@ -586855,6 +586933,8 @@ MonoBehaviour:
   hitEffectPrefab: {fileID: 8782009059513614302, guid: 171dda363e9efd94ca9bc63e38ca9658,
     type: 3}
   sfxEmitter: {fileID: 2091680308}
+  monsterAudio: {fileID: 0}
+  playAttackSfxOnWindup: 0
   footstepEmitInterval: 0.5
 --- !u!54 &2091680304
 Rigidbody:
@@ -595659,6 +595739,8 @@ MonoBehaviour:
   hitEffectPrefab: {fileID: 8782009059513614302, guid: 171dda363e9efd94ca9bc63e38ca9658,
     type: 3}
   sfxEmitter: {fileID: 2122226263}
+  monsterAudio: {fileID: 0}
+  playAttackSfxOnWindup: 0
   footstepEmitInterval: 0.5
 --- !u!54 &2122226259
 Rigidbody:
@@ -596349,6 +596431,12 @@ Transform:
   m_Children: []
   m_Father: {fileID: 149230326}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!4 &2125906273 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 4ddffd104a11d7c468fb7f5b73d57694,
+    type: 3}
+  m_PrefabInstance: {fileID: 1170164642}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &2126402291
 GameObject:
   m_ObjectHideFlags: 0

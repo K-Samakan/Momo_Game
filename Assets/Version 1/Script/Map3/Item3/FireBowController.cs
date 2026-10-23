@@ -6,8 +6,15 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-public class FireBowController : MonoBehaviour
+public class FireBowController : MonoBehaviour, IAttackSfxProvider
 {
+    [Header("SFX (Map3 Bow)")]
+    public AttackSfxSet attackSfx;
+    public AudioClip chargeReadyClip;
+    public AttackSfxSet AttackSfx => attackSfx;
+    public int SfxPriority => 30;
+    private PlayerCombatAudio _combatAudio;
+
     [Header("Arrow")]
     public GameObject arrowProjectilePrefab;
     public Transform arrowSpawnPoint;      // ปลายธนู / มือขวา (ใช้แค่ตำแหน่ง spawn ไม่ใช้ทิศทางแล้ว)
@@ -76,6 +83,8 @@ public class FireBowController : MonoBehaviour
 
         // ✅ หา Main Camera อัตโนมัติถ้าไม่ได้ลากไว้
         if (playerCamera == null) playerCamera = Camera.main;
+        _combatAudio = GetComponentInParent<PlayerCombatAudio>();
+        if (_combatAudio == null) _combatAudio = FindFirstObjectByType<PlayerCombatAudio>();
     }
 
     void OnEnable()
@@ -194,6 +203,9 @@ public class FireBowController : MonoBehaviour
         // Haptic feedback แจ้งว่าชาร์จเต็มแล้ว (สั่นสั้น ๆ)
         HapticManager.Instance?.Vibrate(0f, 0.3f, 0.08f);
 
+        _combatAudio?.PlayClip(chargeReadyClip, 0.8f);
+
+
         Debug.Log("[FireBowController] 🔥 CHARGED! พร้อมยิงธนูไฟ");
     }
 
@@ -247,6 +259,7 @@ public class FireBowController : MonoBehaviour
         Quaternion arrowRotation = Quaternion.LookRotation(fireDirection);
 
         GameObject arrowGO = Instantiate(arrowProjectilePrefab, arrowSpawnPoint.position, arrowRotation);
+        _combatAudio?.PlayFromSet(attackSfx, isFireArrow);
         var projectile = arrowGO.GetComponent<FireArrowProjectile>();
         if (projectile != null)
         {

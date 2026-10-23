@@ -10,6 +10,7 @@ public class BossMap1Health : MonoBehaviour
     [Header("References")]
     public BossMap1BT bossController;
     public BossMap1UI bossUI;
+    public BossMap1Audio bossAudio;
     public GameObject soulPrefab;
 
     [Header("Damage Cooldown")]
@@ -23,12 +24,16 @@ public class BossMap1Health : MonoBehaviour
 
         // ✅ ตรวจสอบว่ามี bossController หรือไม่
         if (bossController == null)
-        {
             Debug.LogError("❌ BossMap1Health: ไม่ได้ต่อ bossController ใน Inspector!");
-        }
         else
-        {
             Debug.Log("✅ BossMap1Health: เชื่อมต่อ bossController สำเร็จ");
+
+        // ✅ ตรวจสอบ bossAudio (ไม่บังคับ ถ้าไม่มีจะเล่นเกมได้ปกติแต่ไม่มีเสียง)
+        if (bossAudio == null)
+        {
+            bossAudio = GetComponentInChildren<BossMap1Audio>();
+            if (bossAudio == null)
+                Debug.LogWarning("⚠️ BossMap1Health: ไม่พบ BossMap1Audio → บอสจะไม่มีเสียงโดนตี/ตาย");
         }
     }
 
@@ -70,6 +75,10 @@ public class BossMap1Health : MonoBehaviour
         // ✅ Debug HP
         Debug.Log($"💔 Boss HP: {_currentHP}/{maxHP}");
 
+        // ✅ เสียงโดนตี (เฉพาะตอนยังไม่ตาย — ตายแล้วให้เสียงตายเล่นอย่างเดียว)
+        if (_currentHP > 0 && bossAudio != null)
+            bossAudio.PlayHurt();
+
         // Soul Drop ทุก HP -10
         if (_lastSoulDropHP - _currentHP >= 10)
         {
@@ -83,6 +92,11 @@ public class BossMap1Health : MonoBehaviour
         {
             // ✅ Debug ตาย
             Debug.Log("💀 Boss HP = 0 → เรียก OnDead()");
+
+            // ✅ เสียงตาย (เรียกก่อน OnDead เพื่อให้เสียงเริ่มพร้อม Animation Dead)
+            if (bossAudio != null)
+                bossAudio.PlayDeath();
+
             bossController.OnDead();
             bossUI.HideBossUI();
         }
