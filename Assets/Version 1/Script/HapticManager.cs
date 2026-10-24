@@ -1023,32 +1023,38 @@ public class HapticManager : MonoBehaviour
     private int _lastBowForce = -1;
 
     /// <summary>
-    /// แรงต้าน R2 สำหรับง้างธนู — ใช้ ContinuousResistance (แรงต้านคงที่ ไม่สั่น)
-    /// tension 0 = เบาสุด, 1 = หนักสุด  (ค่าแรงเท่ากันตลอดระยะกดไก)
-    /// ส่งไปจอยเฉพาะตอนค่าแรงเปลี่ยนจริง ๆ เพื่อไม่ยิง HID ทุกเฟรม
+    /// Adaptive Trigger R2 สำหรับง้างธนู — ใช้โปรไฟล์ EffectEx แบบเดียวกับ Mirror Puzzle (Map2)
+    /// resistance 0-1 (0.65 = ความหนักเท่ากระจก Map2, 1 = หนักสุด)
+    /// ส่งไปจอยเฉพาะตอนค่าแรงเปลี่ยน (forceSend = true บังคับส่ง เช่นตอนเริ่มเล็ง/หลังระบบอื่นรีเซ็ตไก)
     /// </summary>
-    public void SetBowTension(float tension, byte minForce = 15, byte maxForce = 255, byte startPosition = 0)
+    public void SetBowTension(float resistance, bool forceSend = false)
     {
         if (!enableAdaptiveTriggers || dualSenseGamepad == null) return;
 
-        tension = Mathf.Clamp01(tension);
-        int force = Mathf.RoundToInt(Mathf.Lerp(minForce, maxForce, tension));
-        if (force == _lastBowForce) return;
+        resistance = Mathf.Clamp01(resistance);
+        if (resistance <= 0f) { ReleaseBowTension(); return; }
+
+        int force = Mathf.RoundToInt(resistance * 200f);   // 0-200 เหมือน SetTriggerResistance()
+        if (!forceSend && force == _lastBowForce) return;
         _lastBowForce = force;
 
         currentRightTriggerState = new DualSenseTriggerState
         {
-            EffectType = DualSenseTriggerEffectType.ContinuousResistance,
-            Continuous = new DualSenseContinuousResistanceProperties
+            EffectType = DualSenseTriggerEffectType.EffectEx,
+            EffectEx = new DualSenseEffectExProperties
             {
-                StartPosition = startPosition,
-                Force = (byte)force
+                StartPosition = 0,                                   // ต้านทันทีที่เริ่มกด
+                KeepEffect = true,                                   // ค้างแรงต้านไว้
+                BeginForce = (byte)(force * 0.3f),                   // ช่วงต้นไกเบา
+                MiddleForce = (byte)force,                           // ช่วงกลางตามที่กำหนด
+                EndForce = (byte)Mathf.Min(255, force * 1.2f),       // ปลายไกหนักขึ้น
+                Frequency = 0                                        // ไม่สั่น
             }
         };
         ApplyTriggerStates();
     }
 
-    /// <summary>ปล่อยแรงต้าน R2 หลังยิงธนู</summary>
+    /// <summary>ปล่อย R2 กลับเป็นไกปกติ (ไม่มีแรงต้าน)</summary>
     public void ReleaseBowTension()
     {
         _lastBowForce = -1;

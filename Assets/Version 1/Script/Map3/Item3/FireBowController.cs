@@ -52,15 +52,17 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
     [Header("UI")]
     public BowReticleUI bowReticleUI;      // Crosshair กลางจอ
 
-    [Header("Adaptive Trigger (R2) — เบาสุด → หนักสุด แล้วค้างจนกว่าจะปล่อย")]
-    [Tooltip("แรงต้านตอนเริ่มกด (0-255)")]
-    [Range(0, 255)] public int triggerMinForce = 15;
-    [Tooltip("แรงต้านตอนชาร์จเต็ม — ค้างค่านี้ไว้จนปล่อย R2 (0-255)")]
-    [Range(0, 255)] public int triggerMaxForce = 255;
+    [Header("Adaptive Trigger R2 (โปรไฟล์เดียวกับ Mirror Puzzle Map2 — กระจก = 0.65)")]
+    [Tooltip("ใส่แรงต้าน R2 ไว้ตั้งแต่สวมธนู (ก่อนกด) — ทำให้รู้สึกแรงต้านตั้งแต่จังหวะแรกที่กดลง เหมือนตอนเดินเข้าใกล้กระจก")]
+    public bool preloadTriggerWhenEquipped = true;
+    [Tooltip("แรงต้านรอไว้ตอนถือธนูแต่ยังไม่ง้าง")]
+    [Range(0f, 1f)] public float triggerIdleResistance = 0.35f;
+    [Tooltip("แรงต้านตอนเริ่มง้าง (เบาสุด)")]
+    [Range(0f, 1f)] public float triggerMinResistance = 0.4f;
+    [Tooltip("แรงต้านตอนชาร์จเต็ม (หนักสุด) — ค้างไว้จนกว่าจะปล่อย R2")]
+    [Range(0f, 1f)] public float triggerMaxResistance = 1f;
     [Tooltip("ความโค้งของการเพิ่มแรง (1 = เพิ่มเท่า ๆ กัน, 2 = เบานานแล้วหนักเร็วช่วงท้าย, 0.6 = หนักเร็วช่วงแรก)")]
-    [Range(0.3f, 3f)] public float resistanceCurvePower = 1.3f;
-    [Tooltip("ตำแหน่งไกที่เริ่มมีแรงต้าน (0 = ทันทีที่แตะ)")]
-    [Range(0, 200)] public int triggerStartPosition = 0;
+    [Range(0.3f, 3f)] public float resistanceCurvePower = 1.2f;
 
     [Header("Aim Camera (Cinemachine)")]
     [Tooltip("ลาก GameObject ของ Cinemachine Virtual Camera มุม over-the-shoulder แบบ Genshin — ต้องมี Priority สูงกว่ากล้องปกติ")]
@@ -148,6 +150,7 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
 
         // ✅ ถ้าโดนปิดกลางคันระหว่างง้าง (cutscene / ตาย / เปลี่ยน scene) — คืนทุกอย่าง ไม่ให้กล้องค้างโหมดเล็ง
         if (_isAiming) CancelAim();
+        HapticManager.Instance?.ReleaseBowTension();   // ปิดธนู = R2 กลับเป็นไกปกติ
     }
 
     // ─────────────────────────────────────────────
@@ -193,6 +196,7 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
     {
         _isEquipped = true;
         baseArrowDamage = Mathf.Max(baseArrowDamage, atkFromStat);
+        ApplyIdleTension();   // ✅ สวมธนูแล้ว R2 มีแรงต้านรอไว้เลย
         Debug.Log("[FireBowController] 🏹 Equipped! พร้อมใช้งาน");
     }
 
@@ -223,8 +227,12 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
         // ✅ เริ่มไฮไลต์ (โชว์ลูกธนูพาดสาย)
         chargeHighlight?.BeginCharge();
 
-        // ✅ เริ่มแรงต้าน R2 เบาสุดทันทีที่กด
-        ApplyBowTension(0f);
+        // ✅ เริ่มแรงต้าน R2 เบาสุดทันทีที่กด (forceSend: กันกรณีระบบอื่นรีเซ็ตไกไปแล้ว)
+        if (HapticManager.Instance == null)
+            Debug.LogWarning("[FireBowController] ⚠️ ไม่มี HapticManager ใน Scene — Adaptive Trigger จะไม่ทำงาน");
+        else if (!HapticManager.Instance.IsDualSenseConnected())
+            Debug.LogWarning("[FireBowController] ⚠️ HapticManager ยังไม่เจอ DualSense — Adaptive Trigger จะไม่ทำงาน");
+        ApplyBowTension(0f, forceSend: true);
 
         Debug.Log("[FireBowController] 🎯 Start Aiming...");
     }
@@ -272,19 +280,27 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
         if (aimVirtualCameraObject != null) aimVirtualCameraObject.SetActive(false);
 
         // ✅ ปล่อยแรงต้าน trigger กลับสู่ปกติ
-        HapticManager.Instance?.ReleaseBowTension();
+        // ✅ ยิงแล้ว → กลับไปแรงต้านรอ (หรือไกปกติถ้าปิด preload)
+        ApplyIdleTension();
 
         chargeHighlight?.ResetHighlight();
         thirdPersonController?.SetBowAim(false);
     }
 
-    void ApplyBowTension(float t)
+    // t = % ชาร์จ (0-1) → แรงต้านจาก min → max แล้วค้างที่ max เมื่อ t = 1
+    void ApplyBowTension(float t, bool forceSend = false)
     {
         float curved = Mathf.Pow(Mathf.Clamp01(t), resistanceCurvePower);
-        HapticManager.Instance?.SetBowTension(curved,
-            (byte)Mathf.Clamp(triggerMinForce, 0, 255),
-            (byte)Mathf.Clamp(triggerMaxForce, 0, 255),
-            (byte)Mathf.Clamp(triggerStartPosition, 0, 255));
+        float resistance = Mathf.Lerp(triggerMinResistance, triggerMaxResistance, curved);
+        HapticManager.Instance?.SetBowTension(resistance, forceSend);
+    }
+
+    void ApplyIdleTension()
+    {
+        if (_isEquipped && preloadTriggerWhenEquipped && isActiveAndEnabled)
+            HapticManager.Instance?.SetBowTension(triggerIdleResistance, forceSend: true);
+        else
+            HapticManager.Instance?.ReleaseBowTension();
     }
 
     // ─────────────────────────────────────────────
