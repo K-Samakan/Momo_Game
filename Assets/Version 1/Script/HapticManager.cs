@@ -1067,6 +1067,47 @@ public class HapticManager : MonoBehaviour
         ApplyTriggerStates();
     }
 
+    // ========== Trigger Test Effects (FireBowController 🧪) ==========
+
+    /// <summary>
+    /// ไกสั่นกระตุกต้านนิ้ว (EffectEx + Frequency > 0) — แบบเดียวกับ DualSenseTriggerRumble.cs
+    /// strength 0-1, frequency 1-40 (มาก = กระตุกถี่), bothTriggers = ใส่ทั้ง L2/R2
+    /// </summary>
+    public void SetTriggerVibrationEffect(float strength, byte frequency, bool bothTriggers = true)
+    {
+        if (!enableAdaptiveTriggers || dualSenseGamepad == null) return;
+
+        byte force = (byte)Mathf.RoundToInt(Mathf.Clamp01(strength) * 255f);
+        var state = new DualSenseTriggerState
+        {
+            EffectType = DualSenseTriggerEffectType.EffectEx,
+            EffectEx = new DualSenseEffectExProperties
+            {
+                StartPosition = 0,
+                KeepEffect = true,
+                BeginForce = (byte)(force * 0.6f),
+                MiddleForce = force,
+                EndForce = force,
+                Frequency = (byte)Mathf.Max(1, (int)frequency)
+            }
+        };
+
+        currentRightTriggerState = state;
+        if (bothTriggers) currentLeftTriggerState = state;
+        ApplyTriggerStates();
+    }
+
+    /// <summary>ปลดแรงต้านไก (ไม่มี Debug.Log — ใช้กับเอฟเฟกต์กระตุกเปิด/ปิดเร็ว ๆ)</summary>
+    public void ClearTriggersSilent(bool bothTriggers = true)
+    {
+        if (!enableAdaptiveTriggers || dualSenseGamepad == null) return;
+
+        var none = new DualSenseTriggerState { EffectType = DualSenseTriggerEffectType.NoResistance };
+        currentRightTriggerState = none;
+        if (bothTriggers) currentLeftTriggerState = none;
+        ApplyTriggerStates();
+    }
+
     public void ResetAdaptiveTriggers()
     {
         if (!enableAdaptiveTriggers || dualSenseGamepad == null) return;
