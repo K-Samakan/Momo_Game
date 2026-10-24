@@ -82,7 +82,19 @@ public class FireArrowProjectile : MonoBehaviour
             return;
         }
 
-        // ── โดนมอนสเตอร์ทั่วไป ──
+        // ── โดนมอนสเตอร์ (ระบบหลัก MonsterBT) — ตายแล้วดรอป Soul เหมือนโจมตีปกติ ──
+        //    ต้องเช็คก่อน MonsterHealth เหมือน SmartAttackSystem / GloveShockwave
+        //    (เดิมยิงเข้า MonsterHealth อย่างเดียว → มอนตายด้วยระบบเก่าที่ไม่ดรอป Soul)
+        var monsterBT = other.GetComponentInParent<MonsterBT>();
+        if (monsterBT != null)
+        {
+            monsterBT.TakeDamage(_damage);
+            ApplyIgniteIfNeeded(monsterBT.gameObject);
+            ResolveHit();
+            return;
+        }
+
+        // ── มอนสเตอร์ที่มีแค่ระบบเก่า (MonsterHealth) ──
         var monster = other.GetComponent<MonsterHealth>();
         if (monster != null)
         {
