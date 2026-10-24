@@ -1019,6 +1019,48 @@ public class HapticManager : MonoBehaviour
         Debug.Log($"🔧 Set trigger resistance - L2: {leftResistance:F2}, R2: {rightResistance:F2}");
     }
 
+    // ========== Bow Tension (FireBowController / ธนูไฟ Map3) ==========
+    private int _lastBowForce = -1;
+
+    /// <summary>
+    /// แรงต้าน R2 สำหรับง้างธนู — ใช้ ContinuousResistance (แรงต้านคงที่ ไม่สั่น)
+    /// tension 0 = เบาสุด, 1 = หนักสุด  (ค่าแรงเท่ากันตลอดระยะกดไก)
+    /// ส่งไปจอยเฉพาะตอนค่าแรงเปลี่ยนจริง ๆ เพื่อไม่ยิง HID ทุกเฟรม
+    /// </summary>
+    public void SetBowTension(float tension, byte minForce = 15, byte maxForce = 255, byte startPosition = 0)
+    {
+        if (!enableAdaptiveTriggers || dualSenseGamepad == null) return;
+
+        tension = Mathf.Clamp01(tension);
+        int force = Mathf.RoundToInt(Mathf.Lerp(minForce, maxForce, tension));
+        if (force == _lastBowForce) return;
+        _lastBowForce = force;
+
+        currentRightTriggerState = new DualSenseTriggerState
+        {
+            EffectType = DualSenseTriggerEffectType.ContinuousResistance,
+            Continuous = new DualSenseContinuousResistanceProperties
+            {
+                StartPosition = startPosition,
+                Force = (byte)force
+            }
+        };
+        ApplyTriggerStates();
+    }
+
+    /// <summary>ปล่อยแรงต้าน R2 หลังยิงธนู</summary>
+    public void ReleaseBowTension()
+    {
+        _lastBowForce = -1;
+        if (!enableAdaptiveTriggers || dualSenseGamepad == null) return;
+
+        currentRightTriggerState = new DualSenseTriggerState
+        {
+            EffectType = DualSenseTriggerEffectType.NoResistance
+        };
+        ApplyTriggerStates();
+    }
+
     public void ResetAdaptiveTriggers()
     {
         if (!enableAdaptiveTriggers || dualSenseGamepad == null) return;
