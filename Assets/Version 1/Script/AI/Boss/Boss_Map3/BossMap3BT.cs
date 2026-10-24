@@ -692,9 +692,10 @@ public class BossMap3BT : MonoBehaviour
     IEnumerator FireArrowStunSequence()
     {
         _isFireStunned = true;
-        _isSpinning = false;
-        _isSnowballing = false;
-        _isPatternRunning = false;
+
+        // ✅ ยกเลิกท่าที่กำลังทำอยู่จริง ๆ (เหมือน Stagger) — เดิมแค่ปิด flag
+        //    ทำให้ coroutine ปาหิมะ/หมุนยังทำงานต่อ = หิมะยังพุ่งออกมาทั้งที่บอส stun อยู่
+        CancelCurrentAttackPattern();
 
         // เปิด Animator กลับ (กรณีกำลังหมุนอยู่)
         animator.enabled = true;
@@ -736,7 +737,8 @@ public class BossMap3BT : MonoBehaviour
         _isStagger = false;
 
         // ✅ สั่ง Animator กลับ Idle ตรงๆ ทันที — ไม่ต้องรอ Exit Time ของ Clip
-        animator.SetTrigger(HashReturnIdle);
+        //    (ถ้าระหว่างนั้นโดนธนูไฟจน Fire Stun แล้ว ให้ Fire Stun เป็นคนสั่งกลับ Idle เอง)
+        if (!_isFireStunned) animator.SetTrigger(HashReturnIdle);
     }
 
     IEnumerator DeathSequence()
@@ -772,6 +774,10 @@ public class BossMap3BT : MonoBehaviour
         _isHit = true; _hitRecoveryTimer = 0.3f;
         if (hitVFX != null) { var vfx = Instantiate(hitVFX, transform.position + Vector3.up, Quaternion.identity); Destroy(vfx, 2f); }
         StartCoroutine(HitFlash());
+
+        // ✅ ระหว่าง Fire Stun ไม่นับ combo — กัน Stagger (ซึ่ง priority สูงกว่าใน BT) มาแทรกแล้วสั่งกลับ Idle กลาง stun
+        //    (ดาเมจไหม้จากธนูไฟ 2 tick ก็นับเป็น hit ด้วย จึงเข้า stagger ง่ายกว่าเดิม)
+        if (_isFireStunned) return;
         _comboCount++;
 
         if (_comboCount >= 5 && !_isStagger) // ✅ กันไม่ให้ Stagger ซ้อน Stagger เดิม
