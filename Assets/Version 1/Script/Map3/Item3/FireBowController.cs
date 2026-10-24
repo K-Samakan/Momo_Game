@@ -38,6 +38,13 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
     [Header("Fire Charge (เหมือน Genshin)")]
     [Tooltip("เวลากด R2 ค้างขั้นต่ำ (วินาที) ก่อนจะกลายเป็นธนูไฟ")]
     public float chargeThreshold = 1.2f;
+
+    [Header("R2 Release (กันไกกระตุกทำให้ปล่อยเอง)")]
+    [Tooltip("ถือว่าปล่อย R2 เมื่อค่าไกต่ำกว่าเท่านี้ (0-1) — ไกกระตุกดันนิ้วทำให้ค่าแกว่ง จึงต้องต่ำกว่าจุดปล่อยของปุ่มปกติ")]
+    [Range(0.02f, 0.5f)] public float releaseThreshold = 0.12f;
+    [Tooltip("ต้องต่ำกว่า releaseThreshold ต่อเนื่องนานกี่วินาทีถึงจะยิง (กันสัญญาณแกว่งชั่วขณะ)")]
+    [Range(0f, 0.2f)] public float releaseDebounce = 0.06f;
+    private float _belowReleaseTime;
     public int fireIgniteTicks = 2;        // ติดไฟ DOT กี่ครั้ง
     public float igniteTickInterval = 0.6f;
 
@@ -184,6 +191,15 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
 
         _heldTime += Time.deltaTime;
 
+        // ── ตรวจการปล่อย R2 จากค่าไกจริง (ทนต่อไกกระตุก) ──
+        float r2 = _aimAction != null ? _aimAction.ReadValue<float>() : 0f;
+        if (r2 < releaseThreshold)
+        {
+            _belowReleaseTime += Time.deltaTime;
+            if (_belowReleaseTime >= releaseDebounce) { ReleaseArrow(); return; }
+        }
+        else _belowReleaseTime = 0f;
+
         // ── Adaptive Trigger: ไกกระตุกแรงขึ้นตามเวลาชาร์จ → เต็ม (ธนูไฟ) = แรงสุด ค้างจนกว่าจะปล่อย ──
         float t = Mathf.Clamp01(_heldTime / chargeThreshold);
         ApplyBowTension(t, _isCharged);
@@ -210,6 +226,10 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
     void OnAimStarted(InputAction.CallbackContext ctx)
     {
         if (!_isEquipped) return;
+
+        // ✅ กำลังง้างอยู่แล้ว (ไกกระตุกทำให้ Input System ส่ง "กดใหม่" ซ้ำ) → ห้ามรีเซ็ตค่าชาร์จ
+        if (_isAiming) { _belowReleaseTime = 0f; return; }
+        _belowReleaseTime = 0f;
 
         _isAiming = true;
         _isCharged = false;
@@ -261,7 +281,11 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
         Debug.Log("[FireBowController] 🔥 CHARGED! พร้อมยิงธนูไฟ");
     }
 
-    void OnAimReleased(InputAction.CallbackContext ctx)
+    // R2 canceled จาก Input System — ไม่ยิงทันที เพราะไกกระตุกทำให้ส่ง canceled ปลอมได้
+    // การยิงจริงตัดสินใน Update() จากค่าไกจริง (ReleaseArrow)
+    void OnAimReleased(InputAction.CallbackContext ctx) { }
+
+    void ReleaseArrow()
     {
         if (!_isEquipped || !_isAiming) return;
 
