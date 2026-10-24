@@ -2,7 +2,14 @@
 // FILE: SaveManager.cs
 // PATH: Assets/Version 1/Script/SaveSystem/SaveManager.cs
 // ============================================================
+// ✅ CHANGELOG (Puzzle Fail → Respawn)
+//   [NEW]   ReloadSceneAndRespawn()  — ใช้ตอน Puzzle Fail: โหลดฉากใหม่เสมอ (puzzle รีเซ็ต) แล้ววาปไปจุด Save
+//   [FIX]   OnSceneLoadedForRespawn  — รอ 1 เฟรมก่อน ApplySaveToPlayer() (กัน PlayerHealth.Start() เขียน HP ทับ)
+//   [FIX]   ApplySaveToPlayer()      — ปิด CharacterController ก่อนย้ายตำแหน่ง (กัน CC เขียนตำแหน่งทับ = วาปไม่ไป)
+//   [NEW]   Log สถานะ Fire Bow ใน RESPAWN STAT SUMMARY
+// ============================================================
 using UnityEngine;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.SceneManagement;
 
@@ -123,6 +130,10 @@ public class SaveManager : MonoBehaviour
     // ─────────────────────────────────────────────────────────
     #region Load / Respawn
 
+    /// <summary>
+    /// ใช้ตอนผู้เล่นตายปกติ (DeathScreenManager)
+    /// ถ้าอยู่ฉากเดียวกับจุด Save → แค่ย้ายตัวผู้เล่น / ถ้าคนละฉาก → โหลดฉากแล้วย้าย
+    /// </summary>
     public void RespawnAtLastSavePoint()
     {
         _tempKilledMonsters.Clear();
@@ -146,9 +157,46 @@ public class SaveManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// ✅ NEW — ใช้ตอน Puzzle Fail (เรียกจาก PuzzleFailRespawn)
+    /// โหลดฉากใหม่ "เสมอ" เพื่อให้ Puzzle / บล็อก / วาล์ว / กระจก กลับเป็นค่าเริ่มต้นทั้งหมด
+    /// แล้ววาปผู้เล่นไปจุด Save ล่าสุด (ควรวาง SavePoint ไว้หน้าห้อง Puzzle)
+    /// </summary>
+    public void ReloadSceneAndRespawn()
+    {
+        _tempKilledMonsters.Clear();
+        _tempCompletedQuests.Clear();
+
+        bool hasSave = _currentSave != null && !string.IsNullOrEmpty(_currentSave.savePointID);
+        string target = hasSave ? _currentSave.sceneName : SceneManager.GetActiveScene().name;
+
+        if (hasSave)
+        {
+            // กันสมัคร event ซ้ำ
+            SceneManager.sceneLoaded -= OnSceneLoadedForRespawn;
+            SceneManager.sceneLoaded += OnSceneLoadedForRespawn;
+        }
+        else
+        {
+            Debug.LogWarning("⚠️ [SaveManager] No save data! Reloading scene without respawn.");
+        }
+
+        Debug.Log($"🔄 [SaveManager] Puzzle fail → reload '{target}' → respawn at [{_currentSave?.savePointID}]");
+        SceneManager.LoadScene(target);
+    }
+
     private void OnSceneLoadedForRespawn(Scene scene, LoadSceneMode mode)
     {
         SceneManager.sceneLoaded -= OnSceneLoadedForRespawn;
+
+        // ✅ FIX: sceneLoaded ถูกเรียก "ก่อน" Start() ของ object ในฉากใหม่
+        //    ถ้า apply ทันที PlayerHealth.Start() จะเขียน currentHealth = maxHealth ทับค่าจาก save
+        StartCoroutine(ApplySaveNextFrame());
+    }
+
+    private IEnumerator ApplySaveNextFrame()
+    {
+        yield return null;   // รอให้ Start() ของทุก object ในฉากใหม่รันเสร็จ
         ApplySaveToPlayer();
     }
 
@@ -157,7 +205,19 @@ public class SaveManager : MonoBehaviour
         // ── ย้าย Player ──────────────────────────────────────
         var player = GameObject.FindGameObjectWithTag("Player");
         if (player != null)
+        {
+            // ✅ FIX: ต้องปิด CharacterController ก่อนย้าย ไม่งั้น CC เขียนตำแหน่งทับ (วาปไม่ไป)
+            var cc = player.GetComponent<CharacterController>();
+            if (cc != null) cc.enabled = false;
+
             player.transform.position = _currentSave.GetRespawnPosition();
+
+            if (cc != null) cc.enabled = true;
+        }
+        else
+        {
+            Debug.LogWarning("⚠️ [SaveManager] ไม่พบ Player (Tag \"Player\") ตอน Respawn!");
+        }
 
         // ── คืน HP + Reset Death State ───────────────────────
         var ph = FindFirstObjectByType<MOMO.Player.PlayerHealth>();
@@ -186,8 +246,10 @@ public class SaveManager : MonoBehaviour
 
             Debug.Log("╔══════════════════════════════════════════╗");
             Debug.Log("║        🔄 RESPAWN STAT SUMMARY           ║");
+            Debug.Log($"║  📍 At   : {_currentSave.savePointID}");
             Debug.Log($"║  ❤️  HP  : {ph.currentHealth} / {ph.maxHealth}");
             Debug.Log($"║  🥊 Glove: {(_currentSave.hasMonkeyGlove ? "Equipped ✅" : "Not equipped ❌")}");
+            Debug.Log($"║  🏹 Bow  : {(_currentSave.hasFireBow ? "Equipped ✅" : "Not equipped ❌")}");
             Debug.Log($"║  🎣 Rod  : {(_currentSave.hasFishingRod ? "Equipped ✅" : "Not equipped ❌")}");
             Debug.Log("╚══════════════════════════════════════════╝");
         }
@@ -199,6 +261,8 @@ public class SaveManager : MonoBehaviour
         // ✅ Restore เบ็ดยืด ถ้าเคยรับไปแล้ว
         if (_currentSave.hasFishingRod)
             RestoreFishingRod();
+
+        // (ธนูไฟ: FireBowPickup.Start() เช็ค hasFireBow แล้ว ForceEquipOnRespawn() เองอยู่แล้ว)
 
         RestoreMonsterStates();
         RestoreQuestStates();

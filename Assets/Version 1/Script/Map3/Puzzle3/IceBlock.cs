@@ -1,3 +1,15 @@
+// ============================================================
+// FILE: IceBlock.cs
+// PATH: Assets/Version 1/Script/Map3/Puzzle3/IceBlock.cs
+// ============================================================
+// ✅ CHANGELOG (Puzzle Fail → Respawn ที่ SavePoint หน้าห้อง)
+//   [NEW]  isRestarting (static) — กัน HP ลดซ้ำ / กันผลักบล็อกระหว่างรอวาปกลับ
+//   [FIX]  Start()              — รีเซ็ต isRestarting = false หลังโหลดฉากใหม่
+//   [FIX]  HandleGrabState()    — ไม่รับ input ระหว่างกำลัง restart
+//   [FIX]  DecreaseHP()         — ไม่ลด HP ระหว่างกำลัง restart
+//   [FIX]  RestartGame()        — เดิม LoadScene เอง (ผู้เล่นไปโผล่จุดเริ่มฉาก + ไอเทมอาจหาย)
+//                                  → ตอนนี้ใช้ PuzzleFailRespawn วาปกลับ SavePoint หน้าห้อง
+// ============================================================
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
@@ -70,6 +82,9 @@ public class IceBlock : MonoBehaviour
     private static PuzzleGoalManager goalManager;
     private static bool goalManagerInitialized = false;
 
+    // ✅ NEW: กำลังรอวาปกลับ SavePoint (กัน HP ลดซ้ำ / กันผลักบล็อกต่อ)
+    private static bool isRestarting = false;
+
     #endregion
 
     #region Private Variables
@@ -103,6 +118,9 @@ public class IceBlock : MonoBehaviour
 
     void Start()
     {
+        // ✅ NEW: ฉากถูกโหลดใหม่แล้ว → เลิกสถานะ restart
+        isRestarting = false;
+
         targetPosition = transform.position;
         Debug.Log($"🧊 IceBlock '{gameObject.name}' Starting at position: {transform.position}");
 
@@ -429,6 +447,9 @@ public class IceBlock : MonoBehaviour
     /// </summary>
     public static void DecreaseHP()
     {
+        // ✅ NEW: ระหว่างรอวาปกลับ ไม่ลด HP ซ้ำ
+        if (isRestarting) return;
+
         currentHP--;
         Debug.Log($"💔 HP ลดลง: {currentHP}/{maxHP}");
 
@@ -437,30 +458,51 @@ public class IceBlock : MonoBehaviour
 
         if (currentHP <= 0)
         {
-            Debug.Log("💀 HP หมด! เริ่มเกมใหม่...");
+            Debug.Log("💀 HP หมด! กลับไปจุด Save หน้าห้อง...");
             RestartGame();
         }
     }
 
     /// <summary>
-    /// ✅ รีสตาร์ทเกม
+    /// ✅ CHANGED: HP หมด → รีเซ็ต static → ออกจาก Puzzle Mode → วาปกลับ SavePoint หน้าห้อง (โหลดฉากใหม่ = บล็อกกลับมาครบ)
     /// </summary>
     public static void RestartGame()
     {
-        Debug.Log("🔄 เริ่มเกมใหม่...");
+        if (isRestarting) return;
+        isRestarting = true;
 
-        // รีเซ็ต static variables
+        Debug.Log("🔄 HP หมด → กลับจุด Save หน้าห้อง...");
+
+        // Haptic แจ้งว่าล้มเหลว (สำคัญสำหรับผู้เล่นที่ไม่ได้ยินเสียง)
+        if (HapticManager.Instance != null)
+        {
+            HapticManager.Instance.StopContinuousPushFeedback();
+            HapticManager.Instance.PlayPattern(HapticPatternType.Fail);
+        }
+
+        // รีเซ็ต static variables (static ไม่รีเซ็ตเองตอนโหลดฉาก!)
         currentHP = maxHP;
         inputManagerInitialized = false;
         goalManagerInitialized = false;
         lastPushedBlock = null;
         blockCounters.Clear();
 
-        // แจ้ง Event ให้ IcePuzzleManager รับไป
+        // แจ้ง Event ให้ IcePuzzleManager รับไป (puzzleInitialized = false + ซ่อน HUD + ปิดประตู)
         OnGameRestart?.Invoke();
 
-        // รีโลด Scene
-        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        // ⚠️ ใช้ IcePuzzleManager เป็น host ของ Coroutine (บล็อกตัวที่เรียกกำลังจะถูก Destroy)
+        IcePuzzleManager mgr = IcePuzzleManager.Instance;
+        if (mgr != null)
+        {
+            // ออกจาก Puzzle Mode ทันที → ActionMap กลับเป็น Player (บล็อกจับ/ผลักต่อไม่ได้แล้ว)
+            mgr.ExitPuzzle();
+            PuzzleFailRespawn.Trigger(mgr);
+        }
+        else
+        {
+            Debug.LogWarning("⚠️ [IceBlock] ไม่พบ IcePuzzleManager → วาปกลับทันที");
+            PuzzleFailRespawn.Trigger(null);
+        }
     }
 
     #endregion
@@ -509,6 +551,13 @@ public class IceBlock : MonoBehaviour
     void HandleGrabState()
     {
         if (inputManager == null) return;
+
+        // ✅ NEW: กำลังรอวาปกลับ → ปล่อยบล็อกและไม่รับ input
+        if (isRestarting)
+        {
+            if (isGrabbed) ReleaseGrab();
+            return;
+        }
 
         bool shouldGrab = inputManager.IsBothTriggersPressed() && IsPlayerNearForGrab();
 

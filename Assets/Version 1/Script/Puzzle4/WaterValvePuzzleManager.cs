@@ -1,3 +1,14 @@
+// ============================================================
+// FILE: WaterValvePuzzleManager.cs
+// PATH: Assets/Version 1/Script/Puzzle4/WaterValvePuzzleManager.cs
+// ============================================================
+// ✅ CHANGELOG (Puzzle Fail → Respawn ที่ SavePoint หน้าห้อง)
+//   [NEW]  puzzleFailUI / failRespawnDelay — UI "ปริศนาล้มเหลว" (ไม่บังคับ)
+//   [NEW]  isFailing — กัน GameOver ซ้ำ / กันเข้า puzzle ระหว่างรอวาป
+//   [FIX]  GameOver() — เดิมวาปไป puzzleSpawnPoint + FullResetPuzzle (ยังอยู่ในห้อง)
+//                       → ตอนนี้ใช้ PuzzleFailRespawn วาปกลับ SavePoint หน้าห้อง
+//   (FullResetPuzzle() ยังอยู่ครบ — FullResetButton ใช้ได้ตามเดิม)
+// ============================================================
 using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Collections;
@@ -41,6 +52,16 @@ public class WaterValvePuzzleManager : MonoBehaviour
     [SerializeField] private PuzzleClearUI puzzleClearUI;
     [SerializeField] private GameObject overworldHUD;
 
+    // ✅ NEW: Fail → Respawn
+    [Header("Fail → Respawn (กลับ SavePoint หน้าห้อง)")]
+    [Tooltip("UI 'ปริศนาล้มเหลว' (ปิดไว้ก่อน) — ไม่ใส่ก็ได้")]
+    [SerializeField] private GameObject puzzleFailUI;
+
+    [Tooltip("เวลารอก่อนวาปกลับ (วินาที)")]
+    [SerializeField] private float failRespawnDelay = 2.5f;
+
+    private bool isFailing = false;   // ✅ NEW
+
     private Valve currentInteractingValve;
     private InputAction interactAction;
     private InputAction exitInteractAction;
@@ -76,6 +97,11 @@ public class WaterValvePuzzleManager : MonoBehaviour
         if (puzzleDoor != null)
         {
             puzzleDoor.SetActive(true);
+        }
+
+        if (puzzleFailUI != null)
+        {
+            puzzleFailUI.SetActive(false);
         }
 
         if (player == null)
@@ -119,6 +145,9 @@ public class WaterValvePuzzleManager : MonoBehaviour
             Debug.LogWarning("⚠️ Puzzle already active!");
             return;
         }
+
+        // ✅ NEW: กำลังรอวาปกลับ SavePoint → ห้ามเข้า
+        if (isFailing) return;
 
         // Warp player to puzzle area
         if (player != null && puzzleSpawnPoint != null)
@@ -529,6 +558,9 @@ public class WaterValvePuzzleManager : MonoBehaviour
 
     public void OnValveBroken(Valve brokenValve)
     {
+        // ✅ NEW: ถ้ากำลังวาปกลับแล้ว ไม่ต้องตั้งเวลาคืน control (CancelInvoke ใน GameOver จะไม่โดนซ้ำ)
+        if (isFailing) return;
+
         if (currentInteractingValve == brokenValve)
         {
             Invoke(nameof(RestoreControlsAfterValveBreak), valveBrokenDelay);
@@ -579,6 +611,8 @@ public class WaterValvePuzzleManager : MonoBehaviour
 
     void PuzzleSolved()
     {
+        if (isFailing) return; // ✅ NEW
+
         isPuzzleSolved = true;
 
         if (Inventory.Instance != null)
@@ -621,6 +655,8 @@ public class WaterValvePuzzleManager : MonoBehaviour
 
     public void LoseHeart()
     {
+        if (isFailing) return; // ✅ NEW
+
         if (currentHearts > 0)
         {
             currentHearts--;
@@ -648,30 +684,31 @@ public class WaterValvePuzzleManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// ✅ CHANGED: หัวใจหมด → ปิด puzzle → Fail UI + สั่น → วาปกลับ SavePoint หน้าห้อง (โหลดฉากใหม่ = วาล์ว/ท่อรีเซ็ต)
+    /// </summary>
     void GameOver()
     {
+        if (isFailing) return;
+        isFailing = true;
+
         Debug.Log("╔═══════════════════════════════════════════╗");
-        Debug.Log("║     ☠️  GAME OVER                         ║");
+        Debug.Log("║     ☠️  GAME OVER → กลับ SavePoint        ║");
         Debug.Log("╚═══════════════════════════════════════════╝");
 
-        if (player != null && puzzleSpawnPoint != null)
-        {
-            CharacterController cc = player.GetComponent<CharacterController>();
-            if (cc != null)
-            {
-                cc.enabled = false;
-                player.position = puzzleSpawnPoint.position;
-                cc.enabled = true;
-            }
-        }
+        // หยุดทุกอย่างของ puzzle
+        isPuzzleActive = false;
+        StopPuzzleCheck();
+        CancelInvoke();                 // ยกเลิก RestoreControls / ActivatePuzzleMode / StopHaptics ที่ค้างคิว
+        currentInteractingValve = null;
+        ResetRotation();
 
-        Invoke(nameof(FullResetPuzzle), 3f);
         if (inGameHUD != null)
-        {
-            // ถ้ายังไม่โชว์ HUD ก็ให้โชว์ด้วย
-            inGameHUD.Show(currentHearts, maxHearts);
-        }
+            inGameHUD.HideImmediate();
 
+        // ❌ เดิม: วาปไป puzzleSpawnPoint + Invoke(FullResetPuzzle, 3f)
+        // ✅ ใหม่: กลับ SavePoint หน้าห้อง (ExitPuzzle สลับ ActionMap กลับ Player ก่อนโหลดฉาก)
+        PuzzleFailRespawn.Trigger(this, puzzleFailUI, ExitPuzzle, failRespawnDelay);
     }
 
     #endregion

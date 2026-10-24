@@ -1,3 +1,13 @@
+// ============================================================
+// FILE: MirrorInteractionManager.cs
+// PATH: Assets/Version 1/Script/Map2/Puzzle2/MirrorInteractionManager.cs
+// ============================================================
+// ✅ CHANGELOG (Puzzle Fail → Respawn ที่ SavePoint หน้าห้อง)
+//   [FIX]  Awake()        — ลบ DontDestroyOnLoad (ตัวเก่าค้างข้ามฉาก = puzzle พังหลังโหลดฉากใหม่)
+//   [NEW]  OnDestroy()    — เคลียร์ Instance ให้ตัวใหม่ในฉากใหม่ขึ้นแทนได้
+//   [NEW]  puzzleFailUI   — UI "ปริศนาล้มเหลว" (ไม่บังคับ)
+//   [FIX]  OnPlayerDeath() — เดิมปิด input แล้วค้าง → ตอนนี้เรียก PuzzleFailRespawn วาปกลับ SavePoint
+// ============================================================
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
@@ -68,9 +78,20 @@ public class MirrorInteractionManager : MonoBehaviour
     [Tooltip("ล็อกการควบคุมผู้เล่นระหว่างหน้าจอ Intro / Clear")]
     [SerializeField] private bool lockInputDuringScreens = true;
 
+    // ─────────────────────────────────────────────
+    // ✅ NEW: Fail → Respawn
+    // ─────────────────────────────────────────────
+    [Header("Fail → Respawn (กลับ SavePoint หน้าห้อง)")]
+    [Tooltip("UI 'ปริศนาล้มเหลว' (ปิดไว้ก่อน) — ไม่ใส่ก็ได้")]
+    [SerializeField] private GameObject puzzleFailUI;
+
+    [Tooltip("เวลารอก่อนวาปกลับ (วินาที)")]
+    [SerializeField] private float failRespawnDelay = 2.5f;
+
     private bool isSolved = false;
     private bool isPuzzleActive = false;   // ✅ NEW
     private bool isEntering = false;       // ✅ NEW (กันกด ⭕ ซ้ำระหว่าง Intro)
+    private bool isFailing = false;        // ✅ NEW (กัน OnPlayerDeath ซ้ำ)
     private Coroutine sequenceRoutine;     // ✅ NEW
 
     private void Awake()
@@ -78,7 +99,9 @@ public class MirrorInteractionManager : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
-            DontDestroyOnLoad(gameObject);
+            // ❌ ลบ DontDestroyOnLoad ออก — ถ้าเก็บไว้ ตอนโหลดฉากใหม่ตัวเก่า (HP=0, อ้างกระจก/ประตูของฉากเก่า)
+            //    จะค้างอยู่ และตัวใหม่ในฉากจะถูก Destroy ทิ้ง → puzzle พัง
+            // DontDestroyOnLoad(gameObject);
             InitializeInput();
         }
         else
@@ -87,12 +110,20 @@ public class MirrorInteractionManager : MonoBehaviour
         }
     }
 
+    // ✅ NEW: เคลียร์ Instance เมื่อฉากถูกทำลาย
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
+    }
+
     private void Start()
     {
         playerCurrentHealth = playerMaxHealth;
 
         if (MirrorUIManager.Instance != null)
             MirrorUIManager.Instance.OnPlayerHealthChanged(playerCurrentHealth, playerMaxHealth);
+
+        if (puzzleFailUI != null) puzzleFailUI.SetActive(false);
 
         SetPuzzleVisualsActive(false);
     }
@@ -172,7 +203,7 @@ public class MirrorInteractionManager : MonoBehaviour
 
     public void EnterPuzzle()
     {
-        if (isSolved || isPuzzleActive || isEntering) return;
+        if (isSolved || isPuzzleActive || isEntering || isFailing) return;
 
         if (sequenceRoutine != null) StopCoroutine(sequenceRoutine);
         sequenceRoutine = StartCoroutine(EnterPuzzleSequence());
@@ -318,6 +349,8 @@ public class MirrorInteractionManager : MonoBehaviour
 
     public void OnPlayerTakeDamage(int damageAmount, string sourceName)
     {
+        if (isFailing) return; // ✅ NEW: กำลังจะวาปกลับแล้ว ไม่รับดาเมจซ้ำ
+
         playerCurrentHealth -= damageAmount;
 
         Debug.Log($"💔 PLAYER TAKES {damageAmount} DAMAGE from {sourceName}!");
@@ -356,19 +389,52 @@ public class MirrorInteractionManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// ✅ CHANGED: หัวใจหมด → ปิด puzzle → แสดง Fail UI + สั่น → วาปกลับ SavePoint หน้าห้อง (โหลดฉากใหม่ = puzzle รีเซ็ต)
+    /// </summary>
     private void OnPlayerDeath()
     {
-        Debug.Log($"🎮 GAME OVER! Player died with 0/{playerMaxHealth} HP");
+        if (isFailing) return;
+        isFailing = true;
+
+        Debug.Log($"🎮 GAME OVER! Player died with 0/{playerMaxHealth} HP → กลับ SavePoint");
 
         if (HapticManager.Instance != null)
             HapticManager.Instance.PlayPattern(HapticPatternType.Fail);
 
-        puzzleActionMap.Disable();
+        isPuzzleActive = false;
+        if (puzzleActionMap != null) puzzleActionMap.Disable();
 
+        // หยุดกระจกที่กำลังหมุน + ปิด interaction ทั้งหมด
+        if (activeMirror != null)
+        {
+            activeMirror.StopRotation();
+            activeMirror = null;
+        }
         foreach (var mirror in allMirrors)
         {
             if (mirror != null)
                 mirror.SetInteractionState(false);
+        }
+
+        // ซ่อน Puzzle HUD / MiniMap
+        SetPuzzleVisualsActive(false);
+
+        // ✅ วาปกลับ SavePoint + puzzle รีเซ็ต
+        PuzzleFailRespawn.Trigger(this, puzzleFailUI, PrepareInputForReload, failRespawnDelay);
+    }
+
+    /// <summary>
+    /// ✅ NEW: สลับ input กลับเป็น Player ก่อนโหลดฉาก
+    /// (InputActionAsset ใช้ร่วมกันข้ามฉาก ถ้าไม่สลับ map 'Player' อาจถูกปิดค้าง)
+    /// </summary>
+    private void PrepareInputForReload()
+    {
+        SwitchActionMapToPlayer();
+        if (playerInput != null)
+        {
+            playerInput.ActivateInput();
+            playerInput.SwitchCurrentActionMap("Player");
         }
     }
 
@@ -412,7 +478,7 @@ public class MirrorInteractionManager : MonoBehaviour
 
     public void OnPuzzleComplete()
     {
-        if (isSolved) return;
+        if (isSolved || isFailing) return;
         isSolved = true;
         isPuzzleActive = false;
         Debug.Log("🎉 PUZZLE2 COMPLETED! 🎉");
