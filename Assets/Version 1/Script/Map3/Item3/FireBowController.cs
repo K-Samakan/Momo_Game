@@ -64,6 +64,20 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
     [Tooltip("ความโค้งของการเพิ่มแรง (1 = เพิ่มเท่า ๆ กัน, 2 = เบานานแล้วหนักเร็วช่วงท้าย, 0.6 = หนักเร็วช่วงแรก)")]
     [Range(0.3f, 3f)] public float resistanceCurvePower = 1.2f;
 
+    [Header("🧪 TEST — แรงต้านคงที่แบบกระจก Map2 (ไม่ไล่แรง)")]
+    [Tooltip("เปิด = ใช้ HapticManager.SetTriggerResistance() ตัวเดียวกับ InteractionMirror ค่าคงที่ตลอดตั้งแต่สวมธนู (มีผลทั้ง L2 และ R2 เหมือนกระจก)")]
+    public bool testFixedMirrorResistance = true;
+    [Tooltip("ค่าเดียวกับกระจก Map2 = 0.65")]
+    [Range(0f, 1f)] public float testResistance = 0.65f;
+    [Tooltip("ส่งคำสั่งซ้ำทุก ๆ กี่วินาที (กันระบบอื่นมาล้างค่า)")]
+    public float testResendInterval = 0.5f;
+    [Tooltip("แสดงสถานะ Adaptive Trigger มุมซ้ายบนของจอ")]
+    public bool showTriggerDebug = true;
+
+    private float _testResendTimer;
+    private string _lastTriggerCmd = "-";
+    private float _lastTriggerCmdTime;
+
     [Header("Aim Camera (Cinemachine)")]
     [Tooltip("ลาก GameObject ของ Cinemachine Virtual Camera มุม over-the-shoulder แบบ Genshin — ต้องมี Priority สูงกว่ากล้องปกติ")]
     public GameObject aimVirtualCameraObject;
@@ -151,6 +165,7 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
         // ✅ ถ้าโดนปิดกลางคันระหว่างง้าง (cutscene / ตาย / เปลี่ยน scene) — คืนทุกอย่าง ไม่ให้กล้องค้างโหมดเล็ง
         if (_isAiming) CancelAim();
         HapticManager.Instance?.ReleaseBowTension();   // ปิดธนู = R2 กลับเป็นไกปกติ
+        if (testFixedMirrorResistance) HapticManager.Instance?.ResetAdaptiveTriggers();
     }
 
     // ─────────────────────────────────────────────
@@ -172,6 +187,17 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
 
     void Update()
     {
+        // 🧪 TEST: ส่งแรงต้านคงที่แบบกระจกซ้ำเป็นระยะตลอดที่สวมธนู
+        if (testFixedMirrorResistance && _isEquipped)
+        {
+            _testResendTimer -= Time.deltaTime;
+            if (_testResendTimer <= 0f)
+            {
+                _testResendTimer = testResendInterval;
+                SendFixedMirrorResistance();
+            }
+        }
+
         if (!_isEquipped || !_isAiming) return;
 
         _heldTime += Time.deltaTime;
@@ -290,6 +316,8 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
     // t = % ชาร์จ (0-1) → แรงต้านจาก min → max แล้วค้างที่ max เมื่อ t = 1
     void ApplyBowTension(float t, bool forceSend = false)
     {
+        if (testFixedMirrorResistance) { if (forceSend) SendFixedMirrorResistance(); return; }
+
         float curved = Mathf.Pow(Mathf.Clamp01(t), resistanceCurvePower);
         float resistance = Mathf.Lerp(triggerMinResistance, triggerMaxResistance, curved);
         HapticManager.Instance?.SetBowTension(resistance, forceSend);
@@ -297,10 +325,37 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
 
     void ApplyIdleTension()
     {
+        if (testFixedMirrorResistance && _isEquipped && isActiveAndEnabled) { SendFixedMirrorResistance(); return; }
+
         if (_isEquipped && preloadTriggerWhenEquipped && isActiveAndEnabled)
             HapticManager.Instance?.SetBowTension(triggerIdleResistance, forceSend: true);
         else
             HapticManager.Instance?.ReleaseBowTension();
+    }
+
+    // 🧪 เรียกฟังก์ชันเดียวกับ InteractionMirror.SetAdaptiveTrigger() ทุกตัวอักษร
+    void SendFixedMirrorResistance()
+    {
+        if (HapticManager.Instance == null) { _lastTriggerCmd = "❌ ไม่มี HapticManager"; return; }
+        HapticManager.Instance.SetTriggerResistance(testResistance);
+        _lastTriggerCmd = $"SetTriggerResistance({testResistance:F2})";
+        _lastTriggerCmdTime = Time.time;
+    }
+
+    void OnGUI()
+    {
+        if (!showTriggerDebug || !_isEquipped) return;
+        var hm = HapticManager.Instance;
+        string status =
+            $"[Bow Trigger Debug]\n" +
+            $"HapticManager : {(hm != null ? "พบ" : "❌ ไม่พบ")}\n" +
+            $"DualSense     : {(hm != null && hm.IsDualSenseConnected() ? "เชื่อมต่อ" : "❌ ไม่เจอ")}\n" +
+            $"Adaptive On   : {(hm != null && hm.enableAdaptiveTriggers ? "เปิด" : "❌ ปิด")}\n" +
+            $"Mode          : {(testFixedMirrorResistance ? "TEST คงที่แบบกระจก" : "ไล่แรงตามชาร์จ")}\n" +
+            $"คำสั่งล่าสุด   : {_lastTriggerCmd} ({Time.time - _lastTriggerCmdTime:F1}s ที่แล้ว)\n" +
+            $"R2 กดอยู่     : {(_isAiming ? $"ใช่ {_heldTime:F1}s" : "ไม่")}";
+        GUI.Box(new Rect(10, 10, 330, 140), "");
+        GUI.Label(new Rect(18, 14, 320, 135), status);
     }
 
     // ─────────────────────────────────────────────
