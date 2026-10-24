@@ -52,53 +52,25 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
     [Header("UI")]
     public BowReticleUI bowReticleUI;      // Crosshair กลางจอ
 
-    [Header("Adaptive Trigger R2 (โปรไฟล์เดียวกับ Mirror Puzzle Map2 — กระจก = 0.65)")]
-    [Tooltip("ใส่แรงต้าน R2 ไว้ตั้งแต่สวมธนู (ก่อนกด) — ทำให้รู้สึกแรงต้านตั้งแต่จังหวะแรกที่กดลง เหมือนตอนเดินเข้าใกล้กระจก")]
-    public bool preloadTriggerWhenEquipped = true;
-    [Tooltip("แรงต้านรอไว้ตอนถือธนูแต่ยังไม่ง้าง")]
-    [Range(0f, 1f)] public float triggerIdleResistance = 0.35f;
-    [Tooltip("แรงต้านตอนเริ่มง้าง (เบาสุด)")]
-    [Range(0f, 1f)] public float triggerMinResistance = 0.4f;
-    [Tooltip("แรงต้านตอนชาร์จเต็ม (หนักสุด) — ค้างไว้จนกว่าจะปล่อย R2")]
-    [Range(0f, 1f)] public float triggerMaxResistance = 1f;
-    [Tooltip("ความโค้งของการเพิ่มแรง (1 = เพิ่มเท่า ๆ กัน, 2 = เบานานแล้วหนักเร็วช่วงท้าย, 0.6 = หนักเร็วช่วงแรก)")]
-    [Range(0.3f, 3f)] public float resistanceCurvePower = 1.2f;
+    [Header("Adaptive Trigger R2 — ไกกระตุก ไล่แรงตามชาร์จ (เต็ม = ธนูไฟ = แรงสุด)")]
+    [Tooltip("ความแรงการกระตุกตอนเริ่มง้าง (0-1)")]
+    [Range(0f, 1f)] public float triggerMinStrength = 0.25f;
+    [Tooltip("ความแรงการกระตุกตอนชาร์จเต็ม = ธนูไฟ (0-1) — ค้างไว้จนกว่าจะปล่อย R2")]
+    [Range(0f, 1f)] public float triggerMaxStrength = 1f;
+    [Tooltip("ความถี่การกระตุกตอนเริ่มง้าง (น้อย = กึก…กึก… ช้า)")]
+    [Range(1, 40)] public int triggerMinFrequency = 4;
+    [Tooltip("ความถี่การกระตุกตอนชาร์จเต็ม (มาก = ครืดถี่ ๆ)")]
+    [Range(1, 40)] public int triggerMaxFrequency = 14;
+    [Tooltip("ความโค้งของการไล่แรง (1 = เพิ่มเท่า ๆ กัน, 2 = เบานานแล้วแรงขึ้นเร็วช่วงท้าย)")]
+    [Range(0.3f, 3f)] public float resistanceCurvePower = 1.3f;
+    [Tooltip("ช่วงชาร์จ (ยังไม่เต็ม) ให้แรงสูงสุดได้แค่กี่ % ของ Max — เว้นช่องให้รู้สึกชัดว่า 'เต็มแล้ว' ตอนกลายเป็นธนูไฟ")]
+    [Range(0.3f, 1f)] public float chargingCapPercent = 0.7f;
+    [Tooltip("ความถี่กระตุกตอนปล่อยลูกธนู (ดีดกลับ 1 จังหวะสั้น ๆ) — 0 = ไม่มี")]
+    [Range(0, 40)] public int releaseKickFrequency = 30;
+    public float releaseKickDuration = 0.08f;
 
-    public enum TriggerTestMode
-    {
-        Off,               // ใช้ระบบไล่แรงตามชาร์จปกติ
-        FixedMirror,       // แรงต้านคงที่แบบกระจก Map2 (SetTriggerResistance 0.65)
-        TriggerVibrate,    // ไกสั่นกระตุกต้านนิ้ว (EffectEx + Frequency) แบบ DualSenseTriggerRumble
-        OnOffStutter       // แรงต้านแบบกระจก เปิด/ปิดสลับเร็ว ๆ = รู้สึกกึก ๆ
-    }
-
-    [Header("🧪 TEST — ทดสอบว่า Adaptive Trigger ทำงานจริงไหม")]
-    [Tooltip("Off = ระบบปกติ | FixedMirror = หนักคงที่แบบกระจก | TriggerVibrate = ไกสั่นกระตุก | OnOffStutter = แรงต้านเปิดปิดกึก ๆ")]
-    public TriggerTestMode triggerTestMode = TriggerTestMode.TriggerVibrate;
-    [Tooltip("FixedMirror / OnOffStutter: ค่าเดียวกับกระจก Map2 = 0.65")]
-    [Range(0f, 1f)] public float testResistance = 0.65f;
-    [Tooltip("TriggerVibrate: ความแรงของการกระตุก")]
-    [Range(0f, 1f)] public float testVibrateStrength = 1f;
-    [Tooltip("TriggerVibrate: ความถี่การกระตุก (น้อย = กึก…กึก… ช้า, มาก = ครืดถี่ ๆ)")]
-    [Range(1, 40)] public int testVibrateFrequency = 10;
-    [Tooltip("OnOffStutter: เปิดแรงต้านนานกี่วินาที / ปิดนานกี่วินาที")]
-    public float testStutterOnTime = 0.08f;
-    public float testStutterOffTime = 0.08f;
-    [Tooltip("ใส่เอฟเฟกต์ทั้ง L2 และ R2 (เปิดไว้ตอนทดสอบ จะได้เทียบได้ว่าไกไหนไม่ทำงาน)")]
-    public bool testBothTriggers = true;
-    [Tooltip("ทำงานเฉพาะตอนกด R2 ค้าง (ปิด = ทำงานตลอดตั้งแต่สวมธนู)")]
-    public bool testOnlyWhileHoldingR2 = false;
-    [Tooltip("ส่งคำสั่งซ้ำทุก ๆ กี่วินาที (FixedMirror / TriggerVibrate)")]
-    public float testResendInterval = 0.5f;
-    [Tooltip("แสดงสถานะ Adaptive Trigger มุมซ้ายบนของจอ")]
-    public bool showTriggerDebug = true;
-
-    bool TestActive => triggerTestMode != TriggerTestMode.Off;
-    private bool _stutterOn;
-    private bool _testEffectApplied;
-    private float _testResendTimer;
-    private string _lastTriggerCmd = "-";
-    private float _lastTriggerCmdTime;
+    private int _lastTrigStrength = -1;
+    private int _lastTrigFreq = -1;
 
     [Header("Aim Camera (Cinemachine)")]
     [Tooltip("ลาก GameObject ของ Cinemachine Virtual Camera มุม over-the-shoulder แบบ Genshin — ต้องมี Priority สูงกว่ากล้องปกติ")]
@@ -186,8 +158,7 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
 
         // ✅ ถ้าโดนปิดกลางคันระหว่างง้าง (cutscene / ตาย / เปลี่ยน scene) — คืนทุกอย่าง ไม่ให้กล้องค้างโหมดเล็ง
         if (_isAiming) CancelAim();
-        HapticManager.Instance?.ReleaseBowTension();   // ปิดธนู = R2 กลับเป็นไกปกติ
-        if (TestActive) HapticManager.Instance?.ResetAdaptiveTriggers();
+        HapticManager.Instance?.ReleaseBowTension();   // ปิดธนู = R2 กลับเป็นไกปกติ (coroutine หยุดตอน disable)
     }
 
     // ─────────────────────────────────────────────
@@ -209,16 +180,13 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
 
     void Update()
     {
-        // 🧪 TEST: เอฟเฟกต์ไกทดสอบ (ข้ามระบบไล่แรงปกติทั้งหมด)
-        if (TestActive && _isEquipped) UpdateTriggerTest();
-
         if (!_isEquipped || !_isAiming) return;
 
         _heldTime += Time.deltaTime;
 
-        // ── Adaptive Trigger: เบาสุด → หนักสุดตามเวลาชาร์จ แล้วค้างที่หนักสุด (t ถูก clamp ที่ 1) จนกว่าจะปล่อย ──
+        // ── Adaptive Trigger: ไกกระตุกแรงขึ้นตามเวลาชาร์จ → เต็ม (ธนูไฟ) = แรงสุด ค้างจนกว่าจะปล่อย ──
         float t = Mathf.Clamp01(_heldTime / chargeThreshold);
-        ApplyBowTension(t);
+        ApplyBowTension(t, _isCharged);
 
         // ── ไฮไลต์แดงค่อย ๆ เพิ่มตาม % ชาร์จ ──
         chargeHighlight?.SetProgress(t);
@@ -236,7 +204,6 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
     {
         _isEquipped = true;
         baseArrowDamage = Mathf.Max(baseArrowDamage, atkFromStat);
-        ApplyIdleTension();   // ✅ สวมธนูแล้ว R2 มีแรงต้านรอไว้เลย
         Debug.Log("[FireBowController] 🏹 Equipped! พร้อมใช้งาน");
     }
 
@@ -267,12 +234,13 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
         // ✅ เริ่มไฮไลต์ (โชว์ลูกธนูพาดสาย)
         chargeHighlight?.BeginCharge();
 
-        // ✅ เริ่มแรงต้าน R2 เบาสุดทันทีที่กด (forceSend: กันกรณีระบบอื่นรีเซ็ตไกไปแล้ว)
+        // ✅ เริ่มไก R2 กระตุกเบาสุดทันทีที่กด
         if (HapticManager.Instance == null)
             Debug.LogWarning("[FireBowController] ⚠️ ไม่มี HapticManager ใน Scene — Adaptive Trigger จะไม่ทำงาน");
         else if (!HapticManager.Instance.IsDualSenseConnected())
             Debug.LogWarning("[FireBowController] ⚠️ HapticManager ยังไม่เจอ DualSense — Adaptive Trigger จะไม่ทำงาน");
-        ApplyBowTension(0f, forceSend: true);
+        _lastTrigStrength = _lastTrigFreq = -1;   // บังคับส่งค่าแรกเสมอ
+        ApplyBowTension(0f, false);
 
         Debug.Log("[FireBowController] 🎯 Start Aiming...");
     }
@@ -283,6 +251,7 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
         if (fireGlowVFX != null) fireGlowVFX.SetActive(true);
         bowReticleUI?.SetChargedState(true);
         chargeHighlight?.SetFullyCharged();   // 🔴 ธนู + ลูกธนูแดงจ้า + pulse
+        ApplyBowTension(1f, true);            // 🔥 ไก R2 กระตุกแรงสุดทันทีที่เป็นธนูไฟ
 
         // Haptic feedback แจ้งว่าชาร์จเต็มแล้ว (สั่นสั้น ๆ)
         HapticManager.Instance?.Vibrate(0f, 0.3f, 0.08f);
@@ -320,103 +289,51 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
         if (aimVirtualCameraObject != null) aimVirtualCameraObject.SetActive(false);
 
         // ✅ ปล่อยแรงต้าน trigger กลับสู่ปกติ
-        // ✅ ยิงแล้ว → กลับไปแรงต้านรอ (หรือไกปกติถ้าปิด preload)
-        ApplyIdleTension();
+        // ✅ ปล่อย R2 → ไกดีดกลับ 1 จังหวะ แล้วกลับเป็นไกปกติ
+        ReleaseTrigger(withKick: _isEquipped && isActiveAndEnabled);
 
         chargeHighlight?.ResetHighlight();
         thirdPersonController?.SetBowAim(false);
     }
 
-    // t = % ชาร์จ (0-1) → แรงต้านจาก min → max แล้วค้างที่ max เมื่อ t = 1
-    void ApplyBowTension(float t, bool forceSend = false)
+    // t = % ชาร์จ (0-1)
+    //   ระหว่างชาร์จ : แรง/ความถี่ไล่ขึ้นถึง chargingCapPercent ของ Max
+    //   ชาร์จเต็ม    : กระโดดขึ้น Max ทันที (รู้สึกชัดว่า "กลายเป็นธนูไฟแล้ว") และค้างจนกว่าจะปล่อย
+    void ApplyBowTension(float t, bool fullyCharged)
     {
-        if (TestActive) { if (forceSend) _testResendTimer = 0f; return; }
+        var hm = HapticManager.Instance;
+        if (hm == null) return;
 
-        float curved = Mathf.Pow(Mathf.Clamp01(t), resistanceCurvePower);
-        float resistance = Mathf.Lerp(triggerMinResistance, triggerMaxResistance, curved);
-        HapticManager.Instance?.SetBowTension(resistance, forceSend);
+        float k = fullyCharged ? 1f : Mathf.Pow(Mathf.Clamp01(t), resistanceCurvePower) * chargingCapPercent;
+        float strength = Mathf.Lerp(triggerMinStrength, triggerMaxStrength, k);
+        int freq = Mathf.RoundToInt(Mathf.Lerp(triggerMinFrequency, triggerMaxFrequency, k));
+
+        // ส่งไปจอยเฉพาะตอนค่าเปลี่ยนจริง (ไม่ยิงคำสั่งทุกเฟรม)
+        int strengthStep = Mathf.RoundToInt(strength * 255f);
+        if (strengthStep == _lastTrigStrength && freq == _lastTrigFreq) return;
+        _lastTrigStrength = strengthStep;
+        _lastTrigFreq = freq;
+
+        hm.SetTriggerVibrationEffect(strength, (byte)freq, bothTriggers: false);   // R2 อย่างเดียว
     }
 
-    void ApplyIdleTension()
+    void ReleaseTrigger(bool withKick)
     {
-        if (TestActive && _isEquipped && isActiveAndEnabled) { _testResendTimer = 0f; return; }
+        _lastTrigStrength = _lastTrigFreq = -1;
+        var hm = HapticManager.Instance;
+        if (hm == null) return;
 
-        if (_isEquipped && preloadTriggerWhenEquipped && isActiveAndEnabled)
-            HapticManager.Instance?.SetBowTension(triggerIdleResistance, forceSend: true);
+        if (withKick && releaseKickFrequency > 0 && releaseKickDuration > 0f)
+            StartCoroutine(ReleaseKickRoutine(hm));
         else
-            HapticManager.Instance?.ReleaseBowTension();
+            hm.ReleaseBowTension();
     }
 
-    // ─────────────────────────────────────────────
-    // 🧪 TEST effects
-    // ─────────────────────────────────────────────
-    void UpdateTriggerTest()
+    System.Collections.IEnumerator ReleaseKickRoutine(HapticManager hm)
     {
-        var hm = HapticManager.Instance;
-        if (hm == null) { _lastTriggerCmd = "❌ ไม่มี HapticManager"; return; }
-
-        // โหมด "เฉพาะตอนกด R2": ปล่อยแล้วล้างไก
-        if (testOnlyWhileHoldingR2 && !_isAiming)
-        {
-            if (_testEffectApplied)
-            {
-                hm.ClearTriggersSilent(testBothTriggers);
-                _testEffectApplied = false;
-                LogCmd("ClearTriggers (ปล่อย R2)");
-            }
-            return;
-        }
-
-        _testResendTimer -= Time.deltaTime;
-        if (_testResendTimer > 0f) return;
-
-        switch (triggerTestMode)
-        {
-            case TriggerTestMode.FixedMirror:
-                // ฟังก์ชันเดียวกับ InteractionMirror.SetAdaptiveTrigger() ทุกตัวอักษร (มีผลทั้ง L2/R2)
-                hm.SetTriggerResistance(testResistance);
-                _testResendTimer = testResendInterval;
-                LogCmd($"SetTriggerResistance({testResistance:F2})");
-                break;
-
-            case TriggerTestMode.TriggerVibrate:
-                hm.SetTriggerVibrationEffect(testVibrateStrength, (byte)testVibrateFrequency, testBothTriggers);
-                _testResendTimer = testResendInterval;
-                LogCmd($"TriggerVibrate(แรง {testVibrateStrength:F2}, ถี่ {testVibrateFrequency})");
-                break;
-
-            case TriggerTestMode.OnOffStutter:
-                _stutterOn = !_stutterOn;
-                if (!_stutterOn) hm.ClearTriggersSilent(testBothTriggers);
-                else if (testBothTriggers) hm.SetTriggerResistance(testResistance);      // L2+R2 โปรไฟล์กระจก
-                else hm.SetBowTension(testResistance, forceSend: true);                 // R2 อย่างเดียว โปรไฟล์กระจก
-                _testResendTimer = _stutterOn ? testStutterOnTime : testStutterOffTime;
-                LogCmd($"Stutter {(_stutterOn ? "ON" : "OFF")}");
-                break;
-        }
-        _testEffectApplied = true;
-    }
-
-    void LogCmd(string cmd)
-    {
-        _lastTriggerCmd = cmd;
-        _lastTriggerCmdTime = Time.time;
-    }
-
-    void OnGUI()
-    {
-        if (!showTriggerDebug || !_isEquipped) return;
-        var hm = HapticManager.Instance;
-        string status =
-            $"[Bow Trigger Debug]\n" +
-            $"HapticManager : {(hm != null ? "พบ" : "❌ ไม่พบ")}\n" +
-            $"DualSense     : {(hm != null && hm.IsDualSenseConnected() ? "เชื่อมต่อ" : "❌ ไม่เจอ")}\n" +
-            $"Adaptive On   : {(hm != null && hm.enableAdaptiveTriggers ? "เปิด" : "❌ ปิด")}\n" +
-            $"Mode          : {(TestActive ? "TEST " + triggerTestMode : "ไล่แรงตามชาร์จ")}\n" +
-            $"คำสั่งล่าสุด   : {_lastTriggerCmd} ({Time.time - _lastTriggerCmdTime:F1}s ที่แล้ว)\n" +
-            $"R2 กดอยู่     : {(_isAiming ? $"ใช่ {_heldTime:F1}s" : "ไม่")}";
-        GUI.Box(new Rect(10, 10, 330, 140), "");
-        GUI.Label(new Rect(18, 14, 320, 135), status);
+        hm.SetTriggerVibrationEffect(1f, (byte)releaseKickFrequency, bothTriggers: false);
+        yield return new WaitForSeconds(releaseKickDuration);
+        if (!_isAiming) hm.ReleaseBowTension();   // ถ้ากด R2 ใหม่แล้ว ไม่ต้องล้าง
     }
 
     // ─────────────────────────────────────────────
