@@ -5,6 +5,7 @@
 // ============================================================
 using UnityEngine;
 using UnityEngine.InputSystem;
+using StarterAssets;
 
 public class FireBowController : MonoBehaviour, IAttackSfxProvider
 {
@@ -36,6 +37,9 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
     public GameObject fireGlowVFX;
     public ParticleSystem chargingParticles; // optional: อนุภาคระหว่างชาร์จ (ยังไม่ครบ)
 
+    [Tooltip("ไฮไลต์สีแดงที่ตัวธนู + ลูกธนูที่พาดสาย (ใส่ BowChargeHighlight ไว้ที่ bowMesh แล้วลากมาใส่)")]
+    public BowChargeHighlight chargeHighlight;
+
     [Header("UI")]
     public BowReticleUI bowReticleUI;      // Crosshair กลางจอ
 
@@ -51,6 +55,9 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
     [Header("Aim Camera (Cinemachine)")]
     [Tooltip("ลาก GameObject ของ Cinemachine Virtual Camera มุม over-the-shoulder แบบ Genshin — ต้องมี Priority สูงกว่ากล้องปกติ")]
     public GameObject aimVirtualCameraObject;
+
+    [Tooltip("ThirdPersonController ของ Player — ใช้ลดความไวกล้อง + หันตัวตามกล้องตอนง้าง (เว้นว่าง = หาอัตโนมัติ)")]
+    public ThirdPersonController thirdPersonController;
 
     [Header("Animator")]
     public string aimBoolParam = "IsAiming";
@@ -69,6 +76,7 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
 
     public bool IsEquipped => _isEquipped;
     public bool IsAiming => _isAiming;
+    public float ChargeProgress => _isAiming ? Mathf.Clamp01(_heldTime / chargeThreshold) : 0f;
 
     [Header("Quick Shot Cooldown (ปุ่มโจมตีธรรมดา □)")]
     public float quickShotCooldown = 0.5f;
@@ -83,6 +91,8 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
 
         // ✅ หา Main Camera อัตโนมัติถ้าไม่ได้ลากไว้
         if (playerCamera == null) playerCamera = Camera.main;
+        if (thirdPersonController == null) thirdPersonController = GetComponentInParent<ThirdPersonController>();
+        if (thirdPersonController == null) thirdPersonController = FindFirstObjectByType<ThirdPersonController>();
         _combatAudio = GetComponentInParent<PlayerCombatAudio>();
         if (_combatAudio == null) _combatAudio = FindFirstObjectByType<PlayerCombatAudio>();
     }
@@ -123,6 +133,9 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
         }
         if (_attackAction != null)
             _attackAction.performed -= OnQuickShotInput;
+
+        // ✅ ถ้าโดนปิดกลางคันระหว่างง้าง (cutscene / ตาย / เปลี่ยน scene) — คืนทุกอย่าง ไม่ให้กล้องค้างโหมดเล็ง
+        if (_isAiming) CancelAim();
     }
 
     // ─────────────────────────────────────────────
@@ -153,6 +166,9 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
         float curved = Mathf.Pow(t, resistanceCurvePower);
         float finalResistance = Mathf.Lerp(minStartResistance, maxTriggerResistance, curved);
         HapticManager.Instance?.SetTriggerResistance(0f, finalResistance);
+
+        // ── ไฮไลต์แดงค่อย ๆ เพิ่มตาม % ชาร์จ ──
+        chargeHighlight?.SetProgress(t);
 
         // ── เช็คว่าชาร์จครบหรือยัง ──
         if (!_isCharged && _heldTime >= chargeThreshold)
@@ -191,6 +207,12 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
         // ✅ สลับกล้องเป็นมุม over-the-shoulder แบบ Genshin
         if (aimVirtualCameraObject != null) aimVirtualCameraObject.SetActive(true);
 
+        // ✅ โหมดเล็ง: ลดความไวกล้อง + เปิดมุมก้ม/เงย + หันตัวตามกล้อง
+        thirdPersonController?.SetBowAim(true);
+
+        // ✅ เริ่มไฮไลต์ (โชว์ลูกธนูพาดสาย)
+        chargeHighlight?.BeginCharge();
+
         Debug.Log("[FireBowController] 🎯 Start Aiming...");
     }
 
@@ -199,6 +221,7 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
         // ✅ ธนูติดไฟแดง — พร้อมยิงธนูไฟ
         if (fireGlowVFX != null) fireGlowVFX.SetActive(true);
         bowReticleUI?.SetChargedState(true);
+        chargeHighlight?.SetFullyCharged();   // 🔴 ธนู + ลูกธนูแดงจ้า + pulse
 
         // Haptic feedback แจ้งว่าชาร์จเต็มแล้ว (สั่นสั้น ๆ)
         HapticManager.Instance?.Vibrate(0f, 0.3f, 0.08f);
@@ -215,8 +238,12 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
 
         bool shootFire = _isCharged;
         FireArrow(shootFire);
+        CancelAim();
+    }
 
-        // ✅ Reset state (ไม่ต้องสลับ mesh — ธนูติดมืออยู่ตลอด)
+    // คืนค่าทุกอย่างหลังปล่อย R2 (หรือโดนขัดจังหวะ)
+    void CancelAim()
+    {
         _isAiming = false;
         _isCharged = false;
         _heldTime = 0f;
@@ -233,6 +260,9 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
 
         // ✅ ปล่อยแรงต้าน trigger กลับสู่ปกติ
         HapticManager.Instance?.SetTriggerResistance(0f, 0f);
+
+        chargeHighlight?.ResetHighlight();
+        thirdPersonController?.SetBowAim(false);
     }
 
     // ─────────────────────────────────────────────
@@ -260,6 +290,9 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
 
         GameObject arrowGO = Instantiate(arrowProjectilePrefab, arrowSpawnPoint.position, arrowRotation);
         _combatAudio?.PlayFromSet(attackSfx, isFireArrow);
+        // 🔴 ลูกธนูที่ยิงตอนชาร์จเต็ม → เรืองแดงระหว่างบิน
+        arrowGO.GetComponent<ArrowRedHighlight>()?.Apply(isFireArrow);
+
         var projectile = arrowGO.GetComponent<FireArrowProjectile>();
         if (projectile != null)
         {
