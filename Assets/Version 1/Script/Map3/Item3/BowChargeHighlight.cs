@@ -24,8 +24,8 @@ public class BowChargeHighlight : MonoBehaviour
     [ColorUsage(false, true)]
     public Color highlightColor = new Color(1f, 0.08f, 0.03f);
 
-    [Tooltip("ให้ค่อย ๆ แดงขึ้นระหว่างชาร์จด้วยไหม (false = แดงทีเดียวตอนเต็ม)")]
-    public bool buildUpWhileCharging = true;
+    [Tooltip("ให้ค่อย ๆ แดงขึ้นระหว่างชาร์จด้วยไหม (false = แดงทีเดียวตอนเต็ม) — FireBowController ไม่ส่ง progress แล้ว จึงแดงเฉพาะตอนเต็มเสมอ")]
+    public bool buildUpWhileCharging = false;
     [Tooltip("ความสว่างสูงสุดช่วงกำลังชาร์จ (ยังไม่เต็ม)")]
     public float chargingMaxIntensity = 1.2f;
     [Tooltip("ความสว่างตอนชาร์จเต็ม (ต้องเปิด Bloom ใน Volume ถึงจะเห็นแสงฟุ้ง)")]
@@ -35,8 +35,8 @@ public class BowChargeHighlight : MonoBehaviour
     public float pulseSpeed = 8f;
     [Range(0f, 1f)] public float pulseAmount = 0.35f;
     [Tooltip("แฟลชจ้าแวบแรกตอนเพิ่งเต็ม (วินาที)")]
-    public float fullFlashDuration = 0.12f;
-    public float fullFlashMultiplier = 2f;
+    public float fullFlashDuration = 0.2f;
+    public float fullFlashMultiplier = 2.5f;
 
     [Header("Optional")]
     [Tooltip("Point Light สีแดงเล็ก ๆ ที่ธนู (ไม่ใส่ก็ได้)")]

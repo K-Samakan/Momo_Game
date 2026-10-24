@@ -188,8 +188,7 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
         float t = Mathf.Clamp01(_heldTime / chargeThreshold);
         ApplyBowTension(t, _isCharged);
 
-        // ── ไฮไลต์แดงค่อย ๆ เพิ่มตาม % ชาร์จ ──
-        chargeHighlight?.SetProgress(t);
+        // ── ไฮไลต์แดง: ไม่ขึ้นระหว่างชาร์จ — ขึ้นทีเดียวตอนชาร์จเต็ม (OnChargeComplete) ──
 
         // ── เช็คว่าชาร์จครบหรือยัง ──
         if (!_isCharged && _heldTime >= chargeThreshold)
