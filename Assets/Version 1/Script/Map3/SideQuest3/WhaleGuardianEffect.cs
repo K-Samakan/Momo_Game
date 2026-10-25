@@ -47,6 +47,13 @@ public class WhaleGuardianEffect : MonoBehaviour
     {
         if (smartAttackSystem == null) smartAttackSystem = FindFirstObjectByType<SmartAttackSystem>();
         if (fireBowController == null) fireBowController = FindFirstObjectByType<FireBowController>(FindObjectsInactive.Include);
+
+        // ✅ [FIX] OasisShieldEffect ถูกปิด (checkbox) ไว้ในฉาก → Update ไม่ทำงาน โล่ไม่มีวันเปิด
+        if (shieldEffect != null && !shieldEffect.enabled)
+        {
+            shieldEffect.enabled = true;
+            Debug.Log("[WhaleGuardian] 🛡️ เปิด OasisShieldEffect ที่ถูกปิดไว้ให้อัตโนมัติ");
+        }
     }
 
     void Update()
@@ -73,6 +80,20 @@ public class WhaleGuardianEffect : MonoBehaviour
     /// <summary>เรียกจาก BossMap3RoomTrigger ตอนผู้เล่นเข้าห้องบอส</summary>
     public void SetBossFightActive(bool active)
     {
+        // ✅ [FIX] สำรอง: ถ้า IceCrystalQuestManager ไม่ได้ลากช่อง whaleGuardianEffect ไว้
+        //    EnableGuardian() จะไม่เคยถูกเรียก (F10 ทำงานเพราะเรียกตรง) → เช็คสถานะเควสเองตอนเข้าห้องบอส
+        if (active && !_unlocked)
+        {
+            var quest = IceCrystalQuestManager.Instance;
+            if (quest != null && quest.IsQuestComplete)
+            {
+                Debug.Log("[WhaleGuardian] 🔗 เควสผลึกสำเร็จแล้วแต่ยังไม่ปลดล็อก → ปลดล็อกจากห้องบอสแทน");
+                EnableGuardian();
+            }
+            else
+                Debug.Log($"[WhaleGuardian] ℹ️ เข้าห้องบอสแล้ว แต่เควสผลึกยังไม่ครบ (QuestManager={(quest != null ? "พบ" : "ไม่พบ")}) → ไม่มีรางวัล");
+        }
+
         _bossFightActive = active;
         if (shieldEffect != null) shieldEffect.SetBossFightActive(active);
 

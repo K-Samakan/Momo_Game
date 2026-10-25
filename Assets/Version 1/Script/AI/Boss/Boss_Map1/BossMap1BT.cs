@@ -38,6 +38,32 @@ public class BossMap1BT : MonoBehaviour
     public float spinMoveSpeed = 5f;
     public float pathUpdateInterval = 0.3f;
 
+    // ═══════════════════════════════════════════════════
+    // ✅ ใหม่: ดาเมจด้วยโค้ด (ไม่พึ่ง Animation Event / Hitbox)
+    // ═══════════════════════════════════════════════════
+    [Header("Code Damage")]
+    [Tooltip("เปิด = ทำดาเมจด้วยโค้ด และปิดระบบ Hitbox เดิม (กันโดนดาเมจซ้ำ)")]
+    public bool useCodeDamage = true;
+
+    [Header("Slam (ทุบ)")]
+    public int slamDamage1 = 1;
+    public int slamDamage2 = 1;
+    public int slamDamage3 = 2;
+    [Tooltip("ระยะที่ผู้เล่นจะโดนทุบ (วัดจากตัวบอส)")]
+    public float slamHitRadius = 4f;
+    [Tooltip("มุมด้านหน้าบอสที่โดน (องศา) — 360 = รอบตัว")]
+    [Range(30f, 360f)] public float slamHitAngle = 140f;
+    [Tooltip("เวลาหลังเริ่มท่าทุบ 1-2 จนมือกระแทกพื้น (ปรับให้ตรงแอนิเมชัน)")]
+    public float slamImpactDelay = 0.4f;
+    [Tooltip("เวลาหลังเริ่มท่าทุบครั้งที่ 3 จนกระแทกพื้น")]
+    public float slamJumpImpactDelay = 0.5f;
+    public float slamKnockbackForce = 8f;
+
+    [Header("Spin (หมุน)")]
+    public int spinDamage = 1;
+    public float spinHitRadius = 3f;
+    public float spinKnockbackForce = 6f;
+
     [Header("Hit Flash")]
     public Color hitFlashColor = Color.red;
     public float hitFlashDuration = 0.2f;
@@ -323,6 +349,9 @@ public class BossMap1BT : MonoBehaviour
             _spinSwingTimer = 0f;
             _spinCount++;
 
+            // ✅ ใหม่: ดาเมจ + เสียง 1 ครั้งต่อรอบ
+            DoSpinHit();
+
             if (_spinCount >= 5)
             {
                 animator.SetBool("IsSpinning", false);
@@ -389,24 +418,33 @@ public class BossMap1BT : MonoBehaviour
         _isIntro = false;
     }
 
+    // ✅ แก้ไข: แทรกจุดกระแทก (ดาเมจ + เสียง) ระหว่างท่า — เวลารวมของท่าเท่าเดิม
     IEnumerator SlamSequence()
     {
         _isPatternRunning = true;
         _isSlamming = true;
         animator.SetFloat(HashSpeed, 0f);
 
+        // ── ทุบครั้งที่ 1 (SlamLeft) ──
         animator.SetTrigger(HashSlamLeft);
-        yield return new WaitForSeconds(0.8f);
+        yield return new WaitForSeconds(slamImpactDelay);
+        DoSlamHit(slamDamage1);
+        yield return new WaitForSeconds(Mathf.Max(0f, 0.8f - slamImpactDelay));
 
+        // ── ทุบครั้งที่ 2 (SlamRight) ──
         FaceTarget();
         animator.SetTrigger(HashSlamRight);
-        yield return new WaitForSeconds(0.8f);
+        yield return new WaitForSeconds(slamImpactDelay);
+        DoSlamHit(slamDamage2);
+        yield return new WaitForSeconds(Mathf.Max(0f, 0.8f - slamImpactDelay));
 
+        // ── ทุบครั้งที่ 3 (SlamJump) — แรงสุด แล้วมือติดพื้น ──
         FaceTarget();
         animator.SetTrigger(HashSlamJump);
+        yield return new WaitForSeconds(slamJumpImpactDelay);
+        DoSlamHit(slamDamage3);
 
-        yield return new WaitForSeconds(0.5f);
-        animator.speed = 0f;
+        animator.speed = 0f;              // มือค้างพื้น
         yield return new WaitForSeconds(1.0f);
         animator.speed = 1f;
 
@@ -564,8 +602,10 @@ public class BossMap1BT : MonoBehaviour
         StartCoroutine(DeathSequence());
     }
 
+    // ✅ แก้ไข: ข้ามถ้าใช้ Code Damage (กันดาเมจซ้ำ ถ้าคลิปมี Animation Event ติดอยู่)
     public void OnHitboxOpenLeft(int damage)
     {
+        if (useCodeDamage) return;
         attackHitboxL?.EnableHitbox(damage);
     }
 
@@ -574,14 +614,77 @@ public class BossMap1BT : MonoBehaviour
         attackHitboxL?.DisableHitbox();
     }
 
+    // ✅ แก้ไข: ข้ามถ้าใช้ Code Damage
     public void OnHitboxOpenRight(int damage)
     {
+        if (useCodeDamage) return;
         attackHitboxR?.EnableHitbox(damage);
     }
 
     public void OnHitboxCloseRight()
     {
         attackHitboxR?.DisableHitbox();
+    }
+
+    // ═══════════════════════════════════════════════════
+    // ✅ ใหม่: Code Damage + SFX
+    // ═══════════════════════════════════════════════════
+
+    void DoSlamHit(int damage)
+    {
+        // เสียงเล่นทุกครั้งที่กระแทก ไม่ว่าจะโดนผู้เล่นหรือไม่
+        if (health != null && health.bossAudio != null) health.bossAudio.PlaySlam();
+
+        if (!useCodeDamage || _player == null) return;
+
+        Vector3 toPlayer = _player.position - transform.position;
+        toPlayer.y = 0f;
+        float dist = toPlayer.magnitude;
+
+        bool inRange = dist <= slamHitRadius;
+        bool inFront = slamHitAngle >= 360f || dist < 0.01f ||
+                       Vector3.Angle(transform.forward, toPlayer) <= slamHitAngle * 0.5f;
+
+        Debug.Log($"[BossMap1] 👊 ทุบ! dist={dist:F1}/{slamHitRadius}, inFront={inFront}");
+
+        if (!inRange || !inFront) return;
+
+        DamagePlayer(damage, toPlayer, slamKnockbackForce);
+        HapticManager.Instance?.Vibrate(0.4f, 0.8f, 0.2f);
+    }
+
+    void DoSpinHit()
+    {
+        if (health != null && health.bossAudio != null) health.bossAudio.PlaySpin();
+
+        if (!useCodeDamage || _player == null) return;
+
+        Vector3 toPlayer = _player.position - transform.position;
+        toPlayer.y = 0f;
+        float dist = toPlayer.magnitude;
+
+        if (dist > spinHitRadius) return;
+
+        Debug.Log($"[BossMap1] 🌀 หมุนโดนผู้เล่น! รอบที่ {_spinCount}");
+        DamagePlayer(spinDamage, toPlayer, spinKnockbackForce);
+        HapticManager.Instance?.Vibrate(0.2f, 0.5f, 0.1f);
+    }
+
+    void DamagePlayer(int damage, Vector3 toPlayer, float knockbackForce)
+    {
+        var ph = _player.GetComponent<MOMO.Player.PlayerHealth>();
+        if (ph == null)
+        {
+            Debug.LogWarning("[BossMap1] ⚠️ ไม่พบ PlayerHealth บนผู้เล่น!");
+            return;
+        }
+
+        Vector3 knockDir = toPlayer.sqrMagnitude > 0.001f ? toPlayer.normalized : transform.forward;
+        knockDir.y = 0.2f;
+
+        // ใช้ Overload ที่มีอยู่แล้วใน PlayerHealth (ดาเมจ + knockback)
+        ph.TakeDamage(damage, knockDir, knockbackForce);
+        Debug.Log($"[BossMap1] 💥 ผู้เล่นโดน {damage} DMG");
     }
 
     void ChasePlayer()
