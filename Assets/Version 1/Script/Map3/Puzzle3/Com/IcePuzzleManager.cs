@@ -2,6 +2,16 @@
 // FILE: IcePuzzleManager.cs
 // PATH: Assets/Version 1/Script/Puzzle3/Com/IcePuzzleManager.cs
 // ============================================================
+// ✅ CHANGELOG
+//   [NEW] overworldHUD — HUD หลัก (HP ผู้เล่น ฯลฯ) ซ่อนตอนเข้าห้อง Puzzle / เปิดคืนตอนออก
+//         (แบบเดียวกับ Map 4: WaterValvePuzzleManager)
+//   [NEW] EnterPuzzle() → ซ่อน overworldHUD ทันทีตอนวาปเข้าห้อง
+//   [NEW] ExitPuzzle()  → เปิด overworldHUD กลับ (ทั้งตอนแก้สำเร็จ และตอน Fail ก่อนวาปกลับ)
+//   [NEW] puzzleFailUI / failRespawnDelay — ตั้งใน Inspector ได้เหมือน Map 2 / Map 4
+//   [NEW] HandlePuzzleFail() — IceBlock.RestartGame() เรียกตัวนี้แทนการเรียก PuzzleFailRespawn เอง
+//   [NEW] Intro แบบ Map 2 — lockInputDuringScreens + สั่นสั้น + รอเท่า IntroScreenUI.TotalDuration
+//         + isEntering กันกดแท่นซ้ำระหว่าง Intro
+// ============================================================
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
@@ -29,6 +39,19 @@ public class IcePuzzleManager : MonoBehaviour
     [SerializeField] private PuzzleClearUI puzzleClearUI;
     [SerializeField] private InGameHUD inGameHUD;
 
+    // ✅ NEW: HUD หลักของเกม (ซ่อนระหว่างเล่น Puzzle)
+    [Header("Main HUD (ซ่อนระหว่างเล่น Puzzle)")]
+    [Tooltip("ลาก GameObject ของ HUD หลัก (HP ผู้เล่น / ไอเทม ฯลฯ) — ห้ามลาก Canvas ที่มี InGameHUD ของ Puzzle อยู่ข้างใน")]
+    [SerializeField] private GameObject overworldHUD;
+
+    // ✅ NEW: Fail → Respawn (เหมือน Map 2 / Map 4)
+    [Header("Fail → Respawn (กลับ SavePoint หน้าห้อง)")]
+    [Tooltip("UI 'ปริศนาล้มเหลว' (ปิดไว้ก่อน) — ไม่ใส่ก็ได้")]
+    [SerializeField] private GameObject puzzleFailUI;
+
+    [Tooltip("เวลารอก่อนวาปกลับ (วินาที)")]
+    [SerializeField] private float failRespawnDelay = 2.5f;
+
     [Header("Puzzle Door")]
     [SerializeField] private GameObject puzzleDoor;
 
@@ -38,6 +61,15 @@ public class IcePuzzleManager : MonoBehaviour
 
     [Header("Settings")]
     [SerializeField] private bool showIntroOnStart = true;
+
+    // ✅ NEW: เหมือน Map 2
+    [Tooltip("ล็อกการควบคุมผู้เล่นระหว่างหน้าจอ Intro / Clear")]
+    [SerializeField] private bool lockInputDuringScreens = true;
+
+    [Tooltip("รอ Intro กี่วินาที (0 = ใช้เวลาจริงของ IntroScreenUI = fadeIn + display + fadeOut)")]
+    [SerializeField] private float introWaitTime = 0f;
+
+    private bool isEntering = false;   // ✅ NEW: กันกดแท่นซ้ำระหว่าง Intro
 
     // ✅ แก้แล้ว: ปิด auto-start เป็นค่า default
     //    ผู้เล่นต้องกดแท่น warp trigger เอง (ผ่าน PuzzlePedestalTrigger.cs)
@@ -89,6 +121,18 @@ public class IcePuzzleManager : MonoBehaviour
             puzzleDoor.SetActive(true);
         }
 
+        // ✅ NEW: ปิด Fail UI ไว้ก่อน
+        if (puzzleFailUI != null)
+        {
+            puzzleFailUI.SetActive(false);
+        }
+
+        // ✅ NEW: เตือนถ้ายังไม่ได้ลาก HUD หลัก
+        if (overworldHUD == null)
+        {
+            Debug.LogWarning("⚠️ [IcePuzzleManager] ยังไม่ได้ลาก Overworld HUD — HUD หลักจะไม่ถูกซ่อนตอนเล่น Puzzle");
+        }
+
         // ✅ Subscribe Events
         IceBlock.OnHPChanged += OnHPChanged;
         IceBlock.OnGameRestart += OnGameRestart;
@@ -107,11 +151,12 @@ public class IcePuzzleManager : MonoBehaviour
     /// </summary>
     public void EnterPuzzle()
     {
-        if (isPuzzleActive)
+        if (isPuzzleActive || isEntering)
         {
-            Debug.LogWarning("⚠️ Puzzle already active!");
+            Debug.LogWarning("⚠️ Puzzle already active / entering!");
             return;
         }
+        isEntering = true;
 
         Debug.Log("🧊 Entering Ice Puzzle...");
 
@@ -120,6 +165,9 @@ public class IcePuzzleManager : MonoBehaviour
         {
             WarpPlayer();
         }
+
+        // ✅ NEW: ซ่อน HUD หลักทันทีตอนเข้าห้อง (ก่อน Intro Screen)
+        SetOverworldHUDVisible(false);
 
         // 2. เริ่ม Puzzle Sequence
         StartCoroutine(PuzzleStartSequence());
@@ -139,17 +187,40 @@ public class IcePuzzleManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// ✅ CHANGED: Intro แบบเดียวกับ Map 2 — ล็อก input + สั่นสั้นบอกว่าเข้าห้องแล้ว + รอ Intro จบพอดี
+    /// </summary>
     IEnumerator PuzzleStartSequence()
     {
         // 1. แสดง Intro Screen
-        if (introScreenUI != null && showIntroOnStart)
+        if (showIntroOnStart)
         {
-            introScreenUI.Show();
-            yield return new WaitForSeconds(3.5f); // รอ Intro จบ
+            if (introScreenUI != null)
+            {
+                if (lockInputDuringScreens && playerInput != null)
+                    playerInput.DeactivateInput();
+
+                introScreenUI.Show();
+
+                // สั่นสั้น ๆ บอกผู้เล่นว่า "เข้าห้องปริศนาแล้ว" (สำคัญสำหรับผู้เล่นที่ไม่ได้ยินเสียง)
+                if (HapticManager.Instance != null)
+                    HapticManager.Instance.PlayPattern(HapticPatternType.Short);
+
+                float wait = introWaitTime > 0f ? introWaitTime : introScreenUI.TotalDuration;
+                yield return new WaitForSeconds(wait); // รอ Intro จบ
+
+                if (lockInputDuringScreens && playerInput != null)
+                    playerInput.ActivateInput();
+            }
+            else
+            {
+                Debug.LogWarning("⚠️ [IcePuzzleManager] ยังไม่ได้ลาก Intro Screen UI ใน Inspector — ข้าม Intro");
+            }
         }
 
         // 2. เปิดโหมด Puzzle
         ActivatePuzzleMode();
+        isEntering = false;
     }
 
     void ActivatePuzzleMode()
@@ -196,6 +267,9 @@ public class IcePuzzleManager : MonoBehaviour
             inGameHUD.HideImmediate();
         }
 
+        // ✅ NEW: เปิด HUD หลักกลับมา
+        SetOverworldHUDVisible(true);
+
         // Switch back to Player ActionMap
         if (playerInput != null)
         {
@@ -206,6 +280,17 @@ public class IcePuzzleManager : MonoBehaviour
         Debug.Log("╔═══════════════════════════════════════════╗");
         Debug.Log("║     ✅ EXITED PUZZLE MODE                 ║");
         Debug.Log("╚═══════════════════════════════════════════╝");
+    }
+
+    /// <summary>
+    /// ✅ NEW: เปิด/ปิด HUD หลัก
+    /// </summary>
+    void SetOverworldHUDVisible(bool visible)
+    {
+        if (overworldHUD == null) return;
+
+        overworldHUD.SetActive(visible);
+        Debug.Log($"🖥️ [IcePuzzleManager] Overworld HUD = {(visible ? "ON" : "OFF")}");
     }
 
     #endregion
@@ -249,7 +334,7 @@ public class IcePuzzleManager : MonoBehaviour
             Debug.Log("🚪 Door removed! (ทางไปห้อง Item เปิดแล้ว)");
         }
 
-        // 4. ออกจาก Puzzle Mode
+        // 4. ออกจาก Puzzle Mode (เปิด HUD หลักกลับด้วย)
         ExitPuzzle();
 
         Debug.Log("✅ Puzzle Complete Sequence Finished!");
@@ -283,6 +368,7 @@ public class IcePuzzleManager : MonoBehaviour
         currentHP = maxHP;
         isPuzzleActive = false;
         isPuzzleSolved = false;
+        isEntering = false;
         puzzleInitialized = false;
 
         // รีเซ็ต UI
@@ -299,6 +385,25 @@ public class IcePuzzleManager : MonoBehaviour
         Debug.Log("🔄 Puzzle Manager Reset");
     }
 
+    /// <summary>
+    /// ✅ NEW: HP หมด → ซ่อน Puzzle HUD → Fail UI + รอ → สลับ ActionMap เป็น Player → วาปกลับ SavePoint หน้าห้อง
+    /// เรียกจาก IceBlock.RestartGame()
+    /// </summary>
+    public void HandlePuzzleFail()
+    {
+        Debug.Log("💀 [IcePuzzleManager] Puzzle Fail → กลับ SavePoint หน้าห้อง");
+
+        isPuzzleActive = false;
+
+        if (inGameHUD != null)
+        {
+            inGameHUD.HideImmediate();
+        }
+
+        // ExitPuzzle() จะถูกเรียกตอนก่อนโหลดฉาก (สลับ ActionMap กลับ Player + เปิด HUD หลัก)
+        PuzzleFailRespawn.Trigger(this, puzzleFailUI, ExitPuzzle, failRespawnDelay);
+    }
+
     #endregion
 
     #region Cleanup
@@ -307,6 +412,9 @@ public class IcePuzzleManager : MonoBehaviour
     {
         IceBlock.OnHPChanged -= OnHPChanged;
         IceBlock.OnGameRestart -= OnGameRestart;
+
+        // ✅ NEW: เคลียร์ Instance ให้ตัวใหม่ในฉากใหม่ขึ้นแทนได้ (หลัง Fail → โหลดฉาก)
+        if (Instance == this) Instance = null;
     }
 
     #endregion

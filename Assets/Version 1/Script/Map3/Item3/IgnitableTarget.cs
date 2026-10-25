@@ -31,6 +31,7 @@ public class IgnitableTarget : MonoBehaviour
         if (burningVFXPrefab != null && _activeVFX == null)
             _activeVFX = Instantiate(burningVFXPrefab, transform.position, Quaternion.identity, transform);
 
+        var monsterBT = GetComponent<MonsterBT>();          // ระบบหลัก (ตายแล้วดรอป Soul)
         var monsterHealth = GetComponent<MonsterHealth>();
         var bossHealth = GetComponentInParent<BossMap3Health>();
 
@@ -38,7 +39,9 @@ public class IgnitableTarget : MonoBehaviour
         {
             yield return new WaitForSeconds(tickInterval);
 
-            if (monsterHealth != null)
+            if (monsterBT != null)
+                monsterBT.TakeDamage(damagePerTick);
+            else if (monsterHealth != null)
                 monsterHealth.TakeDamage(damagePerTick, transform.position);
             else if (bossHealth != null)
                 bossHealth.TakeDamage(damagePerTick);

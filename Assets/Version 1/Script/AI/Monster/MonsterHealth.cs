@@ -91,7 +91,7 @@ public class MonsterHealth : MonoBehaviour
         Debug.Log($"{gameObject.name} took {damage} damage! HP: {currentHealth}/{maxHealth}");
 
         // เล่น Animation ถูกตี (ถ้ามี)
-        if (animator != null)
+        if (animator != null && HasAnimatorParam(_animIDHit))
         {
             animator.SetTrigger(_animIDHit);
         }
@@ -115,9 +115,15 @@ public class MonsterHealth : MonoBehaviour
         }
     }
 
+    private bool HasAnimatorParam(int hash)
+    {
+        foreach (var p in animator.parameters) if (p.nameHash == hash) return true;
+        return false;
+    }
+
     private void ApplyKnockback(Vector3 direction)
     {
-        if (rb == null) return;
+        if (rb == null || rb.isKinematic) return;   // kinematic (เช่นเดินด้วย NavMesh) ตั้ง velocity ไม่ได้
 
         isKnockedBack = true;
 

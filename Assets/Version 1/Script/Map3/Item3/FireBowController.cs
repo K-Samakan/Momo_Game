@@ -5,6 +5,7 @@
 // ============================================================
 using UnityEngine;
 using UnityEngine.InputSystem;
+using StarterAssets;
 
 public class FireBowController : MonoBehaviour, IAttackSfxProvider
 {
@@ -25,9 +26,25 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
     [Tooltip("กล้องหลักของผู้เล่น — ใช้คำนวณทิศยิงแทนทิศของ mesh ธนู เพื่อให้ยิงตรงไปทางที่กล้องมองเสมอ")]
     public Camera playerCamera;
 
+    [Tooltip("Layer ที่ลูกธนูเล็งโดนได้ (เอา Layer ของ Player ออก)")]
+    public LayerMask aimLayerMask = ~0;
+    [Tooltip("ระยะเล็งไกลสุด ถ้าไม่โดนอะไรจะยิงไปจุดนี้")]
+    public float aimMaxDistance = 200f;
+    [Tooltip("ยิงเร็ว (□) ก็ไปตรงกลางจอเหมือนกัน")]
+    public bool useCrosshairForQuickShot = true;
+    [Tooltip("ปิดแรงโน้มถ่วงของลูกธนู เพื่อให้พุ่งตรงไปที่ crosshair พอดี")]
+    public bool arrowUseGravity = false;
+
     [Header("Fire Charge (เหมือน Genshin)")]
     [Tooltip("เวลากด R2 ค้างขั้นต่ำ (วินาที) ก่อนจะกลายเป็นธนูไฟ")]
     public float chargeThreshold = 1.2f;
+
+    [Header("R2 Release (กันไกกระตุกทำให้ปล่อยเอง)")]
+    [Tooltip("ถือว่าปล่อย R2 เมื่อค่าไกต่ำกว่าเท่านี้ (0-1) — ไกกระตุกดันนิ้วทำให้ค่าแกว่ง จึงต้องต่ำกว่าจุดปล่อยของปุ่มปกติ")]
+    [Range(0.02f, 0.5f)] public float releaseThreshold = 0.12f;
+    [Tooltip("ต้องต่ำกว่า releaseThreshold ต่อเนื่องนานกี่วินาทีถึงจะยิง (กันสัญญาณแกว่งชั่วขณะ)")]
+    [Range(0f, 0.2f)] public float releaseDebounce = 0.06f;
+    private float _belowReleaseTime;
     public int fireIgniteTicks = 2;        // ติดไฟ DOT กี่ครั้ง
     public float igniteTickInterval = 0.6f;
 
@@ -36,21 +53,38 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
     public GameObject fireGlowVFX;
     public ParticleSystem chargingParticles; // optional: อนุภาคระหว่างชาร์จ (ยังไม่ครบ)
 
+    [Tooltip("ไฮไลต์สีแดงที่ตัวธนู + ลูกธนูที่พาดสาย (ใส่ BowChargeHighlight ไว้ที่ bowMesh แล้วลากมาใส่)")]
+    public BowChargeHighlight chargeHighlight;
+
     [Header("UI")]
     public BowReticleUI bowReticleUI;      // Crosshair กลางจอ
 
-    [Header("Adaptive Trigger (R2)")]
-    [Tooltip("แรงต้านสูงสุดตอนชาร์จเต็ม (0-1)")]
-    public float maxTriggerResistance = 1f;
-    [Tooltip("ความเร่งของแรงต้าน ยิ่งมากยิ่งรู้สึกฝืดขึ้นเร็วช่วงท้าย (1 = เชิงเส้นตรงไปตรงมา รู้สึกต้านขึ้นตลอด, 2-3 = โค้งเร่งท้าย)")]
-    public float resistanceCurvePower = 1.3f;
-    [Tooltip("แรงต้านขั้นต่ำตอนเริ่มเล็ง (กันไม่ให้รู้สึกเหมือนไม่มีอะไรเกิดขึ้นช่วงแรก)")]
-    [Range(0f, 0.5f)]
-    public float minStartResistance = 0.15f;
+    [Header("Adaptive Trigger R2 — ไกกระตุก ไล่แรงตามชาร์จ (เต็ม = ธนูไฟ = แรงสุด)")]
+    [Tooltip("ความแรงการกระตุกตอนเริ่มง้าง (0-1)")]
+    [Range(0f, 1f)] public float triggerMinStrength = 0.25f;
+    [Tooltip("ความแรงการกระตุกตอนชาร์จเต็ม = ธนูไฟ (0-1) — ค้างไว้จนกว่าจะปล่อย R2")]
+    [Range(0f, 1f)] public float triggerMaxStrength = 1f;
+    [Tooltip("ความถี่การกระตุกตอนเริ่มง้าง (น้อย = กึก…กึก… ช้า)")]
+    [Range(1, 40)] public int triggerMinFrequency = 4;
+    [Tooltip("ความถี่การกระตุกตอนชาร์จเต็ม (มาก = ครืดถี่ ๆ)")]
+    [Range(1, 40)] public int triggerMaxFrequency = 14;
+    [Tooltip("ความโค้งของการไล่แรง (1 = เพิ่มเท่า ๆ กัน, 2 = เบานานแล้วแรงขึ้นเร็วช่วงท้าย)")]
+    [Range(0.3f, 3f)] public float resistanceCurvePower = 1.3f;
+    [Tooltip("ช่วงชาร์จ (ยังไม่เต็ม) ให้แรงสูงสุดได้แค่กี่ % ของ Max — เว้นช่องให้รู้สึกชัดว่า 'เต็มแล้ว' ตอนกลายเป็นธนูไฟ")]
+    [Range(0.3f, 1f)] public float chargingCapPercent = 0.7f;
+    [Tooltip("ความถี่กระตุกตอนปล่อยลูกธนู (ดีดกลับ 1 จังหวะสั้น ๆ) — 0 = ไม่มี")]
+    [Range(0, 40)] public int releaseKickFrequency = 30;
+    public float releaseKickDuration = 0.08f;
+
+    private int _lastTrigStrength = -1;
+    private int _lastTrigFreq = -1;
 
     [Header("Aim Camera (Cinemachine)")]
     [Tooltip("ลาก GameObject ของ Cinemachine Virtual Camera มุม over-the-shoulder แบบ Genshin — ต้องมี Priority สูงกว่ากล้องปกติ")]
     public GameObject aimVirtualCameraObject;
+
+    [Tooltip("ThirdPersonController ของ Player — ใช้ลดความไวกล้อง + หันตัวตามกล้องตอนง้าง (เว้นว่าง = หาอัตโนมัติ)")]
+    public ThirdPersonController thirdPersonController;
 
     [Header("Animator")]
     public string aimBoolParam = "IsAiming";
@@ -66,9 +100,11 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
     private PlayerInput _playerInput;
     private InputAction _aimAction;   // R2 (มี performed/started/canceled)
     private Animator _animator;
+    private Transform _playerRoot;
 
     public bool IsEquipped => _isEquipped;
     public bool IsAiming => _isAiming;
+    public float ChargeProgress => _isAiming ? Mathf.Clamp01(_heldTime / chargeThreshold) : 0f;
 
     [Header("Quick Shot Cooldown (ปุ่มโจมตีธรรมดา □)")]
     public float quickShotCooldown = 0.5f;
@@ -83,6 +119,9 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
 
         // ✅ หา Main Camera อัตโนมัติถ้าไม่ได้ลากไว้
         if (playerCamera == null) playerCamera = Camera.main;
+        if (thirdPersonController == null) thirdPersonController = GetComponentInParent<ThirdPersonController>();
+        if (thirdPersonController == null) thirdPersonController = FindFirstObjectByType<ThirdPersonController>();
+        _playerRoot = thirdPersonController != null ? thirdPersonController.transform : transform.root;
         _combatAudio = GetComponentInParent<PlayerCombatAudio>();
         if (_combatAudio == null) _combatAudio = FindFirstObjectByType<PlayerCombatAudio>();
     }
@@ -123,6 +162,10 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
         }
         if (_attackAction != null)
             _attackAction.performed -= OnQuickShotInput;
+
+        // ✅ ถ้าโดนปิดกลางคันระหว่างง้าง (cutscene / ตาย / เปลี่ยน scene) — คืนทุกอย่าง ไม่ให้กล้องค้างโหมดเล็ง
+        if (_isAiming) CancelAim();
+        HapticManager.Instance?.ReleaseBowTension();   // ปิดธนู = R2 กลับเป็นไกปกติ (coroutine หยุดตอน disable)
     }
 
     // ─────────────────────────────────────────────
@@ -148,11 +191,20 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
 
         _heldTime += Time.deltaTime;
 
-        // ── Adaptive Trigger: เริ่มต้านตั้งแต่แตะ R2 แล้วค่อย ๆ แรงขึ้นตลอดช่วงจนสุดตอนชาร์จเต็ม ──
+        // ── ตรวจการปล่อย R2 จากค่าไกจริง (ทนต่อไกกระตุก) ──
+        float r2 = _aimAction != null ? _aimAction.ReadValue<float>() : 0f;
+        if (r2 < releaseThreshold)
+        {
+            _belowReleaseTime += Time.deltaTime;
+            if (_belowReleaseTime >= releaseDebounce) { ReleaseArrow(); return; }
+        }
+        else _belowReleaseTime = 0f;
+
+        // ── Adaptive Trigger: ไกกระตุกแรงขึ้นตามเวลาชาร์จ → เต็ม (ธนูไฟ) = แรงสุด ค้างจนกว่าจะปล่อย ──
         float t = Mathf.Clamp01(_heldTime / chargeThreshold);
-        float curved = Mathf.Pow(t, resistanceCurvePower);
-        float finalResistance = Mathf.Lerp(minStartResistance, maxTriggerResistance, curved);
-        HapticManager.Instance?.SetTriggerResistance(0f, finalResistance);
+        ApplyBowTension(t, _isCharged);
+
+        // ── ไฮไลต์แดง: ไม่ขึ้นระหว่างชาร์จ — ขึ้นทีเดียวตอนชาร์จเต็ม (OnChargeComplete) ──
 
         // ── เช็คว่าชาร์จครบหรือยัง ──
         if (!_isCharged && _heldTime >= chargeThreshold)
@@ -175,6 +227,10 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
     {
         if (!_isEquipped) return;
 
+        // ✅ กำลังง้างอยู่แล้ว (ไกกระตุกทำให้ Input System ส่ง "กดใหม่" ซ้ำ) → ห้ามรีเซ็ตค่าชาร์จ
+        if (_isAiming) { _belowReleaseTime = 0f; return; }
+        _belowReleaseTime = 0f;
+
         _isAiming = true;
         _isCharged = false;
         _heldTime = 0f;
@@ -191,6 +247,20 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
         // ✅ สลับกล้องเป็นมุม over-the-shoulder แบบ Genshin
         if (aimVirtualCameraObject != null) aimVirtualCameraObject.SetActive(true);
 
+        // ✅ โหมดเล็ง: ลดความไวกล้อง + เปิดมุมก้ม/เงย + หันตัวตามกล้อง
+        thirdPersonController?.SetBowAim(true);
+
+        // ✅ เริ่มไฮไลต์ (โชว์ลูกธนูพาดสาย)
+        chargeHighlight?.BeginCharge();
+
+        // ✅ เริ่มไก R2 กระตุกเบาสุดทันทีที่กด
+        if (HapticManager.Instance == null)
+            Debug.LogWarning("[FireBowController] ⚠️ ไม่มี HapticManager ใน Scene — Adaptive Trigger จะไม่ทำงาน");
+        else if (!HapticManager.Instance.IsDualSenseConnected())
+            Debug.LogWarning("[FireBowController] ⚠️ HapticManager ยังไม่เจอ DualSense — Adaptive Trigger จะไม่ทำงาน");
+        _lastTrigStrength = _lastTrigFreq = -1;   // บังคับส่งค่าแรกเสมอ
+        ApplyBowTension(0f, false);
+
         Debug.Log("[FireBowController] 🎯 Start Aiming...");
     }
 
@@ -199,6 +269,8 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
         // ✅ ธนูติดไฟแดง — พร้อมยิงธนูไฟ
         if (fireGlowVFX != null) fireGlowVFX.SetActive(true);
         bowReticleUI?.SetChargedState(true);
+        chargeHighlight?.SetFullyCharged();   // 🔴 ธนู + ลูกธนูแดงจ้า + pulse
+        ApplyBowTension(1f, true);            // 🔥 ไก R2 กระตุกแรงสุดทันทีที่เป็นธนูไฟ
 
         // Haptic feedback แจ้งว่าชาร์จเต็มแล้ว (สั่นสั้น ๆ)
         HapticManager.Instance?.Vibrate(0f, 0.3f, 0.08f);
@@ -209,14 +281,22 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
         Debug.Log("[FireBowController] 🔥 CHARGED! พร้อมยิงธนูไฟ");
     }
 
-    void OnAimReleased(InputAction.CallbackContext ctx)
+    // R2 canceled จาก Input System — ไม่ยิงทันที เพราะไกกระตุกทำให้ส่ง canceled ปลอมได้
+    // การยิงจริงตัดสินใน Update() จากค่าไกจริง (ReleaseArrow)
+    void OnAimReleased(InputAction.CallbackContext ctx) { }
+
+    void ReleaseArrow()
     {
         if (!_isEquipped || !_isAiming) return;
 
         bool shootFire = _isCharged;
         FireArrow(shootFire);
+        CancelAim();
+    }
 
-        // ✅ Reset state (ไม่ต้องสลับ mesh — ธนูติดมืออยู่ตลอด)
+    // คืนค่าทุกอย่างหลังปล่อย R2 (หรือโดนขัดจังหวะ)
+    void CancelAim()
+    {
         _isAiming = false;
         _isCharged = false;
         _heldTime = 0f;
@@ -232,7 +312,73 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
         if (aimVirtualCameraObject != null) aimVirtualCameraObject.SetActive(false);
 
         // ✅ ปล่อยแรงต้าน trigger กลับสู่ปกติ
-        HapticManager.Instance?.SetTriggerResistance(0f, 0f);
+        // ✅ ปล่อย R2 → ไกดีดกลับ 1 จังหวะ แล้วกลับเป็นไกปกติ
+        ReleaseTrigger(withKick: _isEquipped && isActiveAndEnabled);
+
+        chargeHighlight?.ResetHighlight();
+        thirdPersonController?.SetBowAim(false);
+    }
+
+    // t = % ชาร์จ (0-1)
+    //   ระหว่างชาร์จ : แรง/ความถี่ไล่ขึ้นถึง chargingCapPercent ของ Max
+    //   ชาร์จเต็ม    : กระโดดขึ้น Max ทันที (รู้สึกชัดว่า "กลายเป็นธนูไฟแล้ว") และค้างจนกว่าจะปล่อย
+    void ApplyBowTension(float t, bool fullyCharged)
+    {
+        var hm = HapticManager.Instance;
+        if (hm == null) return;
+
+        float k = fullyCharged ? 1f : Mathf.Pow(Mathf.Clamp01(t), resistanceCurvePower) * chargingCapPercent;
+        float strength = Mathf.Lerp(triggerMinStrength, triggerMaxStrength, k);
+        int freq = Mathf.RoundToInt(Mathf.Lerp(triggerMinFrequency, triggerMaxFrequency, k));
+
+        // ส่งไปจอยเฉพาะตอนค่าเปลี่ยนจริง (ไม่ยิงคำสั่งทุกเฟรม)
+        int strengthStep = Mathf.RoundToInt(strength * 255f);
+        if (strengthStep == _lastTrigStrength && freq == _lastTrigFreq) return;
+        _lastTrigStrength = strengthStep;
+        _lastTrigFreq = freq;
+
+        hm.SetTriggerVibrationEffect(strength, (byte)freq, bothTriggers: false);   // R2 อย่างเดียว
+    }
+
+    void ReleaseTrigger(bool withKick)
+    {
+        _lastTrigStrength = _lastTrigFreq = -1;
+        var hm = HapticManager.Instance;
+        if (hm == null) return;
+
+        if (withKick && releaseKickFrequency > 0 && releaseKickDuration > 0f)
+            StartCoroutine(ReleaseKickRoutine(hm));
+        else
+            hm.ReleaseBowTension();
+    }
+
+    System.Collections.IEnumerator ReleaseKickRoutine(HapticManager hm)
+    {
+        hm.SetTriggerVibrationEffect(1f, (byte)releaseKickFrequency, bothTriggers: false);
+        yield return new WaitForSeconds(releaseKickDuration);
+        if (!_isAiming) hm.ReleaseBowTension();   // ถ้ากด R2 ใหม่แล้ว ไม่ต้องล้าง
+    }
+
+    // ─────────────────────────────────────────────
+    // หาจุดที่ crosshair กลางจอชี้อยู่จริง (ยิงเรย์จากกล้อง)
+    // ข้ามตัว Player เอง, trigger collider (เช่นวงตรวจจับของมอนสเตอร์) และของที่อยู่ระหว่างกล้องกับตัวละคร
+    // ─────────────────────────────────────────────
+    Vector3 GetCrosshairAimPoint()
+    {
+        Ray ray = playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+        float skipDist = Vector3.Dot(arrowSpawnPoint.position - ray.origin, ray.direction);
+
+        Vector3 aimPoint = ray.GetPoint(aimMaxDistance);
+        float best = float.MaxValue;
+
+        var hits = Physics.RaycastAll(ray, aimMaxDistance, aimLayerMask, QueryTriggerInteraction.Ignore);
+        foreach (var h in hits)
+        {
+            if (h.distance <= skipDist) continue;                                              // อยู่ระหว่างกล้องกับมือ
+            if (_playerRoot != null && h.collider.transform.IsChildOf(_playerRoot)) continue;  // ตัวเอง
+            if (h.distance < best) { best = h.distance; aimPoint = h.point; }
+        }
+        return aimPoint;
     }
 
     // ─────────────────────────────────────────────
@@ -246,7 +392,16 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
         // ✅ แก้ปัญหาลูกธนูพุ่งเฉียงขึ้น: ใช้ทิศทางกล้องแทนทิศของ mesh/bone มือ
         //    ยิงจากตำแหน่ง arrowSpawnPoint แต่ "ทิศ" มาจากกล้องเสมอ
         Vector3 fireDirection;
-        if (playerCamera != null)
+        bool aimed = _isAiming || useCrosshairForQuickShot;
+        if (playerCamera != null && aimed)
+        {
+            // ✅ ยิงจากมือ ไปยังจุดที่ crosshair ชี้จริง (แก้ลูกธนูไม่ตรงเป้า / พุ่งไปแค่ด้านหน้า)
+            Vector3 aimPoint = GetCrosshairAimPoint();
+            fireDirection = (aimPoint - arrowSpawnPoint.position).normalized;
+            if (Vector3.Dot(fireDirection, playerCamera.transform.forward) < 0.2f)
+                fireDirection = playerCamera.transform.forward; // กันกรณีเป้าอยู่ชิดมือเกินไป
+        }
+        else if (playerCamera != null)
         {
             fireDirection = playerCamera.transform.forward;
         }
@@ -260,6 +415,18 @@ public class FireBowController : MonoBehaviour, IAttackSfxProvider
 
         GameObject arrowGO = Instantiate(arrowProjectilePrefab, arrowSpawnPoint.position, arrowRotation);
         _combatAudio?.PlayFromSet(attackSfx, isFireArrow);
+        // 🔴 ลูกธนูที่ยิงตอนชาร์จเต็ม → เรืองแดงระหว่างบิน
+        arrowGO.GetComponent<ArrowRedHighlight>()?.Apply(isFireArrow);
+
+        var arrowRb = arrowGO.GetComponent<Rigidbody>();
+        if (arrowRb != null)
+        {
+            arrowRb.useGravity = arrowUseGravity;
+            if (!arrowRb.isKinematic)
+                arrowRb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic; // ลูกเร็วไม่ทะลุเป้าบาง
+            arrowRb.interpolation = RigidbodyInterpolation.Interpolate;
+        }
+
         var projectile = arrowGO.GetComponent<FireArrowProjectile>();
         if (projectile != null)
         {

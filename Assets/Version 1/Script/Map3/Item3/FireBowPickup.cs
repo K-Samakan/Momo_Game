@@ -3,14 +3,26 @@
 // PATH: Assets/Version 1/Script/Map3/Item3/FireBowPickup.cs
 // อ้างอิงโครงสร้างจาก GlovePickup.cs (Map1) — คง pattern เดิมของโปรเจกต์
 // ============================================================
+// ✅ CHANGELOG
+//   [NEW] itemData — ItemData สำหรับ Item Detail Popup (เหมือน GlovePickup)
+//   [NEW] EquipFireBow() ขั้นที่ 7 — เรียก TutorialManager.ShowItemDetail(itemData)
+//         (ไม่แสดงตอน ForceEquipOnRespawn — ตอนโหลด save ไม่ต้องเด้ง popup ซ้ำ)
+// ============================================================
 using UnityEngine;
 using UnityEngine.InputSystem;
 using MOMO.Player;
+using Momo.UITutorial.Data;
+using Momo.UITutorial.Managers;
 
 public class FireBowPickup : MonoBehaviour
 {
     [Header("References")]
     public FireBowController fireBowController;
+
+    // ✅ NEW
+    [Header("Item Data (สำหรับ Item Detail Popup)")]
+    [Tooltip("ลาก ItemData ของธนูไฟ (Create → Momo → Item → Item Data)")]
+    public ItemData itemData;
 
     [Header("Pickup Settings")]
     public int hpBonus = 2;
@@ -84,6 +96,10 @@ public class FireBowPickup : MonoBehaviour
         {
             Debug.LogError("[FireBowPickup] ❌ ไม่พบ ActionMap 'Player'!");
         }
+
+        // ✅ NEW: เตือนถ้ายังไม่ได้ลาก ItemData
+        if (itemData == null)
+            Debug.LogWarning("[FireBowPickup] ⚠️ ยังไม่ได้ลาก ItemData — เก็บธนูแล้วจะไม่มี Item Detail Popup");
     }
 
     // ✅ เพิ่มใหม่ — เช็คทุกเฟรมว่า puzzle solved หรือยัง (แทนการเช็คครั้งเดียวใน Start)
@@ -185,7 +201,20 @@ public class FireBowPickup : MonoBehaviour
         if (pickupEffect != null)
             Instantiate(pickupEffect, transform.position, Quaternion.identity);
 
-        // ── 7) ซ่อนแท่น ──
+        // ── 7) ✅ NEW: แสดง Item Detail Popup (เหมือน GlovePickup) ──
+        if (itemData != null)
+        {
+            if (TutorialManager.Instance != null)
+                TutorialManager.Instance.ShowItemDetail(itemData);
+            else
+                Debug.LogWarning("[FireBowPickup] ⚠️ ไม่พบ TutorialManager ใน Scene Map 3 — Popup แสดงไม่ได้");
+        }
+        else
+        {
+            Debug.LogWarning("[FireBowPickup] ⚠️ ไม่พบ ItemData! ลืมลาก reference ใน Inspector หรือเปล่า?");
+        }
+
+        // ── 8) ซ่อนแท่น ──
         if (promptUI != null) promptUI.SetActive(false);
         if (pedestalItem != null) pedestalItem.SetActive(false);
         this.enabled = false;
@@ -195,6 +224,7 @@ public class FireBowPickup : MonoBehaviour
 
     // ─────────────────────────────────────────────
     // เรียกจาก SaveManager ตอน Respawn / Reload Scene
+    // (ไม่แสดง Item Detail Popup — ผู้เล่นเคยเห็นแล้วตอนเก็บครั้งแรก)
     // ─────────────────────────────────────────────
     public void ForceEquipOnRespawn()
     {

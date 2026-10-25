@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 7488774973489661129}
   - component: {fileID: 650927307669569486}
   - component: {fileID: 582910836337602070}
+  - component: {fileID: 828670129121903088}
   m_Layer: 0
   m_Name: FireArrow_Root
   m_TagString: Untagged
@@ -103,6 +104,24 @@ MonoBehaviour:
     type: 3}
   iceMeltVFX: {fileID: 0}
   maxLifeTime: 6
+--- !u!114 &828670129121903088
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8436943572464997832}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cbec3c82be82e8844b7562321ba4e42c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  arrowRenderers: []
+  highlightColor: {r: 1, g: 0.08, b: 0.03, a: 1}
+  intensity: 4
+  trail: {fileID: 0}
+  glowLight: {fileID: 0}
+  fireOnlyVFX: {fileID: 0}
 --- !u!1 &8796261367899343135
 GameObject:
   m_ObjectHideFlags: 0

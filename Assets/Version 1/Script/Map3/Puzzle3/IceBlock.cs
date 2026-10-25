@@ -9,6 +9,10 @@
 //   [FIX]  DecreaseHP()         — ไม่ลด HP ระหว่างกำลัง restart
 //   [FIX]  RestartGame()        — เดิม LoadScene เอง (ผู้เล่นไปโผล่จุดเริ่มฉาก + ไอเทมอาจหาย)
 //                                  → ตอนนี้ใช้ PuzzleFailRespawn วาปกลับ SavePoint หน้าห้อง
+//   [v2]   RestartGame()        — เรียก IcePuzzleManager.HandlePuzzleFail() (ตั้ง Fail UI / Delay ใน Inspector ได้)
+//   [v3]   Fall Detection       — เดิมใช้ fallYThreshold = -10 (ค่าตายตัว) แต่บล็อกตกไปหยุดแค่ ~-1.87 → ไม่เคยนับว่าตก
+//                                  → เพิ่ม useRelativeFallThreshold + fallDistance:
+//                                    จุดตก = ความสูงเริ่มต้นของบล็อก - fallDistance (ค่าเริ่ม 1 เมตร)
 // ============================================================
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -45,8 +49,14 @@ public class IceBlock : MonoBehaviour
 
     [Header("Fall Detection System")]
     public float fallCheckDelay = 1f;
+    [Tooltip("ใช้เมื่อปิด Use Relative Fall Threshold — ค่า Y ตายตัวที่ถือว่าตก")]
     public float fallYThreshold = -10f;
     public LayerMask validGroundLayers;
+
+    [Tooltip("✅ แนะนำเปิด: คำนวณจุดตกจากความสูงเริ่มต้นของบล็อก (ไม่ต้องตั้ง Y เองทีละก้อน)")]
+    public bool useRelativeFallThreshold = true;
+    [Tooltip("ตกต่ำกว่าความสูงเริ่มต้นกี่เมตรถึงนับว่าตก (เช่น พื้น -0.06 → ตกเมื่อต่ำกว่า -1.06)")]
+    public float fallDistance = 1f;
 
     [Header("HP System")]
     public static int currentHP = 3;
@@ -106,6 +116,8 @@ public class IceBlock : MonoBehaviour
     private bool isFalling = false;
     private bool hasValidGround = true;
     private Coroutine fallCheckCoroutine;
+    private float startY;                 // ✅ v3: ความสูงเริ่มต้นของบล็อก
+    private bool hasStartY = false;       // ✅ v3
 
     // Haptic Feedback
     private bool wasTriggersPressed = false;
@@ -122,7 +134,12 @@ public class IceBlock : MonoBehaviour
         isRestarting = false;
 
         targetPosition = transform.position;
-        Debug.Log($"🧊 IceBlock '{gameObject.name}' Starting at position: {transform.position}");
+
+        // ✅ v3: จำความสูงเริ่มต้นไว้คำนวณจุดตก
+        startY = transform.position.y;
+        hasStartY = true;
+
+        Debug.Log($"🧊 IceBlock '{gameObject.name}' Starting at position: {transform.position} | Fall below Y: {GetFallThresholdY():F2}");
 
         // Setup Components
         SetupRenderer();
@@ -353,10 +370,13 @@ public class IceBlock : MonoBehaviour
         {
             yield return new WaitForSeconds(fallCheckDelay);
 
+            // ✅ v3: ระหว่างรอวาปกลับ ไม่ต้องเช็ค
+            if (isRestarting) continue;
+
             // เช็คว่าตกลงไปต่ำกว่า Threshold หรือไม่
-            if (transform.position.y < fallYThreshold)
+            if (transform.position.y < GetFallThresholdY())
             {
-                Debug.Log($"💀 Block {gameObject.name} ตกลงไปแล้ว! Y: {transform.position.y}");
+                Debug.Log($"💀 Block {gameObject.name} ตกลงไปแล้ว! Y: {transform.position.y:F2} < {GetFallThresholdY():F2}");
                 HandleBlockFall();
                 yield break;
             }
@@ -381,6 +401,18 @@ public class IceBlock : MonoBehaviour
                 hasValidGround = true;
             }
         }
+    }
+
+    /// <summary>
+    /// ✅ v3: ค่า Y ที่ต่ำกว่านี้ถือว่าบล็อกตก
+    /// </summary>
+    float GetFallThresholdY()
+    {
+        if (!useRelativeFallThreshold) return fallYThreshold;
+
+        // ใน Edit Mode (ยังไม่ Start) ใช้ตำแหน่งปัจจุบันแทน เพื่อให้ Gizmo แสดงถูก
+        float baseY = hasStartY ? startY : transform.position.y;
+        return baseY - fallDistance;
     }
 
     bool IsOnValidGround()
@@ -494,9 +526,9 @@ public class IceBlock : MonoBehaviour
         IcePuzzleManager mgr = IcePuzzleManager.Instance;
         if (mgr != null)
         {
-            // ออกจาก Puzzle Mode ทันที → ActionMap กลับเป็น Player (บล็อกจับ/ผลักต่อไม่ได้แล้ว)
-            mgr.ExitPuzzle();
-            PuzzleFailRespawn.Trigger(mgr);
+            // ✅ v2: ให้ IcePuzzleManager จัดการ (ใช้ Fail UI + Delay จาก Inspector)
+            //    ระหว่างรอ บล็อกจับ/ผลักไม่ได้อยู่แล้วเพราะ isRestarting = true
+            mgr.HandlePuzzleFail();
         }
         else
         {
@@ -1188,11 +1220,12 @@ public class IceBlock : MonoBehaviour
         Gizmos.color = hasValidGround ? Color.green : Color.red;
         Gizmos.DrawWireSphere(transform.position, 1.0f);
 
-        // Fall Threshold
+        // Fall Threshold (✅ v3: ใช้ค่าที่คำนวณจริง)
+        float fallY = GetFallThresholdY();
         Gizmos.color = Color.red;
         Gizmos.DrawLine(
-            new Vector3(transform.position.x - 2f, fallYThreshold, transform.position.z),
-            new Vector3(transform.position.x + 2f, fallYThreshold, transform.position.z)
+            new Vector3(transform.position.x - 2f, fallY, transform.position.z),
+            new Vector3(transform.position.x + 2f, fallY, transform.position.z)
         );
 
         // Player Connection

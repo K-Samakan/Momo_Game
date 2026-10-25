@@ -76,6 +76,34 @@ namespace StarterAssets
         [Tooltip("For locking the camera position on all axis")]
         public bool LockCameraPosition = false;
 
+        [Header("Bow Aim Mode (R2 ค้าง — FireBowController เรียก SetBowAim)")]
+        [Tooltip("ความไวกล้องตอนง้างธนู เทียบกับปกติ (0.35 = ช้าลงเหลือ 35%)")]
+        [Range(0.05f, 1f)] public float aimLookSensitivity = 0.35f;
+        [Tooltip("แยกความไวแนวตั้ง (ก้ม/เงย) ตอนง้าง เทียบกับปกติ")]
+        [Range(0.05f, 1f)] public float aimLookSensitivityVertical = 0.3f;
+        [Tooltip("ความนุ่มของการหมุนกล้องตอนง้าง (วินาที) — มากขึ้น = นุ่ม/หนืดขึ้น")]
+        [Range(0f, 0.2f)] public float aimLookSmoothTime = 0.06f;
+        [Tooltip("มุมเงยสูงสุดตอนง้าง (องศา)")]
+        public float aimTopClamp = 60f;
+        [Tooltip("มุมก้มต่ำสุดตอนง้าง (องศา, ค่าลบ)")]
+        public float aimBottomClamp = -55f;
+        [Tooltip("ความเร็วที่ตัวละครหันตามกล้องตอนง้าง")]
+        public float aimBodyTurnSpeed = 12f;
+        [Tooltip("ความเร็วเดินตอนง้าง เทียบกับปกติ")]
+        [Range(0f, 1f)] public float aimMoveSpeedMultiplier = 0.5f;
+
+        public bool IsBowAiming { get; private set; }
+        private Vector2 _aimSmoothedLook;
+        private Vector2 _aimLookVelocity;
+
+        /// <summary>เรียกจาก FireBowController ตอนกด/ปล่อย R2</summary>
+        public void SetBowAim(bool aiming)
+        {
+            IsBowAiming = aiming;
+            _aimSmoothedLook = Vector2.zero;
+            _aimLookVelocity = Vector2.zero;
+        }
+
         [Header("Sokoban Input Values")]
         public bool pushMode;
         public bool pushAction;
@@ -230,15 +258,32 @@ namespace StarterAssets
 
         private void CameraRotation()
         {
-            if (_input.look.sqrMagnitude >= _threshold && !LockCameraPosition)
+            Vector2 look = _input.look;
+
+            // ── โหมดง้างธนู: ลดความไว + smooth ให้เล็งละเอียด ──
+            if (IsBowAiming)
+            {
+                look.x *= aimLookSensitivity;
+                look.y *= aimLookSensitivityVertical;
+                _aimSmoothedLook = aimLookSmoothTime > 0f
+                    ? Vector2.SmoothDamp(_aimSmoothedLook, look, ref _aimLookVelocity, aimLookSmoothTime)
+                    : look;
+                look = _aimSmoothedLook;
+            }
+
+            // ตอนเล็งใช้ threshold ต่ำกว่า เพราะค่าที่ลดความไวแล้วอาจต่ำกว่า 0.01 จนกล้องไม่ขยับ
+            float threshold = IsBowAiming ? 0.000001f : _threshold;
+            if (look.sqrMagnitude >= threshold && !LockCameraPosition)
             {
                 float deltaTimeMultiplier = IsCurrentDeviceMouse ? 1.0f : Time.deltaTime;
-                _cinemachineTargetYaw += _input.look.x * deltaTimeMultiplier;
-                _cinemachineTargetPitch += _input.look.y * deltaTimeMultiplier;
+                _cinemachineTargetYaw += look.x * deltaTimeMultiplier;
+                _cinemachineTargetPitch += look.y * deltaTimeMultiplier;
             }
 
             _cinemachineTargetYaw = ClampAngle(_cinemachineTargetYaw, float.MinValue, float.MaxValue);
-            _cinemachineTargetPitch = ClampAngle(_cinemachineTargetPitch, BottomClamp, TopClamp);
+            _cinemachineTargetPitch = IsBowAiming
+                ? ClampAngle(_cinemachineTargetPitch, aimBottomClamp, aimTopClamp)
+                : ClampAngle(_cinemachineTargetPitch, BottomClamp, TopClamp);
 
             CinemachineCameraTarget.transform.rotation = Quaternion.Euler(
                 _cinemachineTargetPitch + CameraAngleOverride,
@@ -260,6 +305,7 @@ namespace StarterAssets
             float speedMultiplier = _isAttacking ? attackMoveSpeedMultiplier : 1f;
             float targetSpeed = (_input.sprint ? SprintSpeed : MoveSpeed) * speedMultiplier;
             if (_isAttacking) targetSpeed = MoveSpeed * speedMultiplier;
+            if (IsBowAiming) targetSpeed = MoveSpeed * aimMoveSpeedMultiplier; // ง้างอยู่ = เดินช้า ไม่ sprint
             if (_input.move == Vector2.zero) targetSpeed = 0.0f;
 
             float currentHorizontalSpeed = new Vector3(
@@ -293,9 +339,16 @@ namespace StarterAssets
                     transform.eulerAngles.y, _targetRotation,
                     ref _rotationVelocity, RotationSmoothTime);
 
-                // ── ไม่ override rotation ระหว่างที่ SmartAttack กำลัง snap ──
-                if (!_isAttacking)
+                // ── ไม่ override rotation ระหว่างที่ SmartAttack กำลัง snap / ระหว่างง้างธนู ──
+                if (!_isAttacking && !IsBowAiming)
                     transform.rotation = Quaternion.Euler(0f, rotation, 0f);
+            }
+
+            // ── ง้างธนู: ตัวละครหันตามกล้องอย่างนุ่ม (เดินด้านข้าง/ถอยหลังได้ โดยหน้ายังมองเป้า) ──
+            if (IsBowAiming && _mainCamera != null)
+            {
+                Quaternion faceCam = Quaternion.Euler(0f, _mainCamera.transform.eulerAngles.y, 0f);
+                transform.rotation = Quaternion.Slerp(transform.rotation, faceCam, aimBodyTurnSpeed * Time.deltaTime);
             }
 
             Vector3 targetDirection = Quaternion.Euler(0f, _targetRotation, 0f) * Vector3.forward;

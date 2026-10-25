@@ -18,7 +18,7 @@ public enum HapticPatternType
     BlockPush, // การผลักบล็อก
     IceSlide,  // การเลื่อนบนน้ำแข็ง
     Warning,    // เตือนบล็อกใกล้แตก
-    
+
     // เพิ่ม Pattern ใหม่สำหรับ Mirror Puzzle
     MirrorCheck,     // ตรวจสอบกระจก
     MirrorDanger,    // กระจกอันตราย (หลอก)
@@ -75,14 +75,14 @@ public class HapticManager : MonoBehaviour
             Instance = this;
 
         //DontDestroyOnLoad(this.gameObject);
-        
+
         InitializeDualSense();
     }
 
     void InitializeDualSense()
     {
         dualSenseGamepad = DualSenseGamepadHID.FindFirst();
-        
+
         if (dualSenseGamepad != null)
         {
             isDualSenseConnected = true;
@@ -284,7 +284,7 @@ public class HapticManager : MonoBehaviour
                 break;
 
             // ========== Pattern ใหม่สำหรับ Mirror Puzzle ==========
-            
+
             case HapticPatternType.MirrorCheck:
                 // รูปแบบสำหรับเริ่มตรวจสอบกระจก - สั่นเบาๆ แล้วเพิ่มขึ้น
                 for (float t = 0; t < 1f; t += 0.1f)
@@ -302,7 +302,7 @@ public class HapticManager : MonoBehaviour
                     float randomIntensity = Random.Range(0.6f, 1.0f) * dangerIntensityMultiplier;
                     float leftIntensity = Random.Range(0.3f, randomIntensity);
                     float rightIntensity = Random.Range(0.3f, randomIntensity);
-                    
+
                     Vibrate(leftIntensity, rightIntensity, 0.06f);
                     yield return new WaitForSeconds(Random.Range(0.08f, 0.15f));
                 }
@@ -341,7 +341,7 @@ public class HapticManager : MonoBehaviour
 
             case HapticPatternType.PuzzleComplete:
                 // รูปแบบความสำเร็จพิเศษ - เฉลิมฉลอง
-                
+
                 // ขั้นที่ 1: การสร้างความตื่นเต้น
                 for (int i = 0; i < 5; i++)
                 {
@@ -349,13 +349,13 @@ public class HapticManager : MonoBehaviour
                     Vibrate(intensity, intensity, 0.1f);
                     yield return new WaitForSeconds(0.12f);
                 }
-                
+
                 yield return new WaitForSeconds(0.2f);
-                
+
                 // ขั้นที่ 2: ระเบิดแห่งความสุข
                 Vibrate(1f, 1f, 0.3f);
                 yield return new WaitForSeconds(0.3f);
-                
+
                 // ขั้นที่ 3: การฉลองสลับซ้าย-ขวา
                 for (int i = 0; i < 6; i++)
                 {
@@ -369,7 +369,7 @@ public class HapticManager : MonoBehaviour
                     }
                     yield return new WaitForSeconds(0.18f);
                 }
-                
+
                 // ขั้นที่ 4: จบด้วยการสั่นยาวแบบค่อยๆ ลดลง
                 for (float t = 0; t < 1f; t += 0.1f)
                 {
@@ -419,9 +419,9 @@ public class HapticManager : MonoBehaviour
         pushCount = Mathf.Clamp(pushCount, 0, 4);
         currentContinuousPushCount = pushCount;
         isContinuousFeedbackActive = true;
-        
+
         continuousFeedbackCoroutine = StartCoroutine(ContinuousPushFeedbackCoroutine(pushCount));
-        
+
         Debug.Log($"🎮 เริ่มการสั่นแบบต่อเนื่อง - Push Count: {pushCount}");
     }
 
@@ -435,11 +435,11 @@ public class HapticManager : MonoBehaviour
             StopCoroutine(continuousFeedbackCoroutine);
             continuousFeedbackCoroutine = null;
         }
-        
+
         isContinuousFeedbackActive = false;
         currentContinuousPushCount = -1;
         StopVibration(); // หยุดการสั่นทันที
-        
+
         Debug.Log("🎮 หยุดการสั่นแบบต่อเนื่อง");
     }
 
@@ -451,7 +451,7 @@ public class HapticManager : MonoBehaviour
         float intensity = pushCountIntensities[pushCount] * globalHapticMultiplier;
         float frequency = pushCountFrequencies[pushCount];
         float time = 0f;
-        
+
         while (isContinuousFeedbackActive)
         {
             switch (pushCount)
@@ -459,19 +459,19 @@ public class HapticManager : MonoBehaviour
                 case 0: // ไม่มีการผลัก - สั่นอ่อนสม่ำเสมอ
                     VibrateConstant(intensity, intensity);
                     break;
-                    
+
                 case 1: // ผลัก 1 ครั้ง - สั่นอ่อนแบบจังหวะ
                     float pulse1 = (Mathf.Sin(time * frequency) + 1f) * 0.5f * intensity;
                     VibrateConstant(pulse1, pulse1);
                     break;
-                    
+
                 case 2: // ผลัก 2 ครั้ง - สั่นปานกลางแบบคลื่น
                     float wave2 = (Mathf.Sin(time * frequency) + 1f) * 0.5f * intensity;
                     float pulse2 = (Mathf.Sin(time * frequency * 2f) + 1f) * 0.3f * intensity;
                     float combined2 = Mathf.Min(wave2 + pulse2, 1f);
                     VibrateConstant(combined2, combined2);
                     break;
-                    
+
                 case 3: // ผลัก 3 ครั้ง - สั่นแรงแบบไม่สม่ำเสมอ
                     float base3 = intensity * 0.7f;
                     float variation3 = Mathf.Sin(time * frequency) * intensity * 0.3f;
@@ -479,23 +479,23 @@ public class HapticManager : MonoBehaviour
                     float combined3 = Mathf.Clamp01(base3 + variation3 + noise3);
                     VibrateConstant(combined3, combined3);
                     break;
-                    
+
                 case 4: // ผลัก 4 ครั้ง - สั่นแรงมากแบบเตือนอันตราย
                     float baseIntense = intensity * 0.8f;
                     float chaotic = Random.Range(-0.3f, 0.3f) * intensity;
                     float warning = (Mathf.Sin(time * frequency * 1.5f) + 1f) * 0.5f * intensity * 0.4f;
-                    
+
                     float leftIntense = Mathf.Clamp01(baseIntense + chaotic + warning);
                     float rightIntense = Mathf.Clamp01(baseIntense - chaotic + warning);
-                    
+
                     VibrateConstant(leftIntense, rightIntense);
                     break;
             }
-            
+
             time += continuousUpdateInterval;
             yield return new WaitForSeconds(continuousUpdateInterval);
         }
-        
+
         StopVibration();
     }
 
@@ -516,17 +516,17 @@ public class HapticManager : MonoBehaviour
     public void PlayBlockExplosionFeedback()
     {
         if (!enableHapticFeedback) return;
-        
+
         // หยุดการสั่นแบบต่อเนื่อง
         StopContinuousPushFeedback();
-        
+
         // หยุด pattern ที่เล่นอยู่
         if (currentPatternCoroutine != null)
         {
             StopCoroutine(currentPatternCoroutine);
             currentPatternCoroutine = null;
         }
-        
+
         StartCoroutine(PlayExplosionPattern());
     }
 
@@ -537,9 +537,9 @@ public class HapticManager : MonoBehaviour
     {
         if (isPlayingPattern) yield break;
         isPlayingPattern = true;
-        
+
         Debug.Log("💥 เล่น Block Explosion Haptic Pattern");
-        
+
         // ขั้นที่ 1: การสะสมพลัง (Build-up)
         for (float t = 0; t < 0.3f; t += 0.05f)
         {
@@ -547,20 +547,20 @@ public class HapticManager : MonoBehaviour
             Vibrate(buildIntensity, buildIntensity, 0.04f);
             yield return new WaitForSeconds(0.05f);
         }
-        
+
         yield return new WaitForSeconds(0.1f);
-        
+
         // ขั้นที่ 2: การระเบิด (Main Explosion)
         float maxIntensity = explosionIntensity * globalHapticMultiplier;
         Vibrate(maxIntensity, maxIntensity, 0.4f);
-        
+
         yield return new WaitForSeconds(0.4f);
-        
+
         // ขั้นที่ 3: คลื่นกระแทก (Shockwaves)
         for (int i = 0; i < 3; i++)
         {
             float shockIntensity = Mathf.Lerp(0.8f, 0.3f, (float)i / 2f) * explosionIntensity * globalHapticMultiplier;
-            
+
             // สั่นซ้าย-ขวาสลับกัน
             if (i % 2 == 0)
             {
@@ -570,10 +570,10 @@ public class HapticManager : MonoBehaviour
             {
                 Vibrate(shockIntensity * 0.5f, shockIntensity, 0.15f);
             }
-            
+
             yield return new WaitForSeconds(0.2f);
         }
-        
+
         // ขั้นที่ 4: การสั่นสะเทือนหลัง (Aftershock)
         for (int i = 0; i < 5; i++)
         {
@@ -581,7 +581,7 @@ public class HapticManager : MonoBehaviour
             Vibrate(aftershockIntensity, aftershockIntensity, 0.08f);
             yield return new WaitForSeconds(0.12f);
         }
-        
+
         isPlayingPattern = false;
         Debug.Log("✅ Block Explosion Haptic Pattern เสร็จสิ้น");
     }
@@ -595,7 +595,7 @@ public class HapticManager : MonoBehaviour
 
         pushCount = Mathf.Clamp(pushCount, 0, 4);
         float intensity = pushCountIntensities[pushCount] * globalHapticMultiplier;
-        
+
         // เล่นการสั่นสั้นๆ เมื่อ push count เพิ่ม
         switch (pushCount)
         {
@@ -615,7 +615,7 @@ public class HapticManager : MonoBehaviour
                 Vibrate(intensity * 1.2f, intensity * 1.2f, 0.3f);
                 break;
         }
-        
+
         Debug.Log($"🎮 Push Count Increment Haptic: Level {pushCount}");
     }
 
@@ -629,12 +629,12 @@ public class HapticManager : MonoBehaviour
     public void PlayMirrorCheckFeedback(float progress, bool isDangerous)
     {
         if (!enableHapticFeedback || !enableMirrorHaptics) return;
-        
+
         if (isDangerous)
         {
             // กระจกหลอก: สั่นแรงขึ้นเรื่อยๆ พร้อมเตือนอันตราย
             float dangerIntensity = Mathf.Lerp(0.3f, 1.0f, progress * progress) * dangerIntensityMultiplier;
-            
+
             if (progress > 0.85f)
             {
                 // ใกล้ระเบิดมาก - สั่นเตือนรุนแรงมาก
@@ -666,13 +666,13 @@ public class HapticManager : MonoBehaviour
         {
             // กระจกจริง: สั่นอ่อนๆ สม่ำเสมอ แบบปลอดภัย
             float safeIntensity = (0.15f + Mathf.Sin(progress * Mathf.PI * 3) * 0.1f) * mirrorCheckSensitivity;
-            
+
             if (progress > 0.8f)
             {
                 // ใกล้เสร็จ - ให้ feedback บวก
                 safeIntensity *= 1.3f;
             }
-            
+
             Vibrate(safeIntensity, safeIntensity, 0.08f);
         }
     }
@@ -684,9 +684,9 @@ public class HapticManager : MonoBehaviour
     public void PlayMirrorRotationFeedback(float rotationSpeed)
     {
         if (!enableHapticFeedback || !enableMirrorHaptics) return;
-        
+
         float intensity = Mathf.Clamp01(Mathf.Abs(rotationSpeed) / 90f) * 0.4f * mirrorCheckSensitivity;
-        
+
         if (rotationSpeed > 0)
         {
             // หมุนขวา - เน้นมอเตอร์ขวา
@@ -723,7 +723,7 @@ public class HapticManager : MonoBehaviour
     public void StartMirrorCheck()
     {
         if (!enableMirrorHaptics) return;
-        
+
         isMirrorCheckActive = true;
         mirrorCheckStartTime = Time.time;
         PlayPattern(HapticPatternType.MirrorCheck);
@@ -744,10 +744,10 @@ public class HapticManager : MonoBehaviour
     public void PlayMirrorExplosionFeedback()
     {
         if (!enableHapticFeedback) return;
-        
+
         // หยุด pattern ที่เล่นอยู่ก่อน
         StopAllHaptics();
-        
+
         // เล่น explosion pattern
         PlayPattern(HapticPatternType.Boom);
     }
@@ -765,11 +765,11 @@ public class HapticManager : MonoBehaviour
     public void PlayBlockWarning(float intensity)
     {
         if (!enableHapticFeedback || isPlayingPattern) return;
-        
+
         // intensity 0-1, ยิ่งมากยิ่งแรง
         float vibrationStrength = Mathf.Lerp(0.2f, 1.0f, intensity);
         float duration = Mathf.Lerp(0.1f, 0.25f, intensity);
-        
+
         Vibrate(vibrationStrength, vibrationStrength, duration);
     }
 
@@ -809,7 +809,7 @@ public class HapticManager : MonoBehaviour
         if (!enableAdaptiveTriggers || dualSenseGamepad == null) return;
 
         byte resistance = (byte)(pushStrength * 180);
-        
+
         var pushTriggerState = new DualSenseTriggerState
         {
             EffectType = DualSenseTriggerEffectType.EffectEx,
@@ -866,7 +866,7 @@ public class HapticManager : MonoBehaviour
         {
             // กระจกจริง: ให้ความรู้สึกนุ่มนวลในการหมุน
             byte resistance = (byte)(rotationResistance * 120);
-            
+
             var realMirrorTrigger = new DualSenseTriggerState
             {
                 EffectType = DualSenseTriggerEffectType.EffectEx,
@@ -917,7 +917,7 @@ public class HapticManager : MonoBehaviour
         if (!enableAdaptiveTriggers || dualSenseGamepad == null) return;
 
         resistance = Mathf.Clamp01(resistance);
-        
+
         if (resistance == 0.0f)
         {
             // ไม่มีแรงต้าน - กลับเป็นปกติ
@@ -928,7 +928,7 @@ public class HapticManager : MonoBehaviour
 
         // คำนวณค่าแรงต้านแบบต่อเนื่อง (ไม่มีการสั่น)
         byte resistanceForce = (byte)(resistance * 200); // 0-200 แทน 0-255 เพื่อไม่ให้หนักเกินไป
-        
+
         var resistanceTriggerState = new DualSenseTriggerState
         {
             EffectType = DualSenseTriggerEffectType.EffectEx,
@@ -946,7 +946,7 @@ public class HapticManager : MonoBehaviour
         currentLeftTriggerState = resistanceTriggerState;
         currentRightTriggerState = resistanceTriggerState;
         ApplyTriggerStates();
-        
+
         Debug.Log($"🔧 Set continuous trigger resistance: {resistance:F2} (force: {resistanceForce})");
     }
 
@@ -1015,8 +1015,97 @@ public class HapticManager : MonoBehaviour
         }
 
         ApplyTriggerStates();
-        
+
         Debug.Log($"🔧 Set trigger resistance - L2: {leftResistance:F2}, R2: {rightResistance:F2}");
+    }
+
+    // ========== Bow Tension (FireBowController / ธนูไฟ Map3) ==========
+    private int _lastBowForce = -1;
+
+    /// <summary>
+    /// Adaptive Trigger R2 สำหรับง้างธนู — ใช้โปรไฟล์ EffectEx แบบเดียวกับ Mirror Puzzle (Map2)
+    /// resistance 0-1 (0.65 = ความหนักเท่ากระจก Map2, 1 = หนักสุด)
+    /// ส่งไปจอยเฉพาะตอนค่าแรงเปลี่ยน (forceSend = true บังคับส่ง เช่นตอนเริ่มเล็ง/หลังระบบอื่นรีเซ็ตไก)
+    /// </summary>
+    public void SetBowTension(float resistance, bool forceSend = false)
+    {
+        if (!enableAdaptiveTriggers || dualSenseGamepad == null) return;
+
+        resistance = Mathf.Clamp01(resistance);
+        if (resistance <= 0f) { ReleaseBowTension(); return; }
+
+        int force = Mathf.RoundToInt(resistance * 200f);   // 0-200 เหมือน SetTriggerResistance()
+        if (!forceSend && force == _lastBowForce) return;
+        _lastBowForce = force;
+
+        currentRightTriggerState = new DualSenseTriggerState
+        {
+            EffectType = DualSenseTriggerEffectType.EffectEx,
+            EffectEx = new DualSenseEffectExProperties
+            {
+                StartPosition = 0,                                   // ต้านทันทีที่เริ่มกด
+                KeepEffect = true,                                   // ค้างแรงต้านไว้
+                BeginForce = (byte)(force * 0.3f),                   // ช่วงต้นไกเบา
+                MiddleForce = (byte)force,                           // ช่วงกลางตามที่กำหนด
+                EndForce = (byte)Mathf.Min(255, force * 1.2f),       // ปลายไกหนักขึ้น
+                Frequency = 0                                        // ไม่สั่น
+            }
+        };
+        ApplyTriggerStates();
+    }
+
+    /// <summary>ปล่อย R2 กลับเป็นไกปกติ (ไม่มีแรงต้าน)</summary>
+    public void ReleaseBowTension()
+    {
+        _lastBowForce = -1;
+        if (!enableAdaptiveTriggers || dualSenseGamepad == null) return;
+
+        currentRightTriggerState = new DualSenseTriggerState
+        {
+            EffectType = DualSenseTriggerEffectType.NoResistance
+        };
+        ApplyTriggerStates();
+    }
+
+    // ========== Trigger Test Effects (FireBowController 🧪) ==========
+
+    /// <summary>
+    /// ไกสั่นกระตุกต้านนิ้ว (EffectEx + Frequency > 0) — แบบเดียวกับ DualSenseTriggerRumble.cs
+    /// strength 0-1, frequency 1-40 (มาก = กระตุกถี่), bothTriggers = ใส่ทั้ง L2/R2
+    /// </summary>
+    public void SetTriggerVibrationEffect(float strength, byte frequency, bool bothTriggers = true)
+    {
+        if (!enableAdaptiveTriggers || dualSenseGamepad == null) return;
+
+        byte force = (byte)Mathf.RoundToInt(Mathf.Clamp01(strength) * 255f);
+        var state = new DualSenseTriggerState
+        {
+            EffectType = DualSenseTriggerEffectType.EffectEx,
+            EffectEx = new DualSenseEffectExProperties
+            {
+                StartPosition = 0,
+                KeepEffect = true,
+                BeginForce = (byte)(force * 0.6f),
+                MiddleForce = force,
+                EndForce = force,
+                Frequency = (byte)Mathf.Max(1, (int)frequency)
+            }
+        };
+
+        currentRightTriggerState = state;
+        if (bothTriggers) currentLeftTriggerState = state;
+        ApplyTriggerStates();
+    }
+
+    /// <summary>ปลดแรงต้านไก (ไม่มี Debug.Log — ใช้กับเอฟเฟกต์กระตุกเปิด/ปิดเร็ว ๆ)</summary>
+    public void ClearTriggersSilent(bool bothTriggers = true)
+    {
+        if (!enableAdaptiveTriggers || dualSenseGamepad == null) return;
+
+        var none = new DualSenseTriggerState { EffectType = DualSenseTriggerEffectType.NoResistance };
+        currentRightTriggerState = none;
+        if (bothTriggers) currentLeftTriggerState = none;
+        ApplyTriggerStates();
     }
 
     public void ResetAdaptiveTriggers()
@@ -1192,7 +1281,7 @@ public class HapticManager : MonoBehaviour
         if (!isMirrorCheckActive) return 0f;
         return Time.time - mirrorCheckStartTime;
     }
-    
+
     /// <summary>
     /// รีเซ็ตการตั้งค่าทั้งหมดเป็นค่าเริ่มต้น
     /// </summary>
@@ -1207,11 +1296,11 @@ public class HapticManager : MonoBehaviour
         enablePushCountFeedback = true;
         explosionIntensity = 1.0f;
         continuousUpdateInterval = 0.1f;
-        
+
         // รีเซ็ต intensity arrays
         pushCountIntensities = new float[] { 0.15f, 0.25f, 0.4f, 0.6f, 0.8f };
         pushCountFrequencies = new float[] { 8f, 12f, 16f, 20f, 25f };
-        
+
         StopAllHaptics();
         ResetAdaptiveTriggers();
     }
@@ -1226,19 +1315,19 @@ public class HapticManager : MonoBehaviour
         PlayerPrefs.SetFloat("HapticDangerMultiplier", dangerIntensityMultiplier);
         PlayerPrefs.SetFloat("HapticExplosionIntensity", explosionIntensity);
         PlayerPrefs.SetFloat("HapticContinuousUpdateInterval", continuousUpdateInterval);
-        
+
         PlayerPrefs.SetInt("HapticEnabled", enableHapticFeedback ? 1 : 0);
         PlayerPrefs.SetInt("AdaptiveTriggersEnabled", enableAdaptiveTriggers ? 1 : 0);
         PlayerPrefs.SetInt("MirrorHapticsEnabled", enableMirrorHaptics ? 1 : 0);
         PlayerPrefs.SetInt("PushCountFeedbackEnabled", enablePushCountFeedback ? 1 : 0);
-        
+
         // บันทึก intensity arrays
         for (int i = 0; i < pushCountIntensities.Length; i++)
         {
             PlayerPrefs.SetFloat($"PushCountIntensity_{i}", pushCountIntensities[i]);
             PlayerPrefs.SetFloat($"PushCountFrequency_{i}", pushCountFrequencies[i]);
         }
-        
+
         PlayerPrefs.Save();
     }
 
@@ -1252,12 +1341,12 @@ public class HapticManager : MonoBehaviour
         dangerIntensityMultiplier = PlayerPrefs.GetFloat("HapticDangerMultiplier", 1.2f);
         explosionIntensity = PlayerPrefs.GetFloat("HapticExplosionIntensity", 1.0f);
         continuousUpdateInterval = PlayerPrefs.GetFloat("HapticContinuousUpdateInterval", 0.1f);
-        
+
         enableHapticFeedback = PlayerPrefs.GetInt("HapticEnabled", 1) == 1;
         enableAdaptiveTriggers = PlayerPrefs.GetInt("AdaptiveTriggersEnabled", 1) == 1;
         enableMirrorHaptics = PlayerPrefs.GetInt("MirrorHapticsEnabled", 1) == 1;
         enablePushCountFeedback = PlayerPrefs.GetInt("PushCountFeedbackEnabled", 1) == 1;
-        
+
         // โหลด intensity arrays
         for (int i = 0; i < pushCountIntensities.Length; i++)
         {
@@ -1278,12 +1367,12 @@ public class HapticManager : MonoBehaviour
     private IEnumerator TestContinuousSequence()
     {
         Debug.Log("🎮 เริ่มทดสอบ Continuous Push Feedback...");
-        
+
         for (int level = 0; level < 5; level++)
         {
             Debug.Log($"▶️ ทดสอบ Continuous Level: {level} (กดปุ่มใดก็ได้เพื่อหยุด)");
             StartContinuousPushFeedback(level);
-            
+
             // รอ 3 วินาทีหรือจนกว่าจะกดปุ่ม
             float testTime = 0f;
             while (testTime < 3f && isContinuousFeedbackActive)
@@ -1296,23 +1385,23 @@ public class HapticManager : MonoBehaviour
                 yield return new WaitForSeconds(0.1f);
                 testTime += 0.1f;
             }
-            
+
             if (isContinuousFeedbackActive)
             {
                 StopContinuousPushFeedback();
             }
-            
+
             yield return new WaitForSeconds(1f);
         }
-        
+
         Debug.Log("💥 ทดสอบ Explosion Pattern...");
         PlayBlockExplosionFeedback();
-        
+
         while (isPlayingPattern)
         {
             yield return new WaitForSeconds(0.1f);
         }
-        
+
         Debug.Log("✅ ทดสอบ Continuous Push Feedback เสร็จสิ้น!");
     }
 
@@ -1328,21 +1417,21 @@ public class HapticManager : MonoBehaviour
     private IEnumerator TestResistanceSequence()
     {
         Debug.Log("🎮 เริ่มทดสอบ Trigger Resistance...");
-        
+
         // ทดสอบแรงต้านต่างๆ
         float[] resistanceLevels = { 0.0f, 0.2f, 0.4f, 0.6f, 0.8f, 1.0f };
-        
+
         foreach (float resistance in resistanceLevels)
         {
             Debug.Log($"🔧 ทดสอบแรงต้าน: {resistance:F1}");
             SetTriggerResistance(resistance);
             yield return new WaitForSeconds(2f);
         }
-        
+
         // รีเซ็ตกลับเป็นปกติ
         Debug.Log("🔧 รีเซ็ตกลับเป็นปกติ");
         ResetAdaptiveTriggers();
-        
+
         Debug.Log("✅ ทดสอบ Trigger Resistance เสร็จสิ้น!");
     }
 

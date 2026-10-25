@@ -5,14 +5,20 @@ public class RepairButton : MonoBehaviour
 {
     [Header("References")]
     public WaterValvePuzzleManager puzzleManager;
-    
+
+    [Header("UI")]
+    public GameObject promptUI;   // ป้าย "Press ⭕ : Repair valves"
+
     private bool playerInRange = false;
     private InputAction interactAction;
 
     void Start()
     {
+        // ซ่อนป้ายตอนเริ่ม
+        if (promptUI != null) promptUI.SetActive(false);
+
         // Get interact action from Puzzle4 ActionMap
-        PlayerInput playerInput = FindObjectOfType<PlayerInput>();
+        PlayerInput playerInput = FindFirstObjectByType<PlayerInput>();
         if (playerInput != null)
         {
             var puzzle4Map = playerInput.actions.FindActionMap("Puzzle4");
@@ -40,7 +46,8 @@ public class RepairButton : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             playerInRange = true;
-            
+            if (promptUI != null) promptUI.SetActive(true);
+
             Debug.Log("╔═══════════════════════════════════════════╗");
             Debug.Log("║     🔧 REPAIR STATION                     ║");
             Debug.Log("║     Press ⭕ Circle to repair ALL broken  ║");
@@ -54,6 +61,7 @@ public class RepairButton : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             playerInRange = false;
+            if (promptUI != null) promptUI.SetActive(false);
         }
     }
 

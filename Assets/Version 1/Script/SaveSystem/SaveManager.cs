@@ -7,6 +7,9 @@
 //   [FIX]   OnSceneLoadedForRespawn  — รอ 1 เฟรมก่อน ApplySaveToPlayer() (กัน PlayerHealth.Start() เขียน HP ทับ)
 //   [FIX]   ApplySaveToPlayer()      — ปิด CharacterController ก่อนย้ายตำแหน่ง (กัน CC เขียนตำแหน่งทับ = วาปไม่ไป)
 //   [NEW]   Log สถานะ Fire Bow ใน RESPAWN STAT SUMMARY
+//   [FIX v2] ย้ายตัวผู้เล่น "ทันที" ตอน sceneLoaded (ก่อน Physics เฟรมแรก)
+//            → กัน Start SavePoint ยิง OnTriggerEnter แล้ว save ทับจุด Save หน้าห้อง
+//   [FIX v2] IsRespawning — ระหว่าง respawn ห้าม SaveAtPoint (กันชั้นที่ 2)
 // ============================================================
 using UnityEngine;
 using System.Collections;
@@ -27,6 +30,14 @@ public class SaveManager : MonoBehaviour
 
     private List<string> _tempKilledMonsters = new List<string>();
     private List<string> _tempCompletedQuests = new List<string>();
+
+    // ✅ v2: กำลังโหลดฉาก/วาปกลับอยู่ → ห้าม save (กัน SavePoint อื่นยิง trigger แล้วเขียนทับ)
+    private bool _isRespawning = false;
+    public bool IsRespawning => _isRespawning;
+
+    [Header("Respawn")]
+    [Tooltip("ล็อกการ Save ต่ออีกกี่วินาทีหลังวาปเสร็จ (กัน trigger ที่ยิงช้า)")]
+    [SerializeField] private float respawnSaveLockSeconds = 0.5f;
 
     // ─────────────────────────────────────────────────────────
     #region Unity Lifecycle
@@ -49,6 +60,13 @@ public class SaveManager : MonoBehaviour
     public void SaveAtPoint(SavePoint savePoint)
     {
         if (savePoint == null) return;
+
+        // ✅ v2: ระหว่าง respawn ไม่รับ save
+        if (_isRespawning)
+        {
+            Debug.Log($"⏸️ [SaveManager] Ignore save at [{savePoint.savePointID}] — กำลัง respawn อยู่");
+            return;
+        }
 
         var ph = FindFirstObjectByType<MOMO.Player.PlayerHealth>();
         if (ph != null)
@@ -152,6 +170,8 @@ public class SaveManager : MonoBehaviour
             ApplySaveToPlayer();
         else
         {
+            _isRespawning = true;   // ✅ v2
+            SceneManager.sceneLoaded -= OnSceneLoadedForRespawn;
             SceneManager.sceneLoaded += OnSceneLoadedForRespawn;
             SceneManager.LoadScene(_currentSave.sceneName);
         }
@@ -172,6 +192,8 @@ public class SaveManager : MonoBehaviour
 
         if (hasSave)
         {
+            _isRespawning = true;   // ✅ v2: ล็อกการ save จนกว่าจะวาปเสร็จ
+
             // กันสมัคร event ซ้ำ
             SceneManager.sceneLoaded -= OnSceneLoadedForRespawn;
             SceneManager.sceneLoaded += OnSceneLoadedForRespawn;
@@ -189,8 +211,13 @@ public class SaveManager : MonoBehaviour
     {
         SceneManager.sceneLoaded -= OnSceneLoadedForRespawn;
 
+        // ✅ FIX v2: ย้ายตัวผู้เล่น "ทันที" — ก่อน Physics เฟรมแรกจะทำงาน
+        //    ไม่งั้นผู้เล่นจะเกิดที่ตำแหน่งเดิมใน Scene (ทับ Start SavePoint)
+        //    → Start SavePoint ยิง OnTriggerEnter → save ทับจุด Save หน้าห้อง
+        MovePlayerToSavePosition();
+
         // ✅ FIX: sceneLoaded ถูกเรียก "ก่อน" Start() ของ object ในฉากใหม่
-        //    ถ้า apply ทันที PlayerHealth.Start() จะเขียน currentHealth = maxHealth ทับค่าจาก save
+        //    ถ้าคืน HP ทันที PlayerHealth.Start() จะเขียน currentHealth = maxHealth ทับค่าจาก save
         StartCoroutine(ApplySaveNextFrame());
     }
 
@@ -198,6 +225,33 @@ public class SaveManager : MonoBehaviour
     {
         yield return null;   // รอให้ Start() ของทุก object ในฉากใหม่รันเสร็จ
         ApplySaveToPlayer();
+
+        // ✅ v2: รอให้ Physics ประมวลผล trigger รอบตำแหน่งใหม่ก่อน แล้วค่อยปลดล็อกการ save
+        yield return new WaitForFixedUpdate();
+        yield return new WaitForSecondsRealtime(respawnSaveLockSeconds);
+        _isRespawning = false;
+        Debug.Log("🔓 [SaveManager] Respawn complete — save unlocked");
+    }
+
+    /// <summary>
+    /// ✅ v2: ย้ายผู้เล่นไปตำแหน่ง save (ปิด CharacterController ก่อน + Sync Physics ทันที)
+    /// </summary>
+    private void MovePlayerToSavePosition()
+    {
+        var player = GameObject.FindGameObjectWithTag("Player");
+        if (player == null)
+        {
+            Debug.LogWarning("⚠️ [SaveManager] ไม่พบ Player (Tag \"Player\") ตอน Respawn!");
+            return;
+        }
+
+        var cc = player.GetComponent<CharacterController>();
+        if (cc != null) cc.enabled = false;
+
+        player.transform.position = _currentSave.GetRespawnPosition();
+        Physics.SyncTransforms();   // ให้ collider ย้ายตามทันที ก่อน trigger จะถูกเช็ก
+
+        if (cc != null) cc.enabled = true;
     }
 
     private void ApplySaveToPlayer()

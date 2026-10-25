@@ -5,10 +5,12 @@ public class WarpTrigger : MonoBehaviour
 {
     [Header("References")]
     public WaterValvePuzzleManager puzzleManager;
-    //public MirrorInteractionManager puzzle2Manager;
+
+    [Header("UI")]
+    public GameObject promptUI;   // Canvas_Interaction: "Press ⭕ : Enter puzzle"
 
     [Header("Input Action Name")]
-    public string interactActionName = "InteractValve"; // ✅ เปลี่ยนเป็น "InteractValve"
+    public string interactActionName = "Puzzle4";
 
     private bool playerInRange = false;
     private PlayerInput playerInput;
@@ -16,12 +18,13 @@ public class WarpTrigger : MonoBehaviour
 
     void Start()
     {
-        // Find player input component
-        playerInput = FindObjectOfType<PlayerInput>();
+        // ซ่อนป้ายตอนเริ่ม
+        if (promptUI != null) promptUI.SetActive(false);
+
+        playerInput = FindFirstObjectByType<PlayerInput>();
 
         if (playerInput != null)
         {
-            // Get interact action from Player ActionMap
             var playerMap = playerInput.actions.FindActionMap("Player");
             if (playerMap != null)
             {
@@ -29,11 +32,11 @@ public class WarpTrigger : MonoBehaviour
                 if (interactAction != null)
                 {
                     interactAction.performed += OnPlayerInteract;
-                    Debug.Log($"[WarpTrigger] ✅ Found '{interactActionName}' action in Player ActionMap");
+                    Debug.Log($"[WarpTrigger] ✅ Found '{interactActionName}' action");
                 }
                 else
                 {
-                    Debug.LogError($"[WarpTrigger] ❌ '{interactActionName}' action not found in Player ActionMap");
+                    Debug.LogError($"[WarpTrigger] ❌ '{interactActionName}' action not found");
                 }
             }
         }
@@ -52,6 +55,7 @@ public class WarpTrigger : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             playerInRange = true;
+            if (promptUI != null) promptUI.SetActive(true);
 
             Debug.Log("╔═══════════════════════════════════════════╗");
             Debug.Log("║     🚪 PUZZLE ENTRANCE                    ║");
@@ -65,17 +69,21 @@ public class WarpTrigger : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             playerInRange = false;
+            if (promptUI != null) promptUI.SetActive(false);
             Debug.Log("[Warp Trigger] Left puzzle entrance area");
         }
     }
 
     void OnPlayerInteract(InputAction.CallbackContext context)
     {
-        // ✅ เช็คเพิ่มว่า puzzle ยังไม่ active ด้วย กันยิงซ้ำสองชั้น
-        if (playerInRange && puzzleManager != null && !puzzleManager.isPuzzleActive)
+        if (playerInRange && puzzleManager != null)
         {
             Debug.Log("[⭕ Circle] Warping to puzzle area...");
-            playerInRange = false; // ✅ รีเซ็ตทันที กัน teleport ไม่ fire OnTriggerExit แล้ววนลูป
+
+            // ซ่อนป้ายทันทีตอนวาป (กันป้ายค้างถ้า OnTriggerExit ไม่ทำงานตอนเทเลพอร์ต)
+            playerInRange = false;
+            if (promptUI != null) promptUI.SetActive(false);
+
             puzzleManager.EnterPuzzle();
         }
     }
