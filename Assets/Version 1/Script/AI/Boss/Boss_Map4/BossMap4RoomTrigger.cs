@@ -29,8 +29,13 @@ public class BossMap4RoomTrigger : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (_triggered) return;
         if (!other.CompareTag("Player")) return;
+
+        // ✅ [FIX v2] เปิดพรวิหาร "ทุกครั้ง" ที่เดินเข้าห้อง (ไม่ใช่แค่ครั้งแรก)
+        //    เดิมอยู่หลัง if (_triggered) return → ตายแล้ว respawn เดินกลับมา บัฟไม่กลับมาอีกเลย
+        ArmTempleBlessing();
+
+        if (_triggered) return;
 
         _triggered = true;
 
@@ -46,10 +51,23 @@ public class BossMap4RoomTrigger : MonoBehaviour
         if (bossController != null)
             bossController.OnPlayerEnterBossRoom();
 
-        // ✅ เปิดวนรอบบัฟ — ถ้ายังไม่ได้ทำเควส จะไม่มีอะไรเกิดขึ้น (เช็กใน TempleBlessingEffect เอง)
-        if (templeBlessingEffect != null)
-            templeBlessingEffect.SetBossFightActive(true);
-
         Debug.Log("[BossMap4RoomTrigger] 🐙 ผู้เล่นเข้าห้องบอส — เริ่มการต่อสู้!");
+    }
+
+    void ArmTempleBlessing()
+    {
+        if (templeBlessingEffect == null)
+            templeBlessingEffect = FindFirstObjectByType<TempleBlessingEffect>();
+        if (templeBlessingEffect == null)
+        {
+            Debug.LogWarning("[BossMap4RoomTrigger] ⚠️ ไม่พบ TempleBlessingEffect ในฉาก — รางวัลเควสสมอจะไม่ทำงาน");
+            return;
+        }
+
+        // ✅ กันเคส AnchorQuestManager ลากคนละ object / ลืมลาก → ถ้าเควสจบแล้ว ปลดล็อกตรงนี้ซ้ำได้ (idempotent)
+        if (AnchorQuestManager.Instance != null && AnchorQuestManager.Instance.IsQuestComplete)
+            templeBlessingEffect.EnableTempleBlessing();
+
+        templeBlessingEffect.SetBossFightActive(true); // เริ่มเฉพาะเมื่อยังไม่มีรอบที่วิ่งอยู่
     }
 }

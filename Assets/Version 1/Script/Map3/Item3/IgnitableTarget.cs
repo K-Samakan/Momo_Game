@@ -44,7 +44,7 @@ public class IgnitableTarget : MonoBehaviour
             else if (monsterHealth != null)
                 monsterHealth.TakeDamage(damagePerTick, transform.position);
             else if (bossHealth != null)
-                bossHealth.TakeDamage(damagePerTick);
+                bossHealth.TakeDamage(damagePerTick, isDot: true); // ✅ ไหม้ไม่ทำให้บอสสะดุ้ง (กัน stun-lock)
 
             Debug.Log($"[IgnitableTarget] 🔥 Burn tick {i + 1}/{ticks} → DMG {damagePerTick}");
         }

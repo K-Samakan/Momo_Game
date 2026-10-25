@@ -35,7 +35,8 @@ public class BossMap3Health : MonoBehaviour
         }
     }
 
-    public void TakeDamage(int damage)
+    /// <param name="isDot">true = ดาเมจไหม้จากธนูไฟ (IgnitableTarget) — บอสไม่สะดุ้ง/ไม่นับ combo</param>
+    public void TakeDamage(int damage, bool isDot = false)
     {
         if (_currentHP <= 0) return;
         if (Time.time - _lastDamageTime < damageCooldown) return;
@@ -57,7 +58,7 @@ public class BossMap3Health : MonoBehaviour
             DropSouls(6);
         }
 
-        bossController.OnHitByPlayer();
+        bossController.OnHitByPlayer(isDot);
 
         if (_currentHP <= 0)
         {

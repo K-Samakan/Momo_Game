@@ -17,6 +17,12 @@ using MOMO.Player;
 /// การทำงาน (ตอนสู้บอส Map4):
 ///   เข้าห้องบอส → รอ 3 วิ → บัฟ 30 วิ (ATK+2, HP+1 ทุก 15 วิ) → คูลดาวน์ 60 วิ → วนซ้ำ
 ///   หยุดเมื่อบอสหรือผู้เล่นตาย
+///
+/// ✅ [FIX v2] แก้ "ไม่ช่วยเลยตอนสู้บอส":
+///   1) ผู้เล่นตาย 1 ครั้ง → วนรอบบัฟหยุดถาวร (ไม่มีใครเริ่มใหม่) → ตอนนี้ตายแล้วรีเซ็ต รอเข้าห้องบอสใหม่แล้วเริ่มอีกรอบ
+///   2) ช่อง playerHealth / smartAttackSystem / bossHealth ว่าง (Player ถูก spawn/DDOL) → หาให้อัตโนมัติ
+///   3) ATK+2 เดิมบวกแค่หมัด → เพิ่มเตะด้วย
+///   4) ไม่ได้ลาก statusText → ไม่มี UI บอกเลย → มีข้อความสำรองบนจอ (สำคัญสำหรับผู้เล่นที่ไม่ได้ยินเสียง)
 /// </summary>
 public class TempleBlessingEffect : MonoBehaviour
 {
@@ -30,6 +36,8 @@ public class TempleBlessingEffect : MonoBehaviour
     public bool healOnStart = true;
     [Tooltip("หน่วงก่อนบัฟรอบแรก (ตรงกับ Intro บอส 3 วิ)")]
     public float firstBuffDelay = 3f;
+    [Tooltip("บวก ATK ให้ท่าเตะด้วย (เดิมบวกแค่หมัด)")]
+    public bool buffKicks = true;
 
     private bool isActive = false;          // = เควสสำเร็จแล้ว
 
@@ -62,6 +70,10 @@ public class TempleBlessingEffect : MonoBehaviour
     public TextMeshProUGUI statusText;
     public Color buffColor = new Color(0.5f, 1f, 0.55f);
     public Color cooldownColor = new Color(0.7f, 0.7f, 0.7f);
+    [Tooltip("ถ้าไม่ได้ลาก statusText ไว้ จะวาดข้อความสำรองกลางบนจอแทน")]
+    public bool fallbackOnScreenStatus = true;
+    private string _fallbackStatus;
+    private Color _fallbackColor;
 
     [Header("🧪 Debug")]
     public bool showDebugOverlay = false;
@@ -78,6 +90,8 @@ public class TempleBlessingEffect : MonoBehaviour
     private bool _bossFightActive = false;
     private bool _isBuffActive = false;
     private int _appliedBonus = 0;
+    private int _appliedKickBonus = 0;
+    private bool _subscribedDeath = false;
     private Coroutine _cycleRoutine;
     private Coroutine _testRoutine;
 
@@ -91,14 +105,55 @@ public class TempleBlessingEffect : MonoBehaviour
             if (audioSource == null) audioSource = gameObject.AddComponent<AudioSource>();
         }
 
-        if (smartAttackSystem == null && playerHealth != null)
-            smartAttackSystem = playerHealth.GetComponent<SmartAttackSystem>();
+        EnsureReferences();
 
         if (blessingVFX) blessingVFX.SetActive(false);
         if (statusText) statusText.gameObject.SetActive(false);
     }
 
     void OnDisable() => RemoveBuff(false);
+
+    void OnDestroy()
+    {
+        if (_subscribedDeath && playerHealth != null) playerHealth.OnDied -= HandlePlayerDied;
+    }
+
+    /// <summary>✅ หา reference ที่ว่างให้อัตโนมัติ — Player มักถูก spawn/ย้ายฉาก ทำให้ช่องใน Inspector หลุด</summary>
+    void EnsureReferences()
+    {
+        if (playerHealth == null)
+        {
+            var pt = PlayerReference.GetPlayerTransform();
+            if (pt != null) playerHealth = pt.GetComponentInChildren<PlayerHealth>();
+            if (playerHealth == null) playerHealth = FindFirstObjectByType<PlayerHealth>();
+        }
+
+        if (smartAttackSystem == null && playerHealth != null)
+            smartAttackSystem = playerHealth.GetComponentInChildren<SmartAttackSystem>();
+        if (smartAttackSystem == null)
+            smartAttackSystem = FindFirstObjectByType<SmartAttackSystem>();
+
+        if (bossHealth == null)
+            bossHealth = FindFirstObjectByType<BossMap4Health>();
+
+        if (!_subscribedDeath && playerHealth != null)
+        {
+            playerHealth.OnDied += HandlePlayerDied;
+            _subscribedDeath = true;
+        }
+
+        if (playerHealth == null) Debug.LogWarning("[TempleBlessing] ⚠️ หา PlayerHealth ไม่เจอ — ฮีลจะไม่ทำงาน");
+        if (smartAttackSystem == null) Debug.LogWarning("[TempleBlessing] ⚠️ หา SmartAttackSystem ไม่เจอ — ATK+2 จะไม่ทำงาน");
+    }
+
+    /// <summary>✅ ผู้เล่นตายระหว่างสู้บอส → ปิดบัฟ + รีเซ็ต รอให้เดินเข้าห้องบอสใหม่ (BossMap4RoomTrigger) แล้วเริ่มวนใหม่</summary>
+    void HandlePlayerDied()
+    {
+        if (!_bossFightActive && _cycleRoutine == null) return;
+        Debug.Log("[TempleBlessing] 💀 ผู้เล่นตาย → รีเซ็ตพรวิหาร (จะเริ่มใหม่เมื่อเข้าห้องบอสอีกครั้ง)");
+        _bossFightActive = false;
+        StopCycle();
+    }
 
     // ════════════════════════════════════════════════════════════
     #region Public API
@@ -107,7 +162,9 @@ public class TempleBlessingEffect : MonoBehaviour
     /// <summary>เรียกจาก AnchorQuestManager ตอนเควสสำเร็จ (เหมือน EnableTigerAlly)</summary>
     public void EnableTempleBlessing()
     {
+        if (isActive) return;
         isActive = true;
+        EnsureReferences();
         Debug.Log("<color=#7CFC00>[TempleBlessing] ✅ ปลดล็อกพรวิหารแล้ว — จะทำงานตอนสู้บอส Map4</color>");
 
         if (_bossFightActive && _cycleRoutine == null)
@@ -117,7 +174,11 @@ public class TempleBlessingEffect : MonoBehaviour
     /// <summary>เรียกจาก BossMap4RoomTrigger ตอนเข้าห้องบอส (เหมือน OasisShieldEffect)</summary>
     public void SetBossFightActive(bool active)
     {
+        EnsureReferences();
         _bossFightActive = active;
+
+        if (active && !isActive)
+            Debug.Log("[TempleBlessing] ℹ️ เข้าห้องบอสแล้ว แต่ยังทำเควสสมอไม่ครบ 5 จุด → ไม่มีบัฟ");
 
         if (active && isActive && _cycleRoutine == null)
             _cycleRoutine = StartCoroutine(BlessingCycle());
@@ -143,7 +204,7 @@ public class TempleBlessingEffect : MonoBehaviour
             while (cd > 0f && _bossFightActive && IsFightOngoing())
             {
                 cd -= Time.deltaTime;
-                SetStatus($"Blessing ready in {Mathf.CeilToInt(cd)}s", cooldownColor);
+                SetStatus($"Temple Blessing again in {Mathf.CeilToInt(cd)}s", cooldownColor);
                 yield return null;
             }
         }
@@ -217,6 +278,13 @@ public class TempleBlessingEffect : MonoBehaviour
             _appliedBonus = atkBonus;
             smartAttackSystem.punchDamage += _appliedBonus;
             smartAttackSystem.punchDamage2 += _appliedBonus;
+
+            if (buffKicks)
+            {
+                _appliedKickBonus = atkBonus;
+                smartAttackSystem.kickDamage += _appliedKickBonus;
+                smartAttackSystem.kickDamage2 += _appliedKickBonus;
+            }
         }
         else Debug.LogWarning("[TempleBlessing] ⚠️ ไม่พบ SmartAttackSystem — ATK+2 จะไม่ทำงาน");
 
@@ -226,7 +294,7 @@ public class TempleBlessingEffect : MonoBehaviour
         HapticManager.Instance?.PlayPattern(HapticPatternType.PuzzleComplete);
 
         ShowOverlay($"🏛️ TEMPLE BLESSING!\nATK +{atkBonus} for {buffDuration:0}s");
-        Debug.Log($"<color=#7CFC00>[TempleBlessing] 🏛️ บัฟเริ่ม {buffDuration}s | ATK+{atkBonus} | HP+{healAmount}/{healInterval}s</color>");
+        Debug.Log($"<color=#7CFC00>[TempleBlessing] 🏛️ บัฟเริ่ม (punch={smartAttackSystem?.punchDamage})  {buffDuration}s | ATK+{atkBonus} | HP+{healAmount}/{healInterval}s</color>");
     }
 
     void RemoveBuff(bool playFx)
@@ -239,7 +307,13 @@ public class TempleBlessingEffect : MonoBehaviour
             smartAttackSystem.punchDamage = Mathf.Max(1, smartAttackSystem.punchDamage - _appliedBonus);
             smartAttackSystem.punchDamage2 = Mathf.Max(1, smartAttackSystem.punchDamage2 - _appliedBonus);
         }
+        if (smartAttackSystem != null && _appliedKickBonus != 0)
+        {
+            smartAttackSystem.kickDamage = Mathf.Max(1, smartAttackSystem.kickDamage - _appliedKickBonus);
+            smartAttackSystem.kickDamage2 = Mathf.Max(1, smartAttackSystem.kickDamage2 - _appliedKickBonus);
+        }
         _appliedBonus = 0;
+        _appliedKickBonus = 0;
 
         if (blessingVFX) blessingVFX.SetActive(false);
 
@@ -283,6 +357,8 @@ public class TempleBlessingEffect : MonoBehaviour
 
     void SetStatus(string msg, Color color)
     {
+        _fallbackStatus = msg;
+        _fallbackColor = color;
         if (statusText == null) return;
         bool show = !string.IsNullOrEmpty(msg);
         statusText.gameObject.SetActive(show);
@@ -323,6 +399,15 @@ public class TempleBlessingEffect : MonoBehaviour
 
     void OnGUI()
     {
+        // ✅ ข้อความสถานะสำรอง (ใช้เมื่อไม่ได้ลาก statusText) — ผู้เล่นต้อง "เห็น" ว่าบัฟทำงาน
+        if (fallbackOnScreenStatus && statusText == null && !string.IsNullOrEmpty(_fallbackStatus))
+        {
+            var st = new GUIStyle(GUI.skin.label) { fontSize = 22, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+            st.normal.textColor = _fallbackColor;
+            float fw = 600f;
+            GUI.Label(new Rect((Screen.width - fw) / 2f, 110f, fw, 40f), _fallbackStatus, st);
+        }
+
         if (!showDebugOverlay || _debugOverlayTimer <= 0f) return;
 
         GUIStyle style = new GUIStyle(GUI.skin.label)

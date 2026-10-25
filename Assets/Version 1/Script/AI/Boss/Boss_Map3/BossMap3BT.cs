@@ -125,6 +125,22 @@ public class BossMap3BT : MonoBehaviour
     public float fireArrowStunDuration = 20f;
 
     // ═══════════════════════════════════════════════════
+    // ✅ [FIX STUN-LOCK] กันบอสค้างเมื่อโดนธนูยิงรัว
+    // ═══════════════════════════════════════════════════
+    [Header("🛡️ Anti Stun-Lock (โดนยิงรัวแล้วบอสค้าง)")]
+    [Tooltip("สะดุ้ง (Hit) ได้ไม่ถี่กว่านี้ — เดิมโดนทุกนัด = หยุด 0.3 วิทุกครั้ง ยิงรัวเลยค้าง")]
+    public float hitFlinchCooldown = 1.5f;
+
+    [Tooltip("หลังฟื้นจาก Stagger/Stun ช่วงนี้จะไม่สะดุ้ง และไม่นับ combo — ให้บอสได้สวนกลับ")]
+    public float postStunGrace = 4f;
+
+    [Tooltip("หลัง Fire Stun จบ ช่วงนี้ธนูไฟจะไม่ถูกนับ (กันยิงธนูไฟ 3 ดอกซ้ำแล้ว stun 20 วิวนไม่จบ)")]
+    public float fireStunImmunity = 12f;
+
+    [Tooltip("เมื่อเข้าห้องบอสแล้ว ไล่ผู้เล่นเสมอแม้อยู่ไกลกว่า detectionRange (ธนูยิงได้ไกลกว่า 20m)")]
+    public bool alwaysAggroInRoom = true;
+
+    // ═══════════════════════════════════════════════════
     // Hit Flash & Death
     // ═══════════════════════════════════════════════════
     [Header("Hit Flash")]
@@ -159,8 +175,14 @@ public class BossMap3BT : MonoBehaviour
     private bool _playerPositionOnNavMesh = false;
     private bool _loggedPathIssueOnce = false;
 
-    // ✅ ใหม่: ระบบยกเลิกการโจมตีเมื่อโดน Stagger กลางคัน
-    private bool _attackCancelled = false;
+    // ✅ [FIX STUN-LOCK] เปลี่ยนจาก bool _attackCancelled → "token"
+    //    เดิม: ท่าใหม่ตั้ง _attackCancelled=false ทับ → coroutine ท่าเก่าที่ยังรออยู่ตื่นมาทำงานต่อ
+    //    ใหม่: ทุกท่าจำ token ของตัวเอง ถ้า token ไม่ตรง = ถูกยกเลิกแล้ว ออกทันที
+    private int _patternToken = 0;
+    private Coroutine _stunRoutine;          // มี stun ได้ทีละอันเท่านั้น
+    private float _lastFlinchTime = -999f;
+    private float _stunGraceUntil = -999f;
+    private float _fireImmuneUntil = -999f;
     private SpinTornadoVFX _activeTornado;
 
     void SetState(string s) { if (currentState == s) return; currentState = s; if (logStateChanges) Debug.Log($"[BossMap3] → {s}"); }
@@ -359,7 +381,12 @@ public class BossMap3BT : MonoBehaviour
     BTStatus IsFireStunned() => _isFireStunned ? BTStatus.Success : BTStatus.Failure;
     BTStatus IsSpinning() => _isSpinning ? BTStatus.Success : BTStatus.Failure;
     BTStatus IsSnowballing() => _isSnowballing ? BTStatus.Success : BTStatus.Failure;
-    BTStatus CanSeePlayer() => _player != null && Vector3.Distance(transform.position, _player.position) <= detectionRange ? BTStatus.Success : BTStatus.Failure;
+    BTStatus CanSeePlayer()
+    {
+        if (_player == null) return BTStatus.Failure;
+        if (alwaysAggroInRoom && _roomEntered) return BTStatus.Success; // ✅ ผู้เล่นยิงธนูจากไกลแล้วบอสยืน Idle
+        return Vector3.Distance(transform.position, _player.position) <= detectionRange ? BTStatus.Success : BTStatus.Failure;
+    }
     BTStatus InAttackRange() => _player != null && Vector3.Distance(transform.position, _player.position) <= attackRange ? BTStatus.Success : BTStatus.Failure;
 
     // ✅ [FIX ROOM TRIGGER] Condition/Action ใหม่ สำหรับกิ่ง "waitRoom"
@@ -433,7 +460,7 @@ public class BossMap3BT : MonoBehaviour
 
     IEnumerator SnowballSequence()
     {
-        _attackCancelled = false; // ✅ reset ทุกครั้งที่เริ่มท่าใหม่
+        int token = ++_patternToken; // ✅ [FIX STUN-LOCK] จำ token ของท่านี้
         _isPatternRunning = true;
         _isSnowballing = true;
         animator.SetFloat(HashSpeed, 0f);
@@ -446,20 +473,20 @@ public class BossMap3BT : MonoBehaviour
 
         // หิมะลูกที่ 1 (ระหว่าง SlamRight)
         yield return new WaitForSeconds(0.5f);
-        if (_attackCancelled) { EndSnowballSequence(); yield break; }
+        if (token != _patternToken) yield break; // ถูกยกเลิก — CancelCurrentAttackPattern() เคลียร์ flag ให้แล้ว
         SpawnSnowball();
         Debug.Log("[BossMap3] ❄️ ปาหิมะลูกที่ 1/3");
 
         // หิมะลูกที่ 2 (ระหว่าง SlamLeft)
         yield return new WaitForSeconds(snowballInterval + 0.5f);
-        if (_attackCancelled) { EndSnowballSequence(); yield break; }
+        if (token != _patternToken) yield break; // ถูกยกเลิก — CancelCurrentAttackPattern() เคลียร์ flag ให้แล้ว
         FaceTarget();
         SpawnSnowball();
         Debug.Log("[BossMap3] ❄️ ปาหิมะลูกที่ 2/3");
 
         // หิมะลูกที่ 3 (ระหว่าง SlamJump)
         yield return new WaitForSeconds(snowballInterval + 0.5f);
-        if (_attackCancelled) { EndSnowballSequence(); yield break; }
+        if (token != _patternToken) yield break; // ถูกยกเลิก — CancelCurrentAttackPattern() เคลียร์ flag ให้แล้ว
         FaceTarget();
         SpawnSnowball();
         Debug.Log("[BossMap3] ❄️ ปาหิมะลูกที่ 3/3");
@@ -469,7 +496,7 @@ public class BossMap3BT : MonoBehaviour
         // ตอนนี้ปรับได้จุดเดียวผ่าน "Snowball Stuck Duration" ใน Inspector
         Debug.Log($"[BossMap3] ❄️ ปาหิมะครบ → หยุดนิ่ง {snowballStuckDuration} วิ");
         yield return new WaitForSeconds(snowballStuckDuration);
-        if (_attackCancelled) { EndSnowballSequence(); yield break; }
+        if (token != _patternToken) yield break; // ถูกยกเลิก — CancelCurrentAttackPattern() เคลียร์ flag ให้แล้ว
 
         EndSnowballSequence();
     }
@@ -523,7 +550,7 @@ public class BossMap3BT : MonoBehaviour
 
     IEnumerator SpinAttackSequence()
     {
-        _attackCancelled = false; // ✅ reset ทุกครั้งที่เริ่มท่าใหม่
+        int token = ++_patternToken; // ✅ [FIX STUN-LOCK] จำ token ของท่านี้
         _isPatternRunning = true;
         _isSpinning = true;
 
@@ -557,7 +584,7 @@ public class BossMap3BT : MonoBehaviour
         while (rotationsCompleted < spinMaxRotations)
         {
             // ✅ เช็ค Cancellation ทุก frame — ถ้าโดนตีจนสตั้นกลางคัน ให้หยุดทันที
-            if (_attackCancelled)
+            if (token != _patternToken)
             {
                 EndSpinSequence(interrupted: true);
                 yield break;
@@ -604,20 +631,17 @@ public class BossMap3BT : MonoBehaviour
         Debug.Log($"[BossMap3] 🌀 หมุนครบ {spinMaxRotations} รอบ → หยุดนิ่ง {spinStunDuration} วิ!");
         EndSpinSequence(interrupted: false);
 
-        _isStagger = true;
-        animator.SetTrigger(HashStagger);
-
-        yield return new WaitForSeconds(spinStunDuration);
-        if (_attackCancelled) yield break; // เผื่อโดนตีสตั้นซ้อนระหว่างสตั้นเดิม (edge case)
-
-        _isStagger = false;
-        if (_agent.enabled && _agent.isOnNavMesh) _agent.isStopped = false;
-        _isPatternRunning = false;
+        // ✅ [FIX STUN-LOCK] บั๊กหลักที่ทำให้บอส "ค้างถาวร":
+        //    เดิม set _isStagger=true แล้วรอ 10 วิ ถ้าระหว่างนั้นโดนธนูไฟครบ 3 ดอก
+        //    → _attackCancelled=true → บรรทัด "if (_attackCancelled) yield break" ออกไปโดยไม่ set _isStagger=false
+        //    → BT ติดกิ่ง Stagger ตลอดกาล (ไม่เดิน ไม่ตี ไม่ใช้สกิล)
+        //    ใหม่: ส่งต่อให้ StunRoutine กลางตัวเดียว ซึ่งรับประกันว่าจะเคลียร์ flag เสมอ
+        StartStun(isFire: false, duration: spinStunDuration);
     }
 
     /// <summary>
     /// Cleanup ปลายทางของ Spin — เรียกทั้งตอนจบปกติและตอนถูกยกเลิกกลางคัน (interrupted)
-    /// เมื่อ interrupted=true จะไม่เล่น Stagger เอง เพราะ StaggerSequence จากภายนอกจะเข้ามาคุมต่อ
+    /// เมื่อ interrupted=true จะไม่เล่น Stagger เอง เพราะ StartStun() เข้ามาคุมต่อ
     /// </summary>
     void EndSpinSequence(bool interrupted)
     {
@@ -644,7 +668,7 @@ public class BossMap3BT : MonoBehaviour
         if (interrupted)
         {
             // ไม่ต้อง set _isStagger/_isPatternRunning เอง เพราะ CancelCurrentAttackPattern()
-            // ที่เรียกจาก OnHitByPlayer() จัดการไปแล้ว และ StaggerSequence() ภายนอกจะทำงานต่อ
+            // ที่เรียกจาก OnHitByPlayer() จัดการไปแล้ว และ StartStun() ทำงานต่อ
         }
     }
 
@@ -679,29 +703,48 @@ public class BossMap3BT : MonoBehaviour
     {
         if (_isDead || _isFireStunned) return;
 
+        // ✅ [FIX STUN-LOCK] ช่วงภูมิคุ้มกันหลัง Fire Stun — กันยิงธนูไฟซ้ำแล้วบอส stun 20 วิวนไม่จบ
+        if (Time.time < _fireImmuneUntil)
+        {
+            Debug.Log($"[BossMap3] 🔥 ธนูไฟโดน แต่บอสยังมีภูมิคุ้มกัน ({_fireImmuneUntil - Time.time:F1}s)");
+            return;
+        }
+
         _fireArrowHitCount++;
         Debug.Log($"[BossMap3] 🔥 ธนูไฟโดน! ({_fireArrowHitCount}/{fireArrowsRequired})");
 
         if (_fireArrowHitCount >= fireArrowsRequired)
         {
             _fireArrowHitCount = 0;
-            StartCoroutine(FireArrowStunSequence());
+            Debug.Log($"[BossMap3] 🔥❄️ น้ำแข็งละลาย! บอส stun {fireArrowStunDuration} วิ!");
+            StartStun(isFire: true, duration: fireArrowStunDuration);
         }
     }
 
-    IEnumerator FireArrowStunSequence()
+    // ═══════════════════════════════════════════════════
+    // ✅ [FIX STUN-LOCK] Stun กลาง — Stagger / Spin-Stun / Fire-Stun ใช้ตัวเดียวกันหมด
+    //    • มีได้ทีละ 1 อัน (อันใหม่หยุดอันเก่าทันที) → ไม่มี coroutine เก่ามาเขียน flag ทับ
+    //    • จบแล้วเคลียร์ flag ทุกตัวเสมอ → ไม่มีทางค้างกิ่ง Stagger/FireStun ถาวร
+    // ═══════════════════════════════════════════════════
+    void StartStun(bool isFire, float duration)
     {
-        _isFireStunned = true;
+        if (_isDead) return;
 
-        // ✅ ยกเลิกท่าที่กำลังทำอยู่จริง ๆ (เหมือน Stagger) — เดิมแค่ปิด flag
-        //    ทำให้ coroutine ปาหิมะ/หมุนยังทำงานต่อ = หิมะยังพุ่งออกมาทั้งที่บอส stun อยู่
         CancelCurrentAttackPattern();
 
-        // เปิด Animator กลับ (กรณีกำลังหมุนอยู่)
-        animator.enabled = true;
-        SetSpinTrails(false);
+        if (_stunRoutine != null) StopCoroutine(_stunRoutine);
+        _stunRoutine = StartCoroutine(StunRoutine(isFire, duration));
+    }
 
+    IEnumerator StunRoutine(bool isFire, float duration)
+    {
+        _isStagger = !isFire;
+        _isFireStunned = isFire;
+        _isHit = false;
+
+        animator.enabled = true;
         animator.SetFloat(HashSpeed, 0f);
+        animator.ResetTrigger(HashReturnIdle);
         animator.SetTrigger(HashStagger);
 
         if (_agent.enabled && _agent.isOnNavMesh)
@@ -711,16 +754,21 @@ public class BossMap3BT : MonoBehaviour
             _agent.updateRotation = true;
         }
 
-        Debug.Log($"[BossMap3] 🔥❄️ น้ำแข็งละลาย! บอส stun {fireArrowStunDuration} วิ!");
-        yield return new WaitForSeconds(fireArrowStunDuration);
+        yield return new WaitForSeconds(duration);
 
+        // ── ฟื้นตัว: เคลียร์ทุก flag ที่เกี่ยวกับ stun ──
+        _isStagger = false;
         _isFireStunned = false;
-        if (_agent.enabled && _agent.isOnNavMesh) _agent.isStopped = false;
+        _isHit = false;
+        _comboCount = 0;
+        _stunGraceUntil = Time.time + postStunGrace;
+        if (isFire) _fireImmuneUntil = Time.time + fireStunImmunity;
 
-        // ✅ สั่ง Animator กลับ Idle ตรงๆ ทันที — ไม่ต้องรอ Exit Time ของ Clip
+        if (_agent.enabled && _agent.isOnNavMesh) _agent.isStopped = false;
         animator.SetTrigger(HashReturnIdle);
 
-        Debug.Log("[BossMap3] 🔥 ฟื้นจาก Fire Stun!");
+        _stunRoutine = null;
+        Debug.Log($"[BossMap3] 💪 ฟื้นจาก {(isFire ? "Fire Stun" : "Stagger")} → ไล่ผู้เล่นต่อ (grace {postStunGrace}s)");
     }
 
     // ═══════════════════════════════════════════════════
@@ -728,19 +776,6 @@ public class BossMap3BT : MonoBehaviour
     // ═══════════════════════════════════════════════════
 
     IEnumerator IntroSequence() { if (_introStarted) yield break; _introStarted = true; _isIntro = true; yield return new WaitForSeconds(introDelay); _isIntro = false; }
-    IEnumerator StaggerSequence()
-    {
-        _isStagger = true;
-        animator.SetFloat(HashSpeed, 0f);
-        animator.SetTrigger(HashStagger);
-        yield return new WaitForSeconds(staggerDuration);
-        _isStagger = false;
-
-        // ✅ สั่ง Animator กลับ Idle ตรงๆ ทันที — ไม่ต้องรอ Exit Time ของ Clip
-        //    (ถ้าระหว่างนั้นโดนธนูไฟจน Fire Stun แล้ว ให้ Fire Stun เป็นคนสั่งกลับ Idle เอง)
-        if (!_isFireStunned) animator.SetTrigger(HashReturnIdle);
-    }
-
     IEnumerator DeathSequence()
     {
         if (bossUI != null) bossUI.HideBossUI();
@@ -768,30 +803,36 @@ public class BossMap3BT : MonoBehaviour
         StartCoroutine(IntroSequence());
     }
 
-    public void OnHitByPlayer()
+    /// <param name="isDot">true = ดาเมจไหม้จากธนูไฟ (ไม่ทำให้สะดุ้ง และไม่นับ combo)</param>
+    public void OnHitByPlayer(bool isDot = false)
     {
         if (_isDead) return;
-        _isHit = true; _hitRecoveryTimer = 0.3f;
+
+        // VFX/Flash แสดงทุกนัดเหมือนเดิม — ผู้เล่นยังเห็นว่าโดน (สำคัญสำหรับผู้เล่นที่ไม่ได้ยินเสียง)
         if (hitVFX != null) { var vfx = Instantiate(hitVFX, transform.position + Vector3.up, Quaternion.identity); Destroy(vfx, 2f); }
         StartCoroutine(HitFlash());
 
-        // ✅ ระหว่าง Fire Stun ไม่นับ combo — กัน Stagger (ซึ่ง priority สูงกว่าใน BT) มาแทรกแล้วสั่งกลับ Idle กลาง stun
-        //    (ดาเมจไหม้จากธนูไฟ 2 tick ก็นับเป็น hit ด้วย จึงเข้า stagger ง่ายกว่าเดิม)
-        if (_isFireStunned) return;
-        _comboCount++;
+        if (isDot) return;                           // ✅ ไหม้ไม่ทำให้สะดุ้ง/ไม่นับ combo
+        if (_isFireStunned || _isStagger) return;     // กำลัง stun อยู่แล้ว
+        if (Time.time < _stunGraceUntil) return;      // ✅ เพิ่งฟื้น — ให้บอสได้สวนกลับก่อน
 
-        if (_comboCount >= 5 && !_isStagger) // ✅ กันไม่ให้ Stagger ซ้อน Stagger เดิม
+        // ✅ [FIX STUN-LOCK] สะดุ้งได้ไม่ถี่กว่า hitFlinchCooldown และไม่สะดุ้งกลางท่าโจมตี
+        //    เดิม: ทุกนัด _isHit=true 0.3 วิ + กิ่ง Hit อยู่สูงกว่า Chase/Attack → ยิงรัวทุก 0.5 วิ = ค้าง
+        if (!_isPatternRunning && Time.time >= _lastFlinchTime + hitFlinchCooldown)
+        {
+            _isHit = true;
+            _hitRecoveryTimer = 0.3f;
+            _lastFlinchTime = Time.time;
+        }
+
+        _comboCount++;
+        if (_comboCount >= 5)
         {
             _comboCount = 0;
             if (Time.time >= _lastStaggerTime + staggerCooldown)
             {
                 _lastStaggerTime = Time.time;
-
-                // ✅ ยกเลิกท่าที่กำลังโจมตีอยู่ทันที ก่อนเข้า Stagger
-                // แก้ปัญหา: ตีครบ combo กลางท่าปาหิมะ/หมุนตัว แล้ว snowball ลูกที่เหลือยังพุ่งออกมา
-                CancelCurrentAttackPattern();
-
-                StartCoroutine(StaggerSequence());
+                StartStun(isFire: false, duration: staggerDuration); // ยกเลิกท่าที่ทำอยู่ให้ในตัว
             }
         }
     }
@@ -802,7 +843,7 @@ public class BossMap3BT : MonoBehaviour
     /// </summary>
     void CancelCurrentAttackPattern()
     {
-        _attackCancelled = true; // Coroutine ที่กำลังรันจะเช็คค่านี้แล้วออกเองที่ checkpoint ถัดไป
+        _patternToken++; // ✅ coroutine ท่าที่ค้างอยู่จะเห็น token ไม่ตรง แล้วออกเอง
 
         // เคลียร์ VFX ที่อาจค้างจาก Spin
         SetSpinTrails(false);
@@ -833,7 +874,7 @@ public class BossMap3BT : MonoBehaviour
     public void OnDead()
     {
         if (_isDead) return; _isDead = true; _deathTriggered = true;
-        StopAllCoroutines();
+        StopAllCoroutines(); _stunRoutine = null;
         SetSpinTrails(false);
         animator.enabled = true;
         animator.Play("Dead", 0, 0f); animator.speed = 1f; animator.SetFloat(HashSpeed, 0f);
