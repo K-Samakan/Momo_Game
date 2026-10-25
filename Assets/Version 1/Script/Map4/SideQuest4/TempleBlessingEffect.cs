@@ -192,9 +192,9 @@ public class TempleBlessingEffect : MonoBehaviour
     #region Core Logic
     // ════════════════════════════════════════════════════════════
 
-    IEnumerator BlessingCycle()
+    IEnumerator BlessingCycle(bool skipFirstDelay = false)
     {
-        yield return new WaitForSeconds(firstBuffDelay);
+        if (!skipFirstDelay) yield return new WaitForSeconds(firstBuffDelay);
 
         while (_bossFightActive && IsFightOngoing())
         {
@@ -316,6 +316,7 @@ public class TempleBlessingEffect : MonoBehaviour
         _appliedKickBonus = 0;
 
         if (blessingVFX) blessingVFX.SetActive(false);
+        SetStatus(null, cooldownColor); // ✅ [FIX] กันข้อความ "ATK+2 0s" ค้างบนจอหลังบัฟหมด
 
         if (playFx)
         {
@@ -422,12 +423,20 @@ public class TempleBlessingEffect : MonoBehaviour
         GUI.Label(new Rect((Screen.width - w) / 2f, 60f, w, h), _debugOverlayText, style);
     }
 
-    [ContextMenu("🧪 TEST - Force Activate Blessing (1 round)")]
+    /// <summary>
+    /// ✅ [FIX] F8 = จำลอง "เควสสำเร็จ + อยู่ในห้องบอส" แล้วรัน "วงจรเต็ม" (บัฟ → คูลดาวน์ → บัฟรอบ 2 …)
+    ///    เดิม F8 รันแค่ BuffRoutine() 1 รอบ → ไม่มีคูลดาวน์/รอบ 2 เลย ทำให้เทสแล้วเข้าใจผิดว่ารอบ 2 ไม่มา
+    ///    ⚠️ ใช้เทสเท่านั้น — เปิดสถานะ "สู้บอส" ทั้งที่ยังไม่เข้าห้อง
+    /// </summary>
+    [ContextMenu("🧪 TEST - Force Full Blessing Cycle")]
     public void TEST_ForceActivateBuff()
     {
-        if (_isBuffActive) { Debug.Log("[TempleBlessing][TEST] บัฟเปิดอยู่แล้ว"); return; }
-        Debug.Log("[TempleBlessing][TEST] ⚡ บังคับเปิดบัฟ 1 รอบ (ข้ามเงื่อนไขเควส/ห้องบอส)");
-        _testRoutine = StartCoroutine(BuffRoutine());
+        if (_cycleRoutine != null) { Debug.Log("[TempleBlessing][TEST] วงจรบัฟทำงานอยู่แล้ว (กด F7 เพื่อหยุด)"); return; }
+        EnsureReferences();
+        isActive = true;
+        _bossFightActive = true;
+        Debug.Log($"[TempleBlessing][TEST] ⚡ เริ่มวงจรเต็ม: บัฟ {buffDuration}s → คูลดาวน์ {buffCooldown}s → วนซ้ำ");
+        _cycleRoutine = StartCoroutine(BlessingCycle(skipFirstDelay: true));
     }
 
     [ContextMenu("🧪 TEST - Force Deactivate Blessing")]
@@ -435,8 +444,9 @@ public class TempleBlessingEffect : MonoBehaviour
     {
         if (_testRoutine != null) StopCoroutine(_testRoutine);
         _testRoutine = null;
+        _bossFightActive = false;
         StopCycle();
-        Debug.Log("[TempleBlessing][TEST] ⚡ บังคับปิดบัฟ");
+        Debug.Log("[TempleBlessing][TEST] ⚡ บังคับปิดบัฟ + หยุดวงจร");
     }
 
     #endregion
