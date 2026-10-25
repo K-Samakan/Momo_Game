@@ -701,7 +701,10 @@ public class BossMap3BT : MonoBehaviour
     /// </summary>
     public void OnFireArrowHit()
     {
-        if (_isDead || _isFireStunned) return;
+        if (_isDead) return;
+
+        // ✅ [RULE] ระหว่าง stun ทุกแบบ ไม่นับธนูไฟสะสม — ต้องฟื้นก่อนถึงจะเริ่มนับใหม่
+        if (IsStunned) return;
 
         // ✅ [FIX STUN-LOCK] ช่วงภูมิคุ้มกันหลัง Fire Stun — กันยิงธนูไฟซ้ำแล้วบอส stun 20 วิวนไม่จบ
         if (Time.time < _fireImmuneUntil)
@@ -726,13 +729,24 @@ public class BossMap3BT : MonoBehaviour
     //    • มีได้ทีละ 1 อัน (อันใหม่หยุดอันเก่าทันที) → ไม่มี coroutine เก่ามาเขียน flag ทับ
     //    • จบแล้วเคลียร์ flag ทุกตัวเสมอ → ไม่มีทางค้างกิ่ง Stagger/FireStun ถาวร
     // ═══════════════════════════════════════════════════
+    /// <summary>
+    /// ✅ [RULE] Stun ไม่สะสม / ไม่ต่อเวลา / ไม่ทับกัน:
+    ///    ถ้ากำลัง stun อยู่ (Stagger, Spin-Stun หรือ Fire-Stun) คำขอ stun ใหม่จะถูก "ทิ้ง" ทั้งหมด
+    ///    ต้องฟื้นจาก stun ก่อน จึงจะ stun ได้อีกครั้ง
+    /// </summary>
+    public bool IsStunned => _stunRoutine != null || _isStagger || _isFireStunned;
+
     void StartStun(bool isFire, float duration)
     {
         if (_isDead) return;
 
-        CancelCurrentAttackPattern();
+        if (IsStunned)
+        {
+            Debug.Log($"[BossMap3] ⛔ ขอ {(isFire ? "Fire Stun" : "Stagger")} {duration}s แต่บอสยัง stun อยู่ → ไม่นับ (ไม่สะสมเวลา)");
+            return;
+        }
 
-        if (_stunRoutine != null) StopCoroutine(_stunRoutine);
+        CancelCurrentAttackPattern();
         _stunRoutine = StartCoroutine(StunRoutine(isFire, duration));
     }
 
@@ -813,7 +827,7 @@ public class BossMap3BT : MonoBehaviour
         StartCoroutine(HitFlash());
 
         if (isDot) return;                           // ✅ ไหม้ไม่ทำให้สะดุ้ง/ไม่นับ combo
-        if (_isFireStunned || _isStagger) return;     // กำลัง stun อยู่แล้ว
+        if (IsStunned) return;                        // กำลัง stun อยู่ → ไม่นับ combo (ไม่สะสม stun)
         if (Time.time < _stunGraceUntil) return;      // ✅ เพิ่งฟื้น — ให้บอสได้สวนกลับก่อน
 
         // ✅ [FIX STUN-LOCK] สะดุ้งได้ไม่ถี่กว่า hitFlinchCooldown และไม่สะดุ้งกลางท่าโจมตี
