@@ -66,6 +66,8 @@ public class TempleBlessingEffect : MonoBehaviour
 
     [Header("UI Popup")]
     public TigerAssistPopupUI assistPopup;        // ใส่รูป "TEMPLE BLESSING!"
+    [Tooltip("เปิด = popup ค้างตลอดเวลาบัฟ แล้วเฟด+กะพริบช่วง Blink Start Time วิสุดท้าย / ปิด = เด้งสั้นๆ แบบเดิม")]
+    public bool sustainPopupForBuff = true;
     [Tooltip("(ไม่บังคับ) ข้อความบอกเวลาบัฟ/คูลดาวน์ — ช่วยผู้เล่นที่ไม่ได้ยินเสียง")]
     public TextMeshProUGUI statusText;
     public Color buffColor = new Color(0.5f, 1f, 0.55f);
@@ -290,7 +292,12 @@ public class TempleBlessingEffect : MonoBehaviour
 
         if (blessingVFX) blessingVFX.SetActive(true);
         PlayRandom(blessingStartSounds);
-        assistPopup?.ShowPopup();
+        // ✅ [NEW] popup ค้างตลอดเวลาบัฟ → blinkStartTime วิสุดท้ายค่อยๆ เฟด + กะพริบ
+        if (assistPopup != null)
+        {
+            if (sustainPopupForBuff) assistPopup.ShowPopupSustained(buffDuration, blinkStartTime);
+            else assistPopup.ShowPopup();
+        }
         HapticManager.Instance?.PlayPattern(HapticPatternType.PuzzleComplete);
 
         ShowOverlay($"🏛️ TEMPLE BLESSING!\nATK +{atkBonus} for {buffDuration:0}s");
@@ -316,7 +323,9 @@ public class TempleBlessingEffect : MonoBehaviour
         _appliedKickBonus = 0;
 
         if (blessingVFX) blessingVFX.SetActive(false);
-        SetStatus(null, cooldownColor); // ✅ [FIX] กันข้อความ "ATK+2 0s" ค้างบนจอหลังบัฟหมด
+        SetStatus(null, cooldownColor);
+        // ✅ ถ้าบัฟจบก่อนเวลา (ผู้เล่นตาย / F7) → ซ่อน popup ทันที; ถ้าจบตามเวลา popup หายเองพอดีอยู่แล้ว
+        if (sustainPopupForBuff && assistPopup != null && assistPopup.IsShowing) assistPopup.HidePopup(); // ✅ [FIX] กันข้อความ "ATK+2 0s" ค้างบนจอหลังบัฟหมด
 
         if (playFx)
         {
