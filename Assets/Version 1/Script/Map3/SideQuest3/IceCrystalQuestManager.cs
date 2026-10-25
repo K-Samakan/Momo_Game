@@ -65,6 +65,14 @@ public class IceCrystalQuestManager : MonoBehaviour
     void Awake()
     {
         Instance = this;
+
+        // ✅ [FIX] ลืมลากช่อง Whale Guardian Effect → หาในฉากให้เอง
+        if (whaleGuardianEffect == null)
+        {
+            whaleGuardianEffect = FindFirstObjectByType<WhaleGuardianEffect>(FindObjectsInactive.Include);
+            if (whaleGuardianEffect == null)
+                Debug.LogWarning("[IceCrystalQuest] ⚠️ ไม่พบ WhaleGuardianEffect ในฉาก — รางวัลวาฬจะไม่ทำงาน");
+        }
         if (questCompletePanel) questCompletePanel.SetActive(false);
         if (highlightPanel) highlightPanel.gameObject.SetActive(false);
     }
