@@ -38,9 +38,6 @@ public class BossMap1BT : MonoBehaviour
     public float spinMoveSpeed = 5f;
     public float pathUpdateInterval = 0.3f;
 
-    // ═══════════════════════════════════════════════════
-    // ✅ ใหม่: ดาเมจด้วยโค้ด (ไม่พึ่ง Animation Event / Hitbox)
-    // ═══════════════════════════════════════════════════
     [Header("Code Damage")]
     [Tooltip("เปิด = ทำดาเมจด้วยโค้ด และปิดระบบ Hitbox เดิม (กันโดนดาเมจซ้ำ)")]
     public bool useCodeDamage = true;
@@ -226,22 +223,22 @@ public class BossMap1BT : MonoBehaviour
         }),
         new BTSequence(new List<BTNode>
         {
-            new BTLeaf("stagger",IsStagger),
+            new BTLeaf("stagger",IsStagger),//ชะงัก
             new BTLeaf("doStagger",DoStagger)
         }),
         new BTSequence(new List<BTNode>
         {
-            new BTLeaf("dizzy",IsDizzy),
+            new BTLeaf("dizzy",IsDizzy),//มึนหลังหมุน
             new BTLeaf("doDizzy",DoDizzy)
         }),
         new BTSequence(new List<BTNode>
         {
-            new BTLeaf("slam",IsSlamming),
+            new BTLeaf("slam",IsSlamming),//กำลังทุบ
             new BTLeaf("doSlam",DoSlam)
         }),
         new BTSequence(new List<BTNode>
         {
-            new BTLeaf("spinning",IsSpinning),
+            new BTLeaf("spinning",IsSpinning),//กำลังหมุน
             new BTLeaf("doSpin",DoSpin)
         }),
         new BTSequence(new List<BTNode>
@@ -251,9 +248,9 @@ public class BossMap1BT : MonoBehaviour
             {
                 new BTSequence(new List<BTNode>
                 {
-                    new BTLeaf("inAttackRange",InAttackRange),
-                    new BTLeaf("faceTarget",FaceTarget),
-                    new BTLeaf("choosePattern",ChoosePattern)
+                    new BTLeaf("inAttackRange",InAttackRange),//อยู่ในระยะโจมตี
+                    new BTLeaf("faceTarget",FaceTarget),//หันหน้าไปหาผู้เล่น
+                    new BTLeaf("choosePattern",ChoosePattern)//เลือกท่าโจมตี
                 }),
                 new BTLeaf("doChase",DoChase)
             })
@@ -349,7 +346,6 @@ public class BossMap1BT : MonoBehaviour
             _spinSwingTimer = 0f;
             _spinCount++;
 
-            // ✅ ใหม่: ดาเมจ + เสียง 1 ครั้งต่อรอบ
             DoSpinHit();
 
             if (_spinCount >= 5)
@@ -418,7 +414,6 @@ public class BossMap1BT : MonoBehaviour
         _isIntro = false;
     }
 
-    // ✅ แก้ไข: แทรกจุดกระแทก (ดาเมจ + เสียง) ระหว่างท่า — เวลารวมของท่าเท่าเดิม
     IEnumerator SlamSequence()
     {
         _isPatternRunning = true;

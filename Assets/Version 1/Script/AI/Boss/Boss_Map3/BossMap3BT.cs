@@ -247,12 +247,6 @@ public class BossMap3BT : MonoBehaviour
         StartCoroutine(InitNavMesh());
         _root = BuildTree();
 
-        // ✅ [FIX ROOM TRIGGER] ลบการ auto-start intro ออกจาก Start()
-        // เดิม: if (!_introStarted) StartCoroutine(IntroSequence());
-        // ตอนนี้ intro จะเริ่มก็ต่อเมื่อ OnPlayerEnterBossRoom() ถูกเรียกจาก BossMap3RoomTrigger เท่านั้น
-        // (ดู BuildTree() กิ่ง "waitRoom" ที่กันบอสไม่ให้ขยับ/โจมตีระหว่างรอด้วย)
-
-        // ปิด Trail Renderer ไว้ก่อน
         SetSpinTrails(false);
     }
 
@@ -353,8 +347,6 @@ public class BossMap3BT : MonoBehaviour
     {
         new BTSequence(new List<BTNode> { new BTLeaf("dead", IsDead), new BTLeaf("doDead", DoDead) }),
 
-        // ✅ [FIX ROOM TRIGGER] ใหม่: ถ้ายังไม่เข้าห้องบอส ให้หยุดนิ่งเฉยๆ ไม่ทำอะไรเลย
-        // (กันบอสเดินไล่/โจมตีก่อนผู้เล่นจะผ่าน BossMap3RoomTrigger)
         new BTSequence(new List<BTNode> { new BTLeaf("waitRoom", WaitingForRoomEntry), new BTLeaf("doWait", DoNothingWaiting) }),
 
         new BTSequence(new List<BTNode> { new BTLeaf("intro", IsIntro), new BTLeaf("doIntro", DoIntroIdle) }),

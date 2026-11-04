@@ -346322,10 +346322,10 @@ MonoBehaviour:
   creakingSound: {fileID: 8300000, guid: 588211cc4aa4e9c4fa20ca16e75d2744, type: 3}
   creakingVolume: 0.8
   loopCreaking: 0
-  creakingSpatialBlend: 0
+  creakingSpatialBlend: 1
   breakSound: {fileID: 8300000, guid: bd55a9cacb8cd7344b28f536a7b997c2, type: 3}
   breakVolume: 1
-  breakSpatialBlend: 0
+  breakSpatialBlend: 1
   floorRenderer: {fileID: 0}
   showDebugLog: 1
 --- !u!114 &1191207665
@@ -396719,10 +396719,10 @@ MonoBehaviour:
   creakingSound: {fileID: 8300000, guid: 588211cc4aa4e9c4fa20ca16e75d2744, type: 3}
   creakingVolume: 0.8
   loopCreaking: 0
-  creakingSpatialBlend: 0
+  creakingSpatialBlend: 1
   breakSound: {fileID: 8300000, guid: bd55a9cacb8cd7344b28f536a7b997c2, type: 3}
   breakVolume: 1
-  breakSpatialBlend: 0
+  breakSpatialBlend: 1
   floorRenderer: {fileID: 0}
   showDebugLog: 1
 --- !u!114 &1419322450
@@ -539914,10 +539914,10 @@ MonoBehaviour:
   creakingSound: {fileID: 8300000, guid: 588211cc4aa4e9c4fa20ca16e75d2744, type: 3}
   creakingVolume: 0.8
   loopCreaking: 0
-  creakingSpatialBlend: 0
+  creakingSpatialBlend: 1
   breakSound: {fileID: 8300000, guid: bd55a9cacb8cd7344b28f536a7b997c2, type: 3}
   breakVolume: 1
-  breakSpatialBlend: 0
+  breakSpatialBlend: 1
   floorRenderer: {fileID: 0}
   showDebugLog: 1
 --- !u!114 &1847971717
@@ -617281,10 +617281,10 @@ SceneRoots:
   - {fileID: 1673377615}
   - {fileID: 816352422}
   - {fileID: 187453508}
-  - {fileID: 1249588754}
   - {fileID: 1106643922}
   - {fileID: 1290649182}
   - {fileID: 1719148385}
+  - {fileID: 1249588754}
   - {fileID: 1497907313}
   - {fileID: 1472760074}
   - {fileID: 311091117}

@@ -66,7 +66,7 @@ namespace MOMO.AI.Monster
         NavMeshAgent _agent;
         Transform _player;
         Vector3 _spawnPos;
-        BTNode _root;
+        BTNode _root; //BT
 
         bool _isDead;
         bool _isHit;
@@ -193,7 +193,7 @@ namespace MOMO.AI.Monster
         }
 
         // ════════════════════════════════════════════════════════
-        // Build Tree
+        // Build Tree //BT
         // ════════════════════════════════════════════════════════
 
         BTNode BuildTree() => new BTSelector(new List<BTNode>
